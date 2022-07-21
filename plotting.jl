@@ -1,5 +1,6 @@
 using Plots; pyplot()
 using LaTeXStrings
+using Statistics
 
 function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     utils=nothing,
@@ -8,7 +9,7 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     utility_scale=1.,
     utility_move=0.,
     title="",
-    show_plots=true,
+    show_plot=true,
     xaxis=:identity,
     yaxis=:identity,
     obj_func_label=nothing,
@@ -34,6 +35,7 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
         util_plot = Plots.plot(; xaxis, yaxis=:identity, ylabel=yaxis_util_label, kwargs...)
 
         for ui in 1:length(utils)
+            isnothing(utils[ui]) && continue
             u_vals = utils[ui].(xs)
             if !isnothing(util_opts)
                 u_opt = util_opts[ui]
@@ -69,14 +71,13 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
 
     # models
     for i in 1:length(models)
+        isnothing(models[i][1]) && continue
         x_range = (xaxis == :log) ? log_range(domain_lb[1],domain_ub[1],points) : collect(LinRange([domain_lb[1]],[domain_ub[1]],points))
-        y_range = reduce(vcat, models[i].(x_range))
+        y_range = reduce(vcat, models[i][1].(x_range))
+        var_range = isnothing(models[i][2]) ? nothing : reduce(vcat, models[i][2].(x_range))
         label = isnothing(model_labels) ? (length(models) > 1 ? "model_$i" : "model") : model_labels[i]
-        if isnothing(model_colors)
-            plot!(data_plot, reduce(vcat, x_range), reduce(vcat, y_range); label, points)
-        else
-            plot!(data_plot, reduce(vcat, x_range), reduce(vcat, y_range); label, points, color=model_colors[i])
-        end
+        color = isnothing(model_colors) ? :red : model_colors[i]
+        plot!(data_plot, reduce(vcat, x_range), reduce(vcat, y_range); label, ribbon=var_range, points, color)
     end
     
     # COMBINED PLOT
@@ -85,7 +86,7 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     else
         p = Plots.plot(data_plot, util_plot; layout=(2,1), legend=:outerright, minorgrid=true, xlabel=xaxis_label, kwargs...)
     end
-    show_plots && display(p)
+    show_plot && display(p)
     return p
 end
 
@@ -95,4 +96,21 @@ function plot_res_2x1(model, obj_func; points=200)
 
     surface(x_range, y_range, (x,y)->obj_func([x,y])[1]; color=:blues, alpha=0.4)
     surface!(x_range, y_range, (x,y)->model([x,y])[1]; color=:reds, alpha=0.4)
+end
+
+function plot_bsf_boxplots(results; show_plot=true, labels=nothing)
+    p = plot(; title="Best-so-far solutions found\n(medians with 1st and 3rd quartiles)")
+
+    for i in 1:length(results)
+        bsf_data = getfield.(results[i], :bsf)
+        bsf_data = reduce(hcat, bsf_data)
+        label = isnothing(labels) ? nothing : labels[i]
+        y_vals = median.(eachrow(bsf_data))
+        y_err_l = y_vals .- quantile.(eachrow(bsf_data), 0.25)
+        y_err_u = quantile.(eachrow(bsf_data), 0.75) .- y_vals
+        plot!(p, y_vals; yerror=(y_err_l, y_err_u), label, markerstrokecolor=:auto, legend=:topleft)
+    end
+
+    show_plot && display(p)
+    return p
 end

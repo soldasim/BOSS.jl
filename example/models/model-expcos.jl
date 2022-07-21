@@ -1,7 +1,7 @@
 using Distributions
 using Soss
 
-function m(x, a, b, c, d, e)
+function m_expcos(x, a, b, c, d, e)
     return a * exp(b * x[1]) * safe_cos(c * x[1] + d) + e
 end
 function safe_cos(x)
@@ -9,7 +9,7 @@ function safe_cos(x)
     return cos(x)
 end
 
-function get_prob_model()
+function prob_model_expcos()
     return @model X begin
             a ~ Distributions.Normal(1., 1.)
             b ~ Distributions.Normal(1., 1.)
@@ -19,16 +19,16 @@ function get_prob_model()
 
             σ ~ Distributions.Exponential()
             Y ~ For(X) do x
-                    Distributions.Normal(m(x, a, b, c, d, e), σ)
+                    Distributions.Normal(m_expcos(x, a, b, c, d, e), σ)
                 end
             return Y
         end
 end
 
-function get_model_params()
+function model_params_expcos()
     return [:a, :b, :c, :d, :e]
 end
 
-function get_model()
-    return ModelSS(m, get_prob_model(), get_model_params())
+function model_expcos()
+    return SSModel(m_expcos, prob_model_expcos(), model_params_expcos())
 end

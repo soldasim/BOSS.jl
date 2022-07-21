@@ -1,11 +1,11 @@
 using Distributions
 using Soss
 
-function m(x, a, b, c)
-    return a + b * x[1] + c * x[1]^2
+function m_exp(x, a, b, c)
+    return a * exp(b * x[1]) + c
 end
 
-function get_prob_model()
+function prob_model_exp()
     return @model X begin
             a ~ Distributions.Normal(1., 1.)
             b ~ Distributions.Normal(1., 1.)
@@ -13,16 +13,16 @@ function get_prob_model()
 
             σ ~ Distributions.Exponential()
             Y ~ For(X) do x
-                    Distributions.Normal(m(x, a, b, c), σ)
+                    Distributions.Normal(m_exp(x, a, b, c), σ)
                 end
             return Y
         end
 end
 
-function get_model_params()
+function model_params_exp()
     return [:a, :b, :c]
 end
 
-function get_model()
-    return ModelSS(m, get_prob_model(), get_model_params())
+function model_exp()
+    return SSModel(m_exp, prob_model_exp(), model_params_exp())
 end

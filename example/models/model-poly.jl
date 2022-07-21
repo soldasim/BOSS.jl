@@ -1,15 +1,11 @@
 using Distributions
 using Soss
 
-function m(x, a, b, c, d)
-    return a * x[1] * safe_cos(b * x[1] + c) + d
-end
-function safe_cos(x)
-    isinf(x) && return 0
-    return cos(x)
+function m_poly(x, a, b, c, d)
+    return a + b * x[1] + c * x[1]^2 + d * x[1]^3
 end
 
-function get_prob_model()
+function prob_model_poly()
     return @model X begin
             a ~ Distributions.Normal(1., 1.)
             b ~ Distributions.Normal(1., 1.)
@@ -18,16 +14,16 @@ function get_prob_model()
 
             σ ~ Distributions.Exponential()
             Y ~ For(X) do x
-                    Distributions.Normal(m(x, a, b, c, d), σ)
+                    Distributions.Normal(m_poly(x, a, b, c, d), σ)
                 end
             return Y
         end
 end
 
-function get_model_params()
+function model_params_poly()
     return [:a, :b, :c, :d]
 end
 
-function get_model()
-    return ModelSS(m, get_prob_model(), get_model_params())
+function model_poly()
+    return SSModel(m_poly, prob_model_poly(), model_params_poly())
 end

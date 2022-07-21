@@ -10,102 +10,142 @@ include("plotting.jl")
 include("utils.jl")
 
 # Sample from the posterior parameter distributions given the data 'X', 'Y'.
-function sample_posterior(model_prob, X, Y; sample_count=4000)
-    return Soss.sample(model_prob(X=collect(eachrow(X))) | (Y=Y,), dynamichmc(), sample_count)
+function sample_posterior(model, X, Y; sample_count=4000)
+    q = zeros(length(model.params) + 1)  # TODO workaround: https://discourse.julialang.org/t/dynamichmc-reached-maximum-number-of-iterations/24721
+    return Soss.sample(model.prob_model(X=collect(eachrow(X))) | (Y=Y,), dynamichmc(; init=(q=q,)), sample_count)
 end
 
 # Bayesian optimization with a Nx1 dimensional parametric model.
-function optim!(f, X, Y, model, domain_lb, domain_ub;
+function boss(f, X, Y, model, domain_lb, domain_ub;
     sample_count=200,
     util_opt_multistart=200,
-    INFO=true,
+    info=true,
+    make_plots=true,
+    show_plots=true,
     max_iters=nothing,
-    X_test=nothing,
-    Y_test=nothing,
+    test_X=nothing,
+    test_Y=nothing,
     target_err=nothing,
+    kernel=Matern52Kernel(),
+    use_model=:semiparam,  # :param, :semiparam, :nonparam
+    plot_all_models=false,
     kwargs...
 )
     MODEL_COUNT = 3
     init_data_size = size(X)[1]
 
-    plots = Plots.Plot[]
-    errs = (isnothing(X_test) || isnothing(Y_test)) ? nothing : [Float64[] for _ in 1:MODEL_COUNT]
+    plots = make_plots ? Plots.Plot[] : nothing
+    bsf = [maximum(Y)]
+    # errs = (isnothing(test_X) || isnothing(test_Y)) ? nothing : [Float64[] for _ in 1:MODEL_COUNT]
+    errs = (isnothing(test_X) || isnothing(test_Y)) ? nothing : Float64[]
 
     i = 0
     opt_x_ = 0.
     while true
-        INFO && print("\nITER $i\n")
+        info && print("\nITER $i\n")
 
         # NEW DATA - - - - - - - -
         if i != 0
-            INFO && print("  evaluating the objective function ...\n")
+            info && print("  evaluating the objective function ...\n")
             x_ = opt_x_
             y_ = f(x_)
 
-            INFO && print("  new data-point: ($x_, $y_)\n")
+            info && print("  new data-point: ($x_, $y_)\n")
             X = vcat(X, x_)
             Y = vcat(Y, y_)
+
+            if y_ > last(bsf)
+                push!(bsf, y_)
+            else
+                push!(bsf, last(bsf))
+            end
         end
 
         # MODEL INFERENCE - - - - - - - -
-        INFO && print("  model inference ...\n")
+        info && print("  model inference ...\n")
 
         # parametric model
-        post = sample_posterior(model.prob_model, X, Y; sample_count)
-        param_samples = hcat(getproperty.(Ref(post), model.params)...)
-        ϵ_samples = rand(Distributions.Normal(), sample_count)
-        noise = mean(post.σ)
-        parametric(x) = model_predict_MC(model.predict, x; param_samples, ϵ_samples, noise, sample_count)
-        
+        if plot_all_models || (use_model == :param) || (use_model == :semiparam)
+            post = sample_posterior(model, X, Y; sample_count)
+            param_samples = hcat(getproperty.(Ref(post), model.params)...)
+            ϵ_samples = rand(Distributions.Normal(), sample_count)
+            noise = mean(post.σ)
+            parametric = (x -> model_predict_MC(model.predict, x; param_samples, ϵ_samples, noise, sample_count), nothing)
+        else
+            parametric = (nothing, nothing)
+        end
+
         # semiparametric model (param + GP)
-        semi_gp = GP(parametric, Matern52Kernel())
-        semi_gp_ = posterior(semi_gp(X'), Y)
-        semiparametric(x) = mean(semi_gp_([x]))[1]
+        if plot_all_models || (use_model == :semiparam)
+            semi_gp = GP(parametric[1], kernel)
+            semi_gp_ = posterior(semi_gp(X'), Y)
+            semiparametric = (x -> mean(semi_gp_([x]))[1], x -> var(semi_gp_([x]))[1])
+        else
+            semiparametric = (nothing, nothing)
+        end
 
         # nonparametric model (GP)
-        pure_gp = GP(Matern52Kernel())
-        pure_gp_ = posterior(pure_gp(X'), Y)
-        nonparametric(x) = mean(pure_gp_([x]))[1]
+        if plot_all_models || (use_model == :nonparam)
+            pure_gp = GP(kernel)
+            pure_gp_ = posterior(pure_gp(X'), Y)
+            nonparametric = (x -> mean(pure_gp_([x]))[1], x -> var(pure_gp_([x]))[1])
+        else
+            nonparametric = (nothing, nothing)
+        end
 
         # UTILITY MAXIMIZATION - - - - - - - -
-        INFO && print("  optimizing utility ...\n")
+        info && print("  optimizing utility ...\n")
         multistart = util_opt_multistart
+        res_param = res_semiparam = res_nonparam = nothing
+        acq_param = acq_semiparam = acq_nonparam = nothing
         
         # parametric
-        acq_param(x) = EI_MC(model.predict, x; param_samples, ϵ_samples, noise, best_yet=maximum(Y), sample_count)
-        res_param = opt_acquisition(acq_param, domain_lb, domain_ub; multistart)
-        
-        # semiparametric
-        acq_semiparam(x) = EI_normal(semi_gp_, x; best_yet=maximum(Y))
-        res_semiparam = opt_acquisition(acq_semiparam, domain_lb, domain_ub; multistart)
-        
-        # nonparametric
-        acq_nonparam(x) = EI_normal(pure_gp_, x; best_yet=maximum(Y))
-        res_nonparam = opt_acquisition(acq_nonparam, domain_lb, domain_ub; multistart)
+        if plot_all_models || (use_model == :param)
+            acq_param(x) = EI_MC(model.predict, x; param_samples, ϵ_samples, noise, best_yet=last(bsf), sample_count)
+            res_param = opt_acquisition(acq_param, domain_lb, domain_ub; multistart)
+        end
 
-        opt_x_ = res_semiparam[1]
-        INFO && print("  optimal next x: $opt_x_\n")
+        # semiparametric
+        if plot_all_models || (use_model == :semiparam)
+            acq_semiparam(x) = EI_normal(semi_gp_, x; best_yet=last(bsf))
+            res_semiparam = opt_acquisition(acq_semiparam, domain_lb, domain_ub; multistart)
+        end
+
+        # nonparametric
+        if plot_all_models || (use_model == :nonparam)
+            acq_nonparam(x) = EI_normal(pure_gp_, x; best_yet=last(bsf))
+            res_nonparam = opt_acquisition(acq_nonparam, domain_lb, domain_ub; multistart)
+        end
+
+        opt_x_, err = select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, test_X, test_Y)
+        push!(errs, err)
+        info && print("  optimal next x: $opt_x_\n")
+        info && print("  model error: $err\n")
 
         # PLOTTING - - - - - - - -
-        INFO && print("  plotting ...\n")
-        colors = [:red, :purple, :blue]
-        labels = ["param", "semiparam", "nonparam"]
-        models = [parametric, semiparametric, nonparametric]
-        utils = [acq_param, acq_semiparam, acq_nonparam]
-        util_opts = [res_param, res_semiparam, res_nonparam]
-        p = plot_res_1x1(models, f, X, Y, domain_lb, domain_ub; utils, util_opts, title="ITER $i", init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels.*" EI", kwargs...)
-        push!(plots, p)
-
-        # CALCULATE MODEL ERROR - - - - - - - -
-        if !(isnothing(X_test) || isnothing(Y_test))
-            param_err = rms_error(X_test, Y_test, parametric)
-            semiparam_err = rms_error(X_test, Y_test, semiparametric)
-            nonparam_err = rms_error(X_test, Y_test, nonparametric)
-            INFO && print("  model errors: $((param_err, semiparam_err, nonparam_err))\n")
-            push!(errs[1], param_err)
-            push!(errs[2], semiparam_err)
-            push!(errs[3], nonparam_err)
+        if make_plots
+            info && print("  plotting ...\n")
+            colors = [:red, :purple, :blue]
+            labels = ["param", "semiparam", "nonparam"]
+            models = [parametric, semiparametric, nonparametric]
+            utils = [acq_param, acq_semiparam, acq_nonparam]
+            util_opts = [res_param, res_semiparam, res_nonparam]
+            p = plot_res_1x1(models, f, X, Y, domain_lb, domain_ub; utils, util_opts, title="ITER $i", init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels.*" EI", show_plot=show_plots, kwargs...)
+            push!(plots, p)
         end
+
+        # model error calculation is moved to 'select_opt_x_and_calculate_error' for now
+
+        # # CALCULATE MODEL ERROR - - - - - - - -
+        # if !(isnothing(test_X) || isnothing(test_Y))
+        #     param_err = rms_error(test_X, test_Y, parametric[1])
+        #     semiparam_err = rms_error(test_X, test_Y, semiparametric[1])
+        #     nonparam_err = rms_error(test_X, test_Y, nonparametric[1])
+        #     INFO && print("  model errors: $((param_err, semiparam_err, nonparam_err))\n")
+        #     push!(errs[1], param_err)
+        #     push!(errs[2], semiparam_err)
+        #     push!(errs[3], nonparam_err)
+        # end
 
         # TERMINATION CONDITIONS - - - - - - - -
         if !isnothing(max_iters)
@@ -117,7 +157,23 @@ function optim!(f, X, Y, model, domain_lb, domain_ub;
         i += 1
     end
 
-    return X, Y, plots, errs
+    return X, Y, plots, bsf, errs
+end
+
+function select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, test_X, test_Y)
+    if use_model == :semiparam
+        opt_x_ = res_semiparam[1]
+        err = rms_error(test_X, test_Y, semiparametric[1])
+    elseif use_model == :param
+        opt_x_ = res_param[1]
+        err = rms_error(test_X, test_Y, parametric[1])
+    elseif use_model == :nonparam
+        opt_x_ = res_nonparam[1]
+        err = rms_error(test_X, test_Y, nonparametric[1])
+    else
+        throw(ArgumentError("the kwarg 'use model' can only be assigned values ':semiparam, :param, :nonparam'"))
+    end
+    return opt_x_, err
 end
 
 function model_predict_MC(model_predict, x; param_samples, ϵ_samples, noise, sample_count)
@@ -134,9 +190,13 @@ function opt_acquisition(acq, domain_lb, domain_ub; multistart=1)
     best_res = (0., -Inf)
     for i in 1:multistart
         s = starts[:,i]
-        opt_res = Optim.optimize(x -> -acq(x), domain_lb, domain_ub, s, Fminbox(LBFGS()))
-        res = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
-        (res[2] > best_res[2]) && (best_res = res)
+        try
+            opt_res = Optim.optimize(x -> -acq(x), domain_lb, domain_ub, s, Fminbox(LBFGS()))
+            res = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
+            (res[2] > best_res[2]) && (best_res = res) 
+        catch
+            INFO && print("    Optimization failed to converge!\n")
+        end
     end
     return best_res
 end
