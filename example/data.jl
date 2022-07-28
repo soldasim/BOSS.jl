@@ -14,9 +14,8 @@ struct RunResult{N}
     time::N
     X::Matrix{N}
     Y::Vector{N}
-    # plots::Vector{Plots.Plot}  # 'test_lincos.jld2' and 'test_sq.jld2' are serialized with this field
     bsf::Vector{N}
-    errs::Vector{N}
+    errs::Union{Nothing, Vector{N}}
 end
 
 # LOAD/SAVE FUNCTIONS

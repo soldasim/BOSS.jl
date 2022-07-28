@@ -2,6 +2,7 @@ using Plots
 using LinearAlgebra
 using Optim
 using Distributions
+using Soss
 using SampleChainsDynamicHMC
 using Stheno
 
@@ -11,32 +12,32 @@ include("utils.jl")
 
 # Sample from the posterior parameter distributions given the data 'X', 'Y'.
 function sample_posterior(model, X, Y; sample_count=4000)
-    q = zeros(length(model.params) + 1)  # TODO workaround: https://discourse.julialang.org/t/dynamichmc-reached-maximum-number-of-iterations/24721
+    q = zeros(length(model.params) + 1)  # workaround: https://discourse.julialang.org/t/dynamichmc-reached-maximum-number-of-iterations/24721
     return Soss.sample(model.prob_model(X=collect(eachrow(X))) | (Y=Y,), dynamichmc(; init=(q=q,)), sample_count)
 end
 
 # Bayesian optimization with a Nx1 dimensional parametric model.
+# Assumes Gaussian noise.
+# Plotting only works for 1D->1D problems.
 function boss(f, X, Y, model, domain_lb, domain_ub;
     sample_count=200,
-    util_opt_multistart=200,
+    util_opt_multistart=100,
     info=true,
-    make_plots=true,
+    make_plots=false,
     show_plots=true,
+    plot_all_models=false,
     max_iters=nothing,
     test_X=nothing,
     test_Y=nothing,
     target_err=nothing,
     kernel=Matern52Kernel(),
     use_model=:semiparam,  # :param, :semiparam, :nonparam
-    plot_all_models=false,
     kwargs...
 )
-    MODEL_COUNT = 3
     init_data_size = size(X)[1]
 
     plots = make_plots ? Plots.Plot[] : nothing
-    bsf = [maximum(Y)]
-    # errs = (isnothing(test_X) || isnothing(test_Y)) ? nothing : [Float64[] for _ in 1:MODEL_COUNT]
+    bsf = [maximum(skipnothing(Y))]
     errs = (isnothing(test_X) || isnothing(test_Y)) ? nothing : Float64[]
 
     i = 0
@@ -51,7 +52,7 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
             y_ = f(x_)
 
             info && print("  new data-point: ($x_, $y_)\n")
-            X = vcat(X, x_)
+            X = vcat(X, x_')
             Y = vcat(Y, y_)
 
             if y_ > last(bsf)
@@ -68,7 +69,7 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
         if plot_all_models || (use_model == :param) || (use_model == :semiparam)
             post = sample_posterior(model, X, Y; sample_count)
             param_samples = hcat(getproperty.(Ref(post), model.params)...)
-            ϵ_samples = rand(Distributions.Normal(), sample_count)
+            ϵ_samples = rand(Distributions.Normal(), sample_count)  # TODO Refactor? (This assumes Gaussian noise.)
             noise = mean(post.σ)
             parametric = (x -> model_predict_MC(model.predict, x; param_samples, ϵ_samples, noise, sample_count), nothing)
         else
@@ -102,23 +103,23 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
         # parametric
         if plot_all_models || (use_model == :param)
             acq_param(x) = EI_MC(model.predict, x; param_samples, ϵ_samples, noise, best_yet=last(bsf), sample_count)
-            res_param = opt_acquisition(acq_param, domain_lb, domain_ub; multistart)
+            res_param = opt_acquisition(acq_param, domain_lb, domain_ub; multistart, info)
         end
 
         # semiparametric
         if plot_all_models || (use_model == :semiparam)
             acq_semiparam(x) = EI_normal(semi_gp_, x; best_yet=last(bsf))
-            res_semiparam = opt_acquisition(acq_semiparam, domain_lb, domain_ub; multistart)
+            res_semiparam = opt_acquisition(acq_semiparam, domain_lb, domain_ub; multistart, info)
         end
 
         # nonparametric
         if plot_all_models || (use_model == :nonparam)
             acq_nonparam(x) = EI_normal(pure_gp_, x; best_yet=last(bsf))
-            res_nonparam = opt_acquisition(acq_nonparam, domain_lb, domain_ub; multistart)
+            res_nonparam = opt_acquisition(acq_nonparam, domain_lb, domain_ub; multistart, info)
         end
 
-        opt_x_, err = select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, test_X, test_Y)
-        push!(errs, err)
+        opt_x_, err = select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, !isnothing(errs), test_X, test_Y)
+        isnothing(errs) || push!(errs, err)
         info && print("  optimal next x: $opt_x_\n")
         info && print("  model error: $err\n")
 
@@ -137,7 +138,7 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
         # model error calculation is moved to 'select_opt_x_and_calculate_error' for now
 
         # # CALCULATE MODEL ERROR - - - - - - - -
-        # if !(isnothing(test_X) || isnothing(test_Y))
+        # if !(isnothing(errs))
         #     param_err = rms_error(test_X, test_Y, parametric[1])
         #     semiparam_err = rms_error(test_X, test_Y, semiparametric[1])
         #     nonparam_err = rms_error(test_X, test_Y, nonparametric[1])
@@ -157,34 +158,35 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
         i += 1
     end
 
-    return X, Y, plots, bsf, errs
+    return X, Y, bsf, errs, plots
 end
 
-function select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, test_X, test_Y)
-    if use_model == :semiparam
-        opt_x_ = res_semiparam[1]
-        err = rms_error(test_X, test_Y, semiparametric[1])
-    elseif use_model == :param
-        opt_x_ = res_param[1]
-        err = rms_error(test_X, test_Y, parametric[1])
+function select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, calc_err, test_X, test_Y)
+    opt_results = (res_param, res_semiparam, res_nonparam)
+    models = (parametric, semiparametric, nonparametric)
+    
+    if use_model == :param
+        m = 1
+    elseif use_model == :semiparam
+        m = 2
     elseif use_model == :nonparam
-        opt_x_ = res_nonparam[1]
-        err = rms_error(test_X, test_Y, nonparametric[1])
-    else
-        throw(ArgumentError("the kwarg 'use model' can only be assigned values ':semiparam, :param, :nonparam'"))
+        m = 3
     end
+    
+    opt_x_ = opt_results[m][1]
+    err = calc_err ? rms_error(test_X, test_Y, models[m][1]) : nothing
     return opt_x_, err
 end
 
 function model_predict_MC(model_predict, x; param_samples, ϵ_samples, noise, sample_count)
     val = 0.
     for i in 1:sample_count
-        val += model_predict(x, param_samples[i,:]...) + (noise * ϵ_samples[i])
+        val += model_predict(x, param_samples[i,:]...) # + (noise * ϵ_samples[i])  # The noise sum should approach zero so it is unnecessary.
     end
     return val / sample_count
 end
 
-function opt_acquisition(acq, domain_lb, domain_ub; multistart=1)
+function opt_acquisition(acq, domain_lb, domain_ub; multistart=1, info=true)
     dim = length(domain_lb)
     starts = rand(dim, multistart) .* (domain_ub .- domain_lb) .+ domain_lb
     best_res = (0., -Inf)
@@ -195,7 +197,7 @@ function opt_acquisition(acq, domain_lb, domain_ub; multistart=1)
             res = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
             (res[2] > best_res[2]) && (best_res = res) 
         catch
-            INFO && print("    Optimization failed to converge!\n")
+            info && print("    Optimization failed to converge!\n")
         end
     end
     return best_res

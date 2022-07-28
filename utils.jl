@@ -16,7 +16,7 @@ end
 # Calculate RMS error with given test data.
 function rms_error(X, Y, model)
     N = size(X)[1]
-    preds = reduce(vcat, reduce(vcat, model.(X)))
+    preds = model.(eachrow(X))
     return sqrt((1 / N) * sum((preds - Y).^2))
 end
 
@@ -43,4 +43,9 @@ function log_range(a, b, len)
      range = collect(LinRange(a, b, len))
      range = [10 .^ range[i] for i in 1:len]
      return range
+end
+
+# Return a copy of the given array without 'nothing' values.
+function skipnothing(array)
+    return [e for e in array if !isnothing(e)]
 end

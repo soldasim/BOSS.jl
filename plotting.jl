@@ -6,8 +6,6 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     utils=nothing,
     util_opts=nothing,
     points=200,
-    utility_scale=1.,
-    utility_move=0.,
     title="",
     show_plot=true,
     xaxis=:identity,
@@ -32,7 +30,7 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     util_plot = nothing
 
     if !isnothing(utils)
-        util_plot = Plots.plot(; xaxis, yaxis=:identity, ylabel=yaxis_util_label, kwargs...)
+        util_plot = Plots.plot(; xaxis, yaxis=(:log, [0.1, 1.]), ylabel=yaxis_util_label, kwargs...)
 
         for ui in 1:length(utils)
             isnothing(utils[ui]) && continue
@@ -40,11 +38,10 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
             if !isnothing(util_opts)
                 u_opt = util_opts[ui]
                 if !isnothing(u_opt)
-                    u_vals .-= u_opt[2]
-                    u_max = maximum(abs.(u_vals))
-                    (u_max != 0) && (u_vals .*= utility_scale / u_max)
-                    u_vals .+= utility_move
-                    scatter!(util_plot, u_opt[1], [utility_move]; label="", color=:black)
+                    u_max = max(u_opt[2], maximum(u_vals))
+                    (u_max != 0) && (u_vals .*= (1/u_max) * (9/10))
+                    u_vals .+= 0.1
+                    scatter!(util_plot, u_opt[1], [u_opt[2] / u_max]; label="", color=util_colors[ui])
                 end
             end
             label = isnothing(util_labels) ? "utility_$ui" : util_labels[ui]
@@ -99,7 +96,7 @@ function plot_res_2x1(model, obj_func; points=200)
 end
 
 function plot_bsf_boxplots(results; show_plot=true, labels=nothing)
-    p = plot(; title="Best-so-far solutions found\n(medians with 1st and 3rd quartiles)")
+    p = plot(; title="Best-so-far solutions found\n(medians with 1st and 3rd quartiles)", legend=:topleft)
 
     for i in 1:length(results)
         bsf_data = getfield.(results[i], :bsf)
@@ -108,7 +105,7 @@ function plot_bsf_boxplots(results; show_plot=true, labels=nothing)
         y_vals = median.(eachrow(bsf_data))
         y_err_l = y_vals .- quantile.(eachrow(bsf_data), 0.25)
         y_err_u = quantile.(eachrow(bsf_data), 0.75) .- y_vals
-        plot!(p, y_vals; yerror=(y_err_l, y_err_u), label, markerstrokecolor=:auto, legend=:topleft)
+        plot!(p, y_vals; yerror=(y_err_l, y_err_u), label, markerstrokecolor=:auto)
     end
 
     show_plot && display(p)

@@ -4,7 +4,7 @@ using Soss
 function m_lincos(x, a, b, c, d)
     return a * x[1] * safe_cos(b * x[1] + c) + d
 end
-function safe_cos(x)
+function safe_cos(x::Real)
     isinf(x) && return 0
     return cos(x)
 end

@@ -13,7 +13,7 @@ include("models/model-poly.jl")
 
 Random.seed!(5555)
 
-# Return symbols used as model parameters.
+# The objective function.
 function f_true(x; noise=0.)
     y = exp(x[1]/10) * cos(2*x[1])
     if noise > 0.
@@ -29,8 +29,7 @@ const domain_ub = [20.]
 
 # EXAMPLES - - - - - - - -
 
-function run_boss(model, init_X, init_Y, test_X, test_Y, max_iters; kwargs...)
-    # run BOSS
+function run_boss(model, init_X, init_Y, max_iters, make_plots=true; kwargs...)
     sample_count = 200
     util_opt_multistart = 100
 
@@ -39,9 +38,8 @@ function run_boss(model, init_X, init_Y, test_X, test_Y, max_iters; kwargs...)
         sample_count,
         util_opt_multistart,
         INFO=true,
+        make_plots,
         max_iters,
-        test_X,
-        test_Y,
         target_err=nothing,
         kwargs...
     )
@@ -55,45 +53,38 @@ function example()
     X = hcat(rand(Distributions.Uniform(domain_lb[1], domain_ub[1]), init_data_size))
     Y = [f_true(x; noise) for x in eachrow(X)]
 
-    # test data
-    test_data_size = 2000
-    test_X = LinRange(domain_lb, domain_ub, test_data_size)
-    test_Y = [f_true(x) for x in test_X]
+    test_X, test_Y = generate_test_data()
 
     iters = 2
     model = model_lincos()
 
-    return run_boss(model, X, Y, test_X, test_Y, iters, plot_all_models=true)
+    return run_boss(model, X, Y, iters, make_plots=true, plot_all_models=true; test_X, test_Y)
 end
 
-function compare_models(; save_run_data=false, filename="rundata.jld2")
-    # test data
-    test_data_size = 2000
-    test_X = LinRange(domain_lb, domain_ub, test_data_size)
-    test_Y = [f_true(x) for x in test_X]
+function compare_models(; save_run_data=false, filename="rundata.jld2", make_plots=true)
+    # init data
+    init_data_size = 2
+    X = hcat(rand(Distributions.Uniform(domain_lb[1], domain_ub[1]), init_data_size))
+    Y = [f_true(x; noise) for x in eachrow(X)]
+
+    test_X, test_Y = generate_test_data()
 
     # experiment settings
-    runs = 10
+    runs = 16
     iters = 20
     model = model_lincos()
 
-    results = [RunResult[] for _ in 1:3]
-    for i in 1:runs
-        print("Run $i/$runs ...")
+    results = [Vector{RunResult}(undef, runs) for _ in 1:3]
+    for i in 1:runs # TODO Threads.@threads
+        # print("Run $i/$runs ... (thread $(Threads.threadid()))\n")
 
-        # init data
-        init_data_size = 1
-        X = hcat(rand(Distributions.Uniform(domain_lb[1], domain_ub[1]), init_data_size))
-        Y = [f_true(x; noise) for x in eachrow(X)]
+        param_res, _ = run_boss(model, X, Y, iters; test_X, test_Y, use_model=:param, make_plots, info=false)
+        semiparam_res, _ = run_boss(model, X, Y, iters; test_X, test_Y, use_model=:semiparam, make_plots, info=false)
+        nonparam_res, _ = run_boss(model, X, Y, iters; test_X, test_Y, use_model=:nonparam, make_plots, info=false)
 
-        param_res, _ = run_boss(model, X, Y, test_X, test_Y, iters; use_model=:param, make_plots=false, info=false)
-        semiparam_res, _ = run_boss(model, X, Y, test_X, test_Y, iters, use_model=:semiparam, make_plots=false, info=false)
-        nonparam_res, _ = run_boss(model, X, Y, test_X, test_Y, iters; use_model=:nonparam, make_plots=false, info=false)
-        push!(results[1], param_res)
-        push!(results[2], semiparam_res)
-        push!(results[3], nonparam_res)
-
-        print(" done\n")
+        results[1][i] = param_res
+        results[2][i] = semiparam_res
+        results[3][i] = nonparam_res
     end
 
     labels = ["param", "semiparam", "nonparam"]
@@ -101,4 +92,11 @@ function compare_models(; save_run_data=false, filename="rundata.jld2")
 
     save_run_data && save_data(results, "example/data/", filename)
     return results
+end
+
+function generate_test_data()
+    test_data_size = 2000
+    test_X = reduce(hcat, (LinRange(domain_lb, domain_ub, test_data_size)))'
+    test_Y = [f_true(x) for x in eachrow(test_X)]
+    return test_X, test_Y
 end
