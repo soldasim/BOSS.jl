@@ -2,20 +2,13 @@ using JLD2
 
 # DATA STRUCTS
 
-struct RunParams{N}
-    iters::Int
-    init_X::Matrix{N}
-    init_Y::Matrix{N}
-    sample_count::Int
-    util_opt_multistart::Int
-end
-
-struct RunResult{N}
-    time::N
-    X::Matrix{N}
-    Y::Vector{N}
-    bsf::Vector{N}
-    errs::Union{Nothing, Vector{N}}
+struct RunResult
+    time
+    X
+    Y
+    Z
+    bsf
+    errs
 end
 
 # LOAD/SAVE FUNCTIONS

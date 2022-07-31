@@ -5,6 +5,7 @@ using Statistics
 function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     utils=nothing,
     util_opts=nothing,
+    constraints=nothing,
     points=200,
     title="",
     show_plot=true,
@@ -13,13 +14,16 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     obj_func_label=nothing,
     model_labels=nothing,
     util_labels=nothing,
+    constraint_labels=nothing,
     xaxis_label=nothing,
     yaxis_util_label="normalized utility",
     yaxis_data_label=nothing,
+    yaxis_constraint_label="constraints",
     init_data=0,
     obj_color=nothing,
     model_colors=nothing,
     util_colors=nothing,
+    constraint_colors=nothing,
     kwargs...
 )
     x_data = X
@@ -53,6 +57,25 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
         end
     end
 
+    # CONSTRAINTS PLOT
+    constraint_plot = nothing
+
+    if !isnothing(constraints)
+        constraint_plot = Plots.plot(; xaxis, ylims=(0.,1.), ylabel=yaxis_constraint_label, kwargs...)
+
+        for ci in 1:length(constraints)
+            isnothing(constraints[ci]) && continue
+            c_vals = constraints[ci].(xs)
+            label = isnothing(constraint_labels) ? "constraint_$ci" : constraint_labels[ci]
+            if isnothing(constraint_colors)
+                plot!(constraint_plot, reduce(vcat, xs), reduce(vcat, c_vals); label)
+            else
+                plot!(constraint_plot, reduce(vcat, xs), reduce(vcat, c_vals); label, color=constraint_colors[ci])
+            end
+        end
+    end
+
+
     # DATA PLOT
     data_plot = Plots.plot(; xaxis, yaxis, title, ylabel=yaxis_data_label, kwargs...)
 
@@ -78,11 +101,10 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     end
     
     # COMBINED PLOT
-    if isnothing(util_plot)
-        p = Plots.plot(data_plot; layout=(1,1), legend=:outerright, minorgrid=true, xlabel=xaxis_label, kwargs...)
-    else
-        p = Plots.plot(data_plot, util_plot; layout=(2,1), legend=:outerright, minorgrid=true, xlabel=xaxis_label, kwargs...)
-    end
+    plots = [data_plot]
+    isnothing(constraint_plot) || push!(plots, constraint_plot)
+    isnothing(util_plot) || push!(plots, util_plot)
+    p = Plots.plot(plots...; layout=(length(plots),1), legend=:outerright, minorgrid=true, xlabel=xaxis_label, kwargs...)
     show_plot && display(p)
     return p
 end

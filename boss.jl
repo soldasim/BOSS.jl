@@ -19,7 +19,17 @@ end
 # Bayesian optimization with a Nx1 dimensional parametric model.
 # Assumes Gaussian noise.
 # Plotting only works for 1D->1D problems.
-function boss(f, X, Y, model, domain_lb, domain_ub;
+#
+# Uncostrained -> boss(f, X, Y, model, domain_lb, domain_ub; kwargs...)
+#              ->   f(x) = y
+#
+# Constrained  -> boss(f, X, Y, Z, model, domain_lb, domain_ub; kwargs...)
+#              ->   f(x) = (y, g1, g2, ...)
+function boss(f, X, Y, model, domain_lb, domain_ub; kwargs...)
+    return boss(f, X, Y, nothing, model, domain_lb, domain_ub; kwargs...)
+end
+
+function boss(f, X, Y, Z, model, domain_lb, domain_ub;
     sample_count=200,
     util_opt_multistart=100,
     info=true,
@@ -31,9 +41,12 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
     test_Y=nothing,
     target_err=nothing,
     kernel=Matern52Kernel(),
+    c_kernel=kernel,
     use_model=:semiparam,  # :param, :semiparam, :nonparam
     kwargs...
 )
+    constrained = !isnothing(Z)
+    c_count = constrained ? size(Z)[2] : 0
     init_data_size = size(X)[1]
 
     plots = make_plots ? Plots.Plot[] : nothing
@@ -41,21 +54,30 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
     errs = (isnothing(test_X) || isnothing(test_Y)) ? nothing : Float64[]
 
     i = 0
-    opt_x_ = 0.
+    opt_new_x = 0.
     while true
         info && print("\nITER $i\n")
 
         # NEW DATA - - - - - - - -
         if i != 0
             info && print("  evaluating the objective function ...\n")
-            x_ = opt_x_
-            y_ = f(x_)
+            x_ = opt_new_x
+            y_, z_... = f(x_)
+            z_ = [z_...]
 
             info && print("  new data-point: ($x_, $y_)\n")
             X = vcat(X, x_')
             Y = vcat(Y, y_)
+            
+            if constrained
+                Z = vcat(Z, z_')
+                feasible = all(z_ .>= 0)
+                info && (feasible ? print("    feasible\n") : print("    infeasible\n"))
+            else
+                feasible = true
+            end
 
-            if y_ > last(bsf)
+            if feasible && (y_ > last(bsf))
                 push!(bsf, y_)
             else
                 push!(bsf, last(bsf))
@@ -67,10 +89,10 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
 
         # parametric model
         if plot_all_models || (use_model == :param) || (use_model == :semiparam)
-            post = sample_posterior(model, X, Y; sample_count)
-            param_samples = hcat(getproperty.(Ref(post), model.params)...)
+            post_ = sample_posterior(model, X, Y; sample_count)
+            param_samples = hcat(getproperty.(Ref(post_), model.params)...)
             ϵ_samples = rand(Distributions.Normal(), sample_count)  # TODO Refactor? (This assumes Gaussian noise.)
-            noise = mean(post.σ)
+            noise = mean(post_.σ)
             parametric = (x -> model_predict_MC(model.predict, x; param_samples, ϵ_samples, noise, sample_count), nothing)
         else
             parametric = (nothing, nothing)
@@ -78,21 +100,25 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
 
         # semiparametric model (param + GP)
         if plot_all_models || (use_model == :semiparam)
-            semi_gp = GP(parametric[1], kernel)
-            semi_gp_ = posterior(semi_gp(X'), Y)
-            semiparametric = (x -> mean(semi_gp_([x]))[1], x -> var(semi_gp_([x]))[1])
+            semi_gp_ = GP(parametric[1], kernel)
+            semi_gp_ = posterior(semi_gp_(X'), Y)
+            semiparametric = get_pred_distr(semi_gp_)
         else
             semiparametric = (nothing, nothing)
         end
 
         # nonparametric model (GP)
         if plot_all_models || (use_model == :nonparam)
-            pure_gp = GP(kernel)
-            pure_gp_ = posterior(pure_gp(X'), Y)
-            nonparametric = (x -> mean(pure_gp_([x]))[1], x -> var(pure_gp_([x]))[1])
+            pure_gp_ = GP(kernel)
+            pure_gp_ = posterior(pure_gp_(X'), Y)
+            nonparametric = get_pred_distr(pure_gp_)
         else
             nonparametric = (nothing, nothing)
         end
+
+        # constraint models (GPs)
+        c_gps_ = [posterior(GP(c_kernel)(X'), Z[:,i]) for i in 1:c_count]
+        c_models = get_pred_distr.(c_gps_)
 
         # UTILITY MAXIMIZATION - - - - - - - -
         info && print("  optimizing utility ...\n")
@@ -102,25 +128,28 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
         
         # parametric
         if plot_all_models || (use_model == :param)
-            acq_param(x) = EI_MC(model.predict, x; param_samples, ϵ_samples, noise, best_yet=last(bsf), sample_count)
+            ei_param_(x) = EI_MC(model.predict, x; param_samples, ϵ_samples, noise, best_yet=last(bsf), sample_count)
+            acq_param(x) = constraint_weighted_acq(ei_param_(x), x, c_models)
             res_param = opt_acquisition(acq_param, domain_lb, domain_ub; multistart, info)
         end
 
         # semiparametric
         if plot_all_models || (use_model == :semiparam)
-            acq_semiparam(x) = EI_normal(semi_gp_, x; best_yet=last(bsf))
+            ei_semiparam_(x) = EI_GP(semiparametric, x; best_yet=last(bsf))
+            acq_semiparam(x) = constraint_weighted_acq(ei_semiparam_(x), x, c_models)
             res_semiparam = opt_acquisition(acq_semiparam, domain_lb, domain_ub; multistart, info)
         end
 
         # nonparametric
         if plot_all_models || (use_model == :nonparam)
-            acq_nonparam(x) = EI_normal(pure_gp_, x; best_yet=last(bsf))
+            ei_nonparam_(x) = EI_GP(nonparametric, x; best_yet=last(bsf))
+            acq_nonparam(x) = constraint_weighted_acq(ei_nonparam_(x), x, c_models)
             res_nonparam = opt_acquisition(acq_nonparam, domain_lb, domain_ub; multistart, info)
         end
 
-        opt_x_, err = select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, !isnothing(errs), test_X, test_Y)
+        opt_new_x, err = select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, !isnothing(errs), test_X, test_Y)
         isnothing(errs) || push!(errs, err)
-        info && print("  optimal next x: $opt_x_\n")
+        info && print("  optimal next x: $opt_new_x\n")
         info && print("  model error: $err\n")
 
         # PLOTTING - - - - - - - -
@@ -131,7 +160,9 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
             models = [parametric, semiparametric, nonparametric]
             utils = [acq_param, acq_semiparam, acq_nonparam]
             util_opts = [res_param, res_semiparam, res_nonparam]
-            p = plot_res_1x1(models, f, X, Y, domain_lb, domain_ub; utils, util_opts, title="ITER $i", init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels.*" EI", show_plot=show_plots, kwargs...)
+            util_label = constrained ? "cwEI" : "EI"
+            constraints = [constraint_prob(c) for c in c_models]
+            p = plot_res_1x1(models, f, X, Y, domain_lb, domain_ub; utils, util_opts, constraints, yaxis_constraint_label="constraint\nsatisfaction probability", title="ITER $i", init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
             push!(plots, p)
         end
 
@@ -158,7 +189,7 @@ function boss(f, X, Y, model, domain_lb, domain_ub;
         i += 1
     end
 
-    return X, Y, bsf, errs, plots
+    return X, Y, Z, bsf, errs, plots
 end
 
 function select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, calc_err, test_X, test_Y)
@@ -173,9 +204,9 @@ function select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, r
         m = 3
     end
     
-    opt_x_ = opt_results[m][1]
+    opt_new_x = opt_results[m][1]
     err = calc_err ? rms_error(test_X, test_Y, models[m][1]) : nothing
-    return opt_x_, err
+    return opt_new_x, err
 end
 
 function model_predict_MC(model_predict, x; param_samples, ϵ_samples, noise, sample_count)
@@ -190,6 +221,7 @@ function opt_acquisition(acq, domain_lb, domain_ub; multistart=1, info=true)
     dim = length(domain_lb)
     starts = rand(dim, multistart) .* (domain_ub .- domain_lb) .+ domain_lb
     best_res = (0., -Inf)
+    convergence_errors = 0
     for i in 1:multistart
         s = starts[:,i]
         try
@@ -197,10 +229,21 @@ function opt_acquisition(acq, domain_lb, domain_ub; multistart=1, info=true)
             res = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
             (res[2] > best_res[2]) && (best_res = res) 
         catch
-            info && print("    Optimization failed to converge!\n")
+            convergence_errors += 1
         end
     end
+    info && (convergence_errors > 0) && print("    $convergence_errors/$multistart optimization runs failed to converge!\n")
     return best_res
+end
+
+function get_pred_distr(gp)
+    μy(x) = mean(gp([x]))[1]
+    σy(x) = var(gp([x]))[1]
+    return μy, σy
+end
+function get_pred_distr(gp, x)
+    μy, σy = get_pred_distr(gp)
+    return μy(x), σy(x)
 end
 
 function EI_MC(model_predict, x; param_samples, ϵ_samples, noise, best_yet, sample_count)
@@ -211,9 +254,24 @@ function EI_MC(model_predict, x; param_samples, ϵ_samples, noise, best_yet, sam
     return val / sample_count
 end
 
-function EI_normal(gp, x; best_yet)
-    μy = mean(gp([x]))[1]
-    σy = var(gp([x]))[1]
+function EI_GP(model, x; best_yet)
+    μy, σy = model[1](x), model[2](x)
     norm_ϵ = (μy - best_yet) / σy
     return (μy - best_yet) * cdf(Distributions.Normal(), norm_ϵ) + σy * pdf(Distributions.Normal(), norm_ϵ)
+end
+
+function constraint_weighted_acq(acq, x, constraint_models)
+    for c in constraint_models
+        acq *= constraint_prob(c)(x)
+    end
+    return acq
+end
+
+function constraint_prob(c_model)
+    function p(x)
+        μ, σ = c_model[1](x), c_model[2](x)
+        distr = Distributions.Normal(μ, σ)
+        return (1. - cdf(distr, 0))
+    end
+    return p
 end
