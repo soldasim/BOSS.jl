@@ -125,6 +125,8 @@ function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
 
         # constraint models (GPs)
         if constrained
+            # TODO modify the prior mean ?
+            # TODO provide option for defining semiparametric models for constraints ?
             c_gps_ = gp_posterior(X, Z; kernel=constraint_kernel, y_dim=c_count)
             c_model = gps_pred_distr(c_gps_)
         else
@@ -140,21 +142,36 @@ function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
         # parametric
         if plot_all_models || (use_model == :param)
             ei_param_ = x->EI_param(fitness, model.predict, x; best_yet=last(bsf), noise, param_samples, ϵ_samples, sample_count)
-            acq_param = constrained ? x->constraint_weighted_acq(ei_param_(x), x, c_model) : x->ei_param_(x)
+            acq_param = constrained ?
+                (isnothing(last(bsf)) ?
+                    x->constraint_weighted_acq(1., x, c_model) :
+                    x->constraint_weighted_acq(ei_param_(x), x, c_model)
+                ) :
+                x->ei_param_(x)
             res_param = opt_acquisition(acq_param, domain_lb, domain_ub; multistart, info, debug)
         end
 
         # semiparametric
         if plot_all_models || (use_model == :semiparam)
             ei_semiparam_ = x->EI_GP(fitness, semiparametric, x; best_yet=last(bsf), noise, ϵ_samples, sample_count)
-            acq_semiparam = constrained ? x->constraint_weighted_acq(ei_semiparam_(x), x, c_model) : x->ei_semiparam_(x)
+            acq_semiparam = constrained ?
+            (isnothing(last(bsf)) ?
+                x->constraint_weighted_acq(1., x, c_model) :
+                x->constraint_weighted_acq(ei_semiparam_(x), x, c_model)
+            ) :
+            x->ei_semiparam_(x)
             res_semiparam = opt_acquisition(acq_semiparam, domain_lb, domain_ub; multistart, info, debug)
         end
 
         # nonparametric
         if plot_all_models || (use_model == :nonparam)
             ei_nonparam_ = x->EI_GP(fitness, nonparametric, x; best_yet=last(bsf), noise, ϵ_samples, sample_count)
-            acq_nonparam = constrained ? x->constraint_weighted_acq(ei_nonparam_(x), x, c_model) : x->ei_nonparam_(x)
+            acq_nonparam = constrained ?
+            (isnothing(last(bsf)) ?
+                x->constraint_weighted_acq(1., x, c_model) :
+                x->constraint_weighted_acq(ei_nonparam_(x), x, c_model)
+            ) :
+            x->ei_nonparam_(x)
             res_nonparam = opt_acquisition(acq_nonparam, domain_lb, domain_ub; multistart, info, debug)
         end
 
@@ -285,11 +302,7 @@ function EI_GP(fitness, model, x; noise, ϵ_samples, sample_count, best_yet)
 end
 
 function EI(fitness, pred_samples; sample_count, best_yet)
-    if isnothing(best_yet)
-        return sum(fitness.(pred_samples)) / sample_count
-    else
-        return sum(max.(0, fitness.(pred_samples) .- best_yet)) / sample_count
-    end
+    return sum(max.(0, fitness.(pred_samples) .- best_yet)) / sample_count
 end
 
 function constraint_weighted_acq(acq, x, c_model)
