@@ -7,8 +7,6 @@ end
 
 # TODO refactor: params and noise HAVE TO be called 'params', 'noise' for now
 
-# TODO doc & example
-
 
 
 # - - - - - - - - EXAMPLE MODEL DEFINITION - - - - - - - - - - - - - - - -

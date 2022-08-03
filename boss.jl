@@ -10,8 +10,6 @@ include("model.jl")
 include("plotting.jl")
 include("utils.jl")
 
-# TODO remove PyCall
-
 const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 
 # TODO docs & example usage
@@ -26,11 +24,11 @@ const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 # Constrained  -> boss(f, X, Y, Z, model, domain_lb, domain_ub; kwargs...)
 #              ->   f(x) = (y, g1, g2, ...)
 
-function boss(f, objective, X, Y, model, domain_lb, domain_ub; kwargs...)
-    return boss(f, objective, X, Y, nothing, model, domain_lb, domain_ub; kwargs...)
+function boss(f, fitness, X, Y, model, domain_lb, domain_ub; kwargs...)
+    return boss(f, fitness, X, Y, nothing, model, domain_lb, domain_ub; kwargs...)
 end
 
-function boss(f, objective, X, Y, Z, model, domain_lb, domain_ub;
+function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
     sample_count=200,
     util_opt_multistart=100,
     info=true,
@@ -53,10 +51,10 @@ function boss(f, objective, X, Y, Z, model, domain_lb, domain_ub;
     y_dim = size(Y)[2]
     x_dim = size(X)[2]
 
-    f_ = constrained ? x -> f(x) : x -> (f(x), Float64[])
+    f_true = constrained ? x -> f(x) : x -> (f(x), Float64[])
 
-    L = [objective(y) for y in eachrow(Y)]
-    bsf = [get_best_yet(L, Z; data_size=init_data_size)]
+    F = [fitness(y) for y in eachrow(Y)]
+    bsf = [get_best_yet(F, Z; data_size=init_data_size)]
 
     plots = make_plots ? Plots.Plot[] : nothing
     errs = (isnothing(test_X) || isnothing(test_Y)) ? nothing : Vector{Float64}[]
@@ -70,15 +68,15 @@ function boss(f, objective, X, Y, Z, model, domain_lb, domain_ub;
         if iter != 0
             info && print("  evaluating the objective function ...\n")
             x_ = opt_new_x
-            y_, z_ = f_(x_)
-            l_ = objective(y_)
+            y_, z_ = f_true(x_)
+            f_ = fitness(y_)
 
             info && print("  new data-point: x = $x_\n"
                         * "                  y = $y_\n"
-                        * "                  l = $l_\n")
+                        * "                  f = $f_\n")
             X = vcat(X, x_')
             Y = vcat(Y, [y_...]')
-            L = vcat(L, l_)
+            F = vcat(F, f_)
             
             if constrained
                 feasible_ = is_feasible(z_)
@@ -88,8 +86,8 @@ function boss(f, objective, X, Y, Z, model, domain_lb, domain_ub;
                 feasible_ = true
             end
 
-            if feasible_ && (l_ > last(bsf))
-                push!(bsf, l_)
+            if feasible_ && (f_ > last(bsf))
+                push!(bsf, f_)
             else
                 push!(bsf, last(bsf))
             end
@@ -141,21 +139,21 @@ function boss(f, objective, X, Y, Z, model, domain_lb, domain_ub;
         
         # parametric
         if plot_all_models || (use_model == :param)
-            ei_param_ = x->EI_param(objective, model.predict, x; best_yet=last(bsf), noise, param_samples, ϵ_samples, sample_count)
+            ei_param_ = x->EI_param(fitness, model.predict, x; best_yet=last(bsf), noise, param_samples, ϵ_samples, sample_count)
             acq_param = constrained ? x->constraint_weighted_acq(ei_param_(x), x, c_model) : x->ei_param_(x)
             res_param = opt_acquisition(acq_param, domain_lb, domain_ub; multistart, info, debug)
         end
 
         # semiparametric
         if plot_all_models || (use_model == :semiparam)
-            ei_semiparam_ = x->EI_GP(objective, semiparametric, x; best_yet=last(bsf), noise, ϵ_samples, sample_count)
+            ei_semiparam_ = x->EI_GP(fitness, semiparametric, x; best_yet=last(bsf), noise, ϵ_samples, sample_count)
             acq_semiparam = constrained ? x->constraint_weighted_acq(ei_semiparam_(x), x, c_model) : x->ei_semiparam_(x)
             res_semiparam = opt_acquisition(acq_semiparam, domain_lb, domain_ub; multistart, info, debug)
         end
 
         # nonparametric
         if plot_all_models || (use_model == :nonparam)
-            ei_nonparam_ = x->EI_GP(objective, nonparametric, x; best_yet=last(bsf), noise, ϵ_samples, sample_count)
+            ei_nonparam_ = x->EI_GP(fitness, nonparametric, x; best_yet=last(bsf), noise, ϵ_samples, sample_count)
             acq_nonparam = constrained ? x->constraint_weighted_acq(ei_nonparam_(x), x, c_model) : x->ei_nonparam_(x)
             res_nonparam = opt_acquisition(acq_nonparam, domain_lb, domain_ub; multistart, info, debug)
         end
@@ -181,7 +179,7 @@ function boss(f, objective, X, Y, Z, model, domain_lb, domain_ub;
                 title = (y_dim > 1) ? "ITER $iter, DIM $d" : "ITER $iter"
                 models = model_dim_slice.([parametric, semiparametric, nonparametric], d)
                 
-                p = plot_res_1x1(models, x -> f_(x)[1][d], X, Y, domain_lb, domain_ub; utils, util_opts, constraints, yaxis_constraint_label="constraint\nsatisfaction probability", title, init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
+                p = plot_res_1x1(models, x -> f_true(x)[1][d], X, Y, domain_lb, domain_ub; utils, util_opts, constraints, yaxis_constraint_label="constraint\nsatisfaction probability", title, init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
                 push!(plots, p)
             end
         end
@@ -224,6 +222,7 @@ function select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, r
 end
 
 function model_predict_MC(model_predict, x; param_samples, ϵ_samples, noise, sample_count)
+    # TODO include the noise ?
     # '+ (noise * ϵ_samples)' excluded -- The mean of ϵ should approach zero so it is unnecessary.
     return sum([model_predict(x, param_samples[i,:]...) for i in 1:sample_count]) ./ sample_count
 end
@@ -261,35 +260,35 @@ function gps_pred_distr(gps)
     return μy, σy
 end
 
-function EI_param(objective, model_predict, x; noise, param_samples, ϵ_samples, sample_count, best_yet)
+function EI_param(fitness, model_predict, x; noise, param_samples, ϵ_samples, sample_count, best_yet)
     # TODO use samples of noise instead of its mean ?
     pred_samples = [model_predict(x, param_samples[i,:]...) .+ (noise .* ϵ_samples[i,:]) for i in 1:sample_count]
-    return EI(objective, pred_samples; sample_count, best_yet)
+    return EI(fitness, pred_samples; sample_count, best_yet)
 end
 
-# Analytical version, works only without 'objective'
+# Analytical version, works only without 'fitness'
 # function EI_GP(model, x; best_yet)
 #     μy, σy = model[1](x), model[2](x)
 #     norm_ϵ = (μy - best_yet) / σy
 #     return (μy - best_yet) * cdf(Distributions.Normal(), norm_ϵ) + σy * pdf(Distributions.Normal(), norm_ϵ)
 # end
 
-function EI_GP(objective, model, x; noise, ϵ_samples, sample_count, best_yet)
-    # TODO implement an option for defining the objective integral analytically to avoid sample-approximation
+function EI_GP(fitness, model, x; noise, ϵ_samples, sample_count, best_yet)
+    # TODO implement an option for defining the fitness integral analytically to avoid sample-approximation
 
     # Add the predictive distribution and the noise distribution (both are normal).
     μ = model[1](x) .+ 0.
     σ = model[2](x) .+ noise
 
     pred_samples = [μ .+ (σ .* ϵ_samples[i,:]) for i in 1:sample_count]
-    return EI(objective, pred_samples; sample_count, best_yet)
+    return EI(fitness, pred_samples; sample_count, best_yet)
 end
 
-function EI(objective, pred_samples; sample_count, best_yet)
+function EI(fitness, pred_samples; sample_count, best_yet)
     if isnothing(best_yet)
-        return sum(objective.(pred_samples)) / sample_count
+        return sum(fitness.(pred_samples)) / sample_count
     else
-        return sum(max.(0, objective.(pred_samples) .- best_yet)) / sample_count
+        return sum(max.(0, fitness.(pred_samples) .- best_yet)) / sample_count
     end
 end
 
