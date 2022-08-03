@@ -1,8 +1,8 @@
 using Soss
 
 struct SSModel
-    predict::Function # y = predict(x, params...)
-    prob_model::Model # Soss.@model
+    predict # y = predict(x, params...)
+    prob_model # Soss.@model
 end
 
 # TODO refactor: params and noise HAVE TO be called 'params', 'noise' for now

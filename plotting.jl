@@ -2,6 +2,33 @@ using Plots; pyplot()
 using LaTeXStrings
 using Statistics
 
+function create_plots(f_true, utils, util_opts, models, c_model, X, Y;
+    iter,
+    y_dim,
+    constrained,
+    c_count,
+    domain_lb,
+    domain_ub,
+    init_data_size,
+    show_plots,
+    kwargs...
+)
+    colors = [:red, :purple, :blue]
+    labels = ["param", "semiparam", "nonparam"]
+    util_label = constrained ? "cwEI" : "EI"
+    constraints = constrained ? [x -> constraint_probabilities(c_model)(x)[i] for i in 1:c_count] : nothing
+
+    plots = Plots.Plot[]
+    for d in 1:y_dim
+        title = (y_dim > 1) ? "ITER $iter, DIM $d" : "ITER $iter"
+        models = model_dim_slice.(models, d)
+        
+        p = plot_res_1x1(models, x -> f_true(x)[d], X, Y, domain_lb, domain_ub; utils, util_opts, constraints, yaxis_constraint_label="constraint\nsatisfaction probability", title, init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
+        push!(plots, p)
+    end
+    return plots
+end
+
 function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     utils=nothing,
     util_opts=nothing,

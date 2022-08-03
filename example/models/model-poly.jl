@@ -6,13 +6,9 @@ function m_poly_(x, params)
 end
 
 function prob_model_poly_()
-    return @model X begin
+    return @model X, noise begin
         params ~ For(zeros(4)) do _
             Distributions.Normal(1., 1.)
-        end
-
-        noise ~ For(zeros(1)) do _
-            Distributions.Exponential()
         end
 
         Y ~ For(collect(eachrow(X))) do x

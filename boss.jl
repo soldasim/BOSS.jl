@@ -13,6 +13,7 @@ include("utils.jl")
 const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 
 # TODO docs & example usage
+# TODO noise and hyperparams inference
 
 # Bayesian optimization with a Nx1 dimensional parametric model.
 # Assumes Gaussian noise! (for now)
@@ -25,10 +26,13 @@ const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 #              ->   f(x) = (y, g1, g2, ...)
 
 function boss(f, fitness, X, Y, model, domain_lb, domain_ub; kwargs...)
-    return boss(f, fitness, X, Y, nothing, model, domain_lb, domain_ub; kwargs...)
+    fg(x) = f(x), Float64[]
+    return boss(fg, fitness, X, Y, nothing, model, domain_lb, domain_ub; kwargs...)
 end
 
-function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
+function boss(fg, fitness, X, Y, Z, model, domain_lb, domain_ub;
+    noise,
+    constraint_noise,
     sample_count=200,
     util_opt_multistart=100,
     info=true,
@@ -36,6 +40,7 @@ function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
     make_plots=false,
     show_plots=true,
     plot_all_models=false,
+    f_true=nothing,
     max_iters=nothing,
     test_X=nothing,
     test_Y=nothing,
@@ -45,13 +50,13 @@ function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
     use_model=:semiparam,  # :param, :semiparam, :nonparam
     kwargs...
 )
+    isnothing(max_iters) && isnothing(target_err) && throw(ArgumentError("No termination condition provided. Use kwargs 'max_iters' or 'target_err' to define a termination condition."))
+
     constrained = !isnothing(Z)
     c_count = constrained ? size(Z)[2] : 0
     init_data_size = size(X)[1]
     y_dim = size(Y)[2]
     x_dim = size(X)[2]
-
-    f_true = constrained ? x -> f(x) : x -> (f(x), Float64[])
 
     F = [fitness(y) for y in eachrow(Y)]
     bsf = [get_best_yet(F, Z; data_size=init_data_size)]
@@ -60,48 +65,25 @@ function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
     errs = (isnothing(test_X) || isnothing(test_Y)) ? nothing : Vector{Float64}[]
 
     iter = 0
-    opt_new_x = 0.
+    opt_new_x = Float64[]
     while true
         info && print("\nITER $iter\n")
 
-        # NEW DATA - - - - - - - -
+        # NEW DATA - - - - - - - - - - - - - - - -
         if iter != 0
             info && print("  evaluating the objective function ...\n")
-            x_ = opt_new_x
-            y_, z_ = f_true(x_)
-            f_ = fitness(y_)
-
-            info && print("  new data-point: x = $x_\n"
-                        * "                  y = $y_\n"
-                        * "                  f = $f_\n")
-            X = vcat(X, x_')
-            Y = vcat(Y, [y_...]')
-            F = vcat(F, f_)
-            
-            if constrained
-                feasible_ = is_feasible(z_)
-                info && (feasible_ ? print("                  feasible\n") : print("                  infeasible\n"))
-                Z = vcat(Z, [z_...]')
-            else
-                feasible_ = true
-            end
-
-            if feasible_ && (f_ > last(bsf))
-                push!(bsf, f_)
-            else
-                push!(bsf, last(bsf))
-            end
+            X, Y, Z, F, bsf = augment_data!(opt_new_x, fg, fitness, X, Y, Z, F, bsf; constrained, info)
         end
 
-        # MODEL INFERENCE - - - - - - - -
+        # MODEL INFERENCE - - - - - - - - - - - - - - - -
         info && print("  model inference ...\n")
+
+        ϵ_samples = rand(Distributions.Normal(), (sample_count, y_dim))  # TODO refactor (this assumes Gaussian noise)
 
         # parametric model
         if plot_all_models || (use_model == :param) || (use_model == :semiparam)
-            post_ = sample_posterior(model, X, Y; sample_count)
+            post_ = sample_posterior(model.prob_model, noise, X, Y; sample_count)
             param_samples = post_.params
-            ϵ_samples = rand(Distributions.Normal(), (sample_count, y_dim))  # TODO refactor (this assumes Gaussian noise)
-            noise = mean(post_.noise)
             parametric = (x -> model_predict_MC(model.predict, x; param_samples, ϵ_samples, noise, sample_count), nothing)
         else
             parametric = (nothing, nothing)
@@ -109,7 +91,7 @@ function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
 
         # semiparametric model (param + GP)
         if plot_all_models || (use_model == :semiparam)
-            semi_gps_ = gp_posterior(X, Y; mean=x->parametric[1](x), kernel, y_dim)
+            semi_gps_ = gp_posterior(X, Y; mean=x->parametric[1](x), kernel, noise, y_dim)
             semiparametric = gps_pred_distr(semi_gps_)
         else
             semiparametric = (nothing, nothing)
@@ -117,7 +99,7 @@ function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
 
         # nonparametric model (GP)
         if plot_all_models || (use_model == :nonparam)
-            pure_gps_ = gp_posterior(X, Y; kernel, y_dim)
+            pure_gps_ = gp_posterior(X, Y; kernel, noise, y_dim)
             nonparametric = gps_pred_distr(pure_gps_)
         else
             nonparametric = (nothing, nothing)
@@ -127,13 +109,13 @@ function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
         if constrained
             # TODO modify the prior mean ?
             # TODO provide option for defining semiparametric models for constraints ?
-            c_gps_ = gp_posterior(X, Z; kernel=constraint_kernel, y_dim=c_count)
+            c_gps_ = gp_posterior(X, Z; kernel=constraint_kernel, noise=constraint_noise, y_dim=c_count)
             c_model = gps_pred_distr(c_gps_)
         else
             c_model = nothing
         end
 
-        # UTILITY MAXIMIZATION - - - - - - - -
+        # UTILITY MAXIMIZATION - - - - - - - - - - - - - - - -
         info && print("  optimizing utility ...\n")
         multistart = util_opt_multistart
         res_param = res_semiparam = res_nonparam = nothing
@@ -142,63 +124,49 @@ function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
         # parametric
         if plot_all_models || (use_model == :param)
             ei_param_ = x->EI_param(fitness, model.predict, x; best_yet=last(bsf), noise, param_samples, ϵ_samples, sample_count)
-            acq_param = constrained ?
-                (isnothing(last(bsf)) ?
-                    x->constraint_weighted_acq(1., x, c_model) :
-                    x->constraint_weighted_acq(ei_param_(x), x, c_model)
-                ) :
-                x->ei_param_(x)
+            acq_param = construct_acq_func(ei_param_, c_model; constrained, best_yet=last(bsf))
             res_param = opt_acquisition(acq_param, domain_lb, domain_ub; multistart, info, debug)
         end
 
         # semiparametric
         if plot_all_models || (use_model == :semiparam)
             ei_semiparam_ = x->EI_GP(fitness, semiparametric, x; best_yet=last(bsf), noise, ϵ_samples, sample_count)
-            acq_semiparam = constrained ?
-            (isnothing(last(bsf)) ?
-                x->constraint_weighted_acq(1., x, c_model) :
-                x->constraint_weighted_acq(ei_semiparam_(x), x, c_model)
-            ) :
-            x->ei_semiparam_(x)
+            acq_semiparam = construct_acq_func(ei_semiparam_, c_model; constrained, best_yet=last(bsf))
             res_semiparam = opt_acquisition(acq_semiparam, domain_lb, domain_ub; multistart, info, debug)
         end
 
         # nonparametric
         if plot_all_models || (use_model == :nonparam)
             ei_nonparam_ = x->EI_GP(fitness, nonparametric, x; best_yet=last(bsf), noise, ϵ_samples, sample_count)
-            acq_nonparam = constrained ?
-            (isnothing(last(bsf)) ?
-                x->constraint_weighted_acq(1., x, c_model) :
-                x->constraint_weighted_acq(ei_nonparam_(x), x, c_model)
-            ) :
-            x->ei_nonparam_(x)
+            acq_nonparam = construct_acq_func(ei_nonparam_, c_model; constrained, best_yet=last(bsf))
             res_nonparam = opt_acquisition(acq_nonparam, domain_lb, domain_ub; multistart, info, debug)
         end
 
-        opt_new_x, err = select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, !isnothing(errs), test_X, test_Y)
+        opt_new_x, err = select_opt_x_and_calculate_model_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, !isnothing(errs), test_X, test_Y; info)
         isnothing(errs) || push!(errs, err)
-        info && print("  optimal next x: $opt_new_x\n")
-        info && print("  model error: $err\n")
 
-        # PLOTTING - - - - - - - -
+        # PLOTTING - - - - - - - - - - - - - - - -
         if make_plots
             info && print("  plotting ...\n")
             (x_dim > 1) && throw(ErrorException("Plotting only supported for 1->N dimensional models."))
-
-            colors = [:red, :purple, :blue]
-            labels = ["param", "semiparam", "nonparam"]
-            utils = [acq_param, acq_semiparam, acq_nonparam]
-            util_opts = [res_param, res_semiparam, res_nonparam]
-            util_label = constrained ? "cwEI" : "EI"
-            constraints = constrained ? [x -> constraint_probabilities(c_model)(x)[i] for i in 1:c_count] : nothing
-
-            for d in 1:y_dim
-                title = (y_dim > 1) ? "ITER $iter, DIM $d" : "ITER $iter"
-                models = model_dim_slice.([parametric, semiparametric, nonparametric], d)
-                
-                p = plot_res_1x1(models, x -> f_true(x)[1][d], X, Y, domain_lb, domain_ub; utils, util_opts, constraints, yaxis_constraint_label="constraint\nsatisfaction probability", title, init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
-                push!(plots, p)
-            end
+            ps = create_plots(
+                f_true,
+                [acq_param, acq_semiparam, acq_nonparam],
+                [res_param, res_semiparam, res_nonparam],
+                [parametric, semiparametric, nonparametric],
+                c_model,
+                X, Y;
+                iter,
+                y_dim,
+                constrained,
+                c_count,
+                domain_lb,
+                domain_ub,
+                init_data_size,
+                show_plots,
+                kwargs...
+            )
+            append!(plots, ps)
         end
 
         # TERMINATION CONDITIONS - - - - - - - -
@@ -214,14 +182,55 @@ function boss(f, fitness, X, Y, Z, model, domain_lb, domain_ub;
     return X, Y, Z, bsf, errs, plots
 end
 
-# Sample from the posterior parameter distributions given the data 'X', 'Y'.
-function sample_posterior(model, X, Y; sample_count=4000)
-    # TODO test if the workaround is still needed, disabled for now
-    # q = zeros(length(model.params) + 1)  # workaround: https://discourse.julialang.org/t/dynamichmc-reached-maximum-number-of-iterations/24721
-    return Soss.sample(model.prob_model(X=X) | (Y=Y,), dynamichmc(), sample_count)  # dynamichmc(; init=(q=q,))
+function augment_data!(opt_new_x, f, fitness, X, Y, Z, F, bsf; constrained, info)
+    x_ = opt_new_x
+    y_, z_ = f(x_)
+    f_ = fitness(y_)
+
+    info && print("  new data-point: x = $x_\n"
+                * "                  y = $y_\n"
+                * "                  f = $f_\n")
+    X = vcat(X, x_')
+    Y = vcat(Y, [y_...]')
+    F = vcat(F, f_)
+    
+    if constrained
+        feasible_ = is_feasible(z_)
+        info && (feasible_ ? print("                  feasible\n") : print("                  infeasible\n"))
+        Z = vcat(Z, [z_...]')
+    else
+        feasible_ = true
+    end
+
+    if feasible_ && (f_ > last(bsf))
+        push!(bsf, f_)
+    else
+        push!(bsf, last(bsf))
+    end
+
+    return X, Y, Z, F, bsf
 end
 
-function select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, calc_err, test_X, test_Y)
+# Sample from the posterior parameter distributions given the data 'X', 'Y'.
+function sample_posterior(prob_model, noise, X, Y; sample_count=4000)
+    # TODO test if the workaround is still needed, disabled for now
+    # q = zeros(length(model.params))  # workaround: https://discourse.julialang.org/t/dynamichmc-reached-maximum-number-of-iterations/24721
+    return Soss.sample(prob_model(X=X, noise=noise) | (Y=Y,), dynamichmc(), sample_count)  # dynamichmc(; init=(q=q,))
+end
+
+function construct_acq_func(ei, c_model; constrained, best_yet)
+    if constrained
+        if isnothing(best_yet)
+            return x -> constraint_weighted_acq(1., x, c_model)
+        else
+            return x -> constraint_weighted_acq(ei(x), x, c_model)
+        end
+    else
+        return ei
+    end
+end
+
+function select_opt_x_and_calculate_model_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, calc_err, test_X, test_Y; info)
     opt_results = (res_param, res_semiparam, res_nonparam)
     models = (parametric, semiparametric, nonparametric)
     
@@ -235,6 +244,9 @@ function select_opt_x_and_calculate_error(use_model, res_param, res_semiparam, r
     
     opt_new_x = opt_results[m][1]
     err = calc_err ? rms_error(test_X, test_Y, models[m][1]) : nothing
+
+    info && print("  optimal next x: $opt_new_x\n")
+    info && print("  model error: $err\n")
     return opt_new_x, err
 end
 
@@ -265,10 +277,10 @@ function opt_acquisition(acq, domain_lb, domain_ub; multistart=1, info=true, deb
     return best_res
 end
 
-function gp_posterior(X, Y; mean=nothing, kernel, y_dim=nothing)
+function gp_posterior(X, Y; mean=nothing, kernel, noise, y_dim=nothing)
     isnothing(y_dim) && (y_dim = size(Y)[2])
     isnothing(mean) && (mean = x->zeros(y_dim))
-    return [posterior(GP(x->mean(x)[i], kernel)(X'), Y[:,i]) for i in 1:y_dim]
+    return [posterior(GP(x->mean(x)[i], kernel)(X', noise[i]), Y[:,i]) for i in 1:y_dim]
 end
 
 function gps_pred_distr(gps)
@@ -294,7 +306,7 @@ function EI_GP(fitness, model, x; noise, ϵ_samples, sample_count, best_yet)
     # TODO implement an option for defining the fitness integral analytically to avoid sample-approximation
 
     # Add the predictive distribution and the noise distribution (both are normal).
-    μ = model[1](x) .+ 0.
+    μ = model[1](x) #.+ 0.
     σ = model[2](x) .+ noise
 
     pred_samples = [μ .+ (σ .* ϵ_samples[i,:]) for i in 1:sample_count]

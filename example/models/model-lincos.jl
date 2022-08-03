@@ -10,19 +10,12 @@ function safe_cos_(x::Real)
 end
 
 function prob_model_lincos_()
-    return @model X begin
+    return @model X, noise begin
         params ~ For(zeros(4)) do _
             Distributions.Normal(1., 1.)
         end
 
-        noise ~ For(zeros(1)) do _
-            Distributions.Exponential()
-        end
-
         Y ~ For(collect(eachrow(X))) do x
-            # For(m_lincos_(x, params), noise) do yi, ni
-            #     Distributions.Normal(yi, ni)
-            # end
             Distributions.Normal(m_lincos_(x, params), noise[1])
         end
         return Y

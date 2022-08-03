@@ -10,13 +10,9 @@ function safe_cos_(x)
 end
 
 function prob_model_expcos_()
-    return @model X begin
+    return @model X, noise begin
         params ~ For(zeros(5)) do _
             Distributions.Normal(1., 1.)
-        end
-
-        noise ~ For(zeros(1)) do _
-            Distributions.Exponential()
         end
 
         Y ~ For(collect(eachrow(X))) do x

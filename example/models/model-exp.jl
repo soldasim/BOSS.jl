@@ -6,13 +6,9 @@ function m_exp_(x, params)
 end
 
 function prob_model_exp_()
-    return @model X begin
+    return @model X, noise begin
         params ~ For(zeros(3)) do _
             Distributions.Normal(1., 1.)
-        end
-
-        noise ~ For(zeros(1)) do _
-            Distributions.Exponential()
         end
 
         Y ~ For(collect(eachrow(X))) do x

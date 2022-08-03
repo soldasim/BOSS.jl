@@ -29,7 +29,7 @@ function constraints(x; noise=0.)
 end
 
 # experiment settings
-const noise = 0.01
+const noise_real = 0.01
 const domain_lb = [0.] #[0.,0.]
 const domain_ub = [20.] #[20.,20.]
 
@@ -37,27 +37,24 @@ const domain_ub = [20.] #[20.,20.]
 
 function example()
     # generate data
-    X, Y, Z = generate_init_data_(2; noise, constrained=true)
+    X, Y, Z = generate_init_data_(2; noise=noise_real, constrained=true)
     test_X, test_Y = generate_test_data_(2000)
 
-    iters = 4
-    f(x; noise=0.) = f_true(x; noise), constraints(x; noise)
-    f_noisy(x) = f(x; noise)
+    # settings
+    max_iters = 4
     model = model_lincos()
 
-    return run_boss_(f, model, X, Y, Z, iters, info=true, make_plots=true, plot_all_models=true; test_X, test_Y)
+    return run_boss_(model, X, Y, Z; max_iters, info=true, make_plots=true, plot_all_models=true, test_X, test_Y)
 end
 
-function compare_models(; save_run_data=false, filename="rundata.jld2", make_plots=true)
+function compare_models(; save_run_data=false, filename="rundata.jld2", make_plots=false)
     # generate data
-    X, Y, Z = generate_init_data_(2; noise, constrained=true)
+    X, Y, Z = generate_init_data_(2; noise=noise_real, constrained=true)
     test_X, test_Y = generate_test_data_(2000)
 
     # experiment settings
     runs = 16
-    iters = 20
-    f_noisy(x) = f_true(x; noise)
-    f(x) = f_noisy(x), constraints(x)...
+    max_iters = 20
     model = model_lincos()
 
     print("Starting $runs runs.\n")
@@ -66,9 +63,9 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
         print("Thread $(Threads.threadid()):  Run $i in progress ...\n")
         info = true
 
-        param_res, _ = run_boss_(f, model, X, Y, Z, iters; test_X, test_Y, use_model=:param, make_plots, info)
-        semiparam_res, _ = run_boss_(f, model, X, Y, Z, iters; test_X, test_Y, use_model=:semiparam, make_plots, info)
-        nonparam_res, _ = run_boss_(f, model, X, Y, Z, iters; test_X, test_Y, use_model=:nonparam, make_plots, info)
+        param_res, _ = run_boss_(model, X, Y, Z; max_iters, test_X, test_Y, use_model=:param, make_plots, info)
+        semiparam_res, _ = run_boss_(model, X, Y, Z; max_iters, test_X, test_Y, use_model=:semiparam, make_plots, info)
+        nonparam_res, _ = run_boss_(model, X, Y, Z; max_iters, test_X, test_Y, use_model=:nonparam, make_plots, info)
 
         results[1][i] = param_res
         results[2][i] = semiparam_res
@@ -82,15 +79,22 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
     return results
 end
 
-function run_boss_(f, model, init_X, init_Y, init_Z, max_iters, make_plots=true; kwargs...)
-    sample_count = 200
-    util_opt_multistart = 100
+function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
+    sample_count = 20#200
+    util_opt_multistart = 10#100
 
-    time = @elapsed X, Y, Z, bsf, errs, plots = boss(f, y->y[1], init_X, init_Y, init_Z, model, domain_lb, domain_ub;
+    fg(x; noise=0.) = f_true(x; noise), constraints(x; noise)
+    fg_noisy(x) = fg(x; noise=noise_real)
+
+    noise_pred = [0.01]
+    constraint_noise = [0.01, 0.01]
+
+    time = @elapsed X, Y, Z, bsf, errs, plots = boss(fg_noisy, y->y[1], init_X, init_Y, init_Z, model, domain_lb, domain_ub;
+        f_true,
+        noise=noise_pred,
+        constraint_noise,
         sample_count,
         util_opt_multistart,
-        make_plots,
-        max_iters,
         target_err=nothing,
         kwargs...
     )
