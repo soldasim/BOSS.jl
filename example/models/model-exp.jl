@@ -1,28 +1,27 @@
 using Distributions
 using Soss
 
-function m_exp(x, a, b, c)
-    return a * exp(b * x[1]) + c
+function m_exp_(x, params)
+    return params[1] * exp(params[2] * x[1]) + params[3]
 end
 
-function prob_model_exp()
+function prob_model_exp_()
     return @model X begin
-            a ~ Distributions.Normal(1., 1.)
-            b ~ Distributions.Normal(1., 1.)
-            c ~ Distributions.Normal(1., 1.)
-
-            σ ~ Distributions.Exponential()
-            Y ~ For(X) do x
-                    Distributions.Normal(m_exp(x, a, b, c), σ)
-                end
-            return Y
+        params ~ For(zeros(3)) do _
+            Distributions.Normal(1., 1.)
         end
-end
 
-function model_params_exp()
-    return [:a, :b, :c]
+        noise ~ For(zeros(1)) do _
+            Distributions.Exponential()
+        end
+
+        Y ~ For(collect(eachrow(X))) do x
+            Distributions.Normal(m_exp_(x, params), noise[1])
+        end
+        return Y
+    end
 end
 
 function model_exp()
-    return SSModel(m_exp, prob_model_exp(), model_params_exp())
+    return SSModel(m_exp_, prob_model_exp_())
 end

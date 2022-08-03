@@ -1,29 +1,27 @@
 using Distributions
 using Soss
 
-function m_poly(x, a, b, c, d)
-    return a + b * x[1] + c * x[1]^2 + d * x[1]^3
+function m_poly_(x, params)
+    return params[1] + params[2] * x[1] + params[3] * x[1]^2 + params[4] * x[1]^3
 end
 
-function prob_model_poly()
+function prob_model_poly_()
     return @model X begin
-            a ~ Distributions.Normal(1., 1.)
-            b ~ Distributions.Normal(1., 1.)
-            c ~ Distributions.Normal(1., 1.)
-            d ~ Distributions.Normal(1., 1.)
-
-            σ ~ Distributions.Exponential()
-            Y ~ For(X) do x
-                    Distributions.Normal(m_poly(x, a, b, c, d), σ)
-                end
-            return Y
+        params ~ For(zeros(4)) do _
+            Distributions.Normal(1., 1.)
         end
-end
 
-function model_params_poly()
-    return [:a, :b, :c, :d]
+        noise ~ For(zeros(1)) do _
+            Distributions.Exponential()
+        end
+
+        Y ~ For(collect(eachrow(X))) do x
+            Distributions.Normal(m_poly_(x, params), noise[1])
+        end
+        return Y
+    end
 end
 
 function model_poly()
-    return SSModel(m_poly, prob_model_poly(), model_params_poly())
+    return SSModel(m_poly_, prob_model_poly_())
 end

@@ -1,34 +1,31 @@
 using Distributions
 using Soss
 
-function m_expcos(x, a, b, c, d, e)
-    return a * exp(b * x[1]) * safe_cos(c * x[1] + d) + e
+function m_expcos_(x, params)
+    return params[1] * exp(params[2] * x[1]) * safe_cos_(params[3] * x[1] + params[4]) + params[5]
 end
-function safe_cos(x)
-    isinf(x) && return 0
+function safe_cos_(x)
+    isinf(x) && return 0.
     return cos(x)
 end
 
-function prob_model_expcos()
+function prob_model_expcos_()
     return @model X begin
-            a ~ Distributions.Normal(1., 1.)
-            b ~ Distributions.Normal(1., 1.)
-            c ~ Distributions.Normal(1., 1.)
-            d ~ Distributions.Normal(1., 1.)
-            e ~ Distributions.Normal(1., 1.)
-
-            σ ~ Distributions.Exponential()
-            Y ~ For(X) do x
-                    Distributions.Normal(m_expcos(x, a, b, c, d, e), σ)
-                end
-            return Y
+        params ~ For(zeros(5)) do _
+            Distributions.Normal(1., 1.)
         end
-end
 
-function model_params_expcos()
-    return [:a, :b, :c, :d, :e]
+        noise ~ For(zeros(1)) do _
+            Distributions.Exponential()
+        end
+
+        Y ~ For(collect(eachrow(X))) do x
+            Distributions.Normal(m_expcos_(x, params), noise[1])
+        end
+        return Y
+    end
 end
 
 function model_expcos()
-    return SSModel(m_expcos, prob_model_expcos(), model_params_expcos())
+    return SSModel(m_expcos_, prob_model_expcos_())
 end

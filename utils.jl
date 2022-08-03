@@ -2,7 +2,7 @@ using Distributions
 
 # Sample from uniform distribution.
 function uniform_sample(a, b, sample_size)
-    distr = Product(Uniform.(a, b))
+    distr = Product(Distributions.Uniform.(a, b))
     X = rand(distr, sample_size)
     return vec.(collect.(eachslice(X; dims=length(size(X)))))
 end
@@ -13,17 +13,21 @@ function log_sample(a, b, sample_size)
     return X
 end
 
+# Calculate RMS error with given y values and models predictions for them.
+function rms_error(preds, ys; N=nothing)
+    isnothing(N) && (N = length(preds))
+    return sqrt((1 / N) * sum((preds .- ys).^2))
+end
 # Calculate RMS error with given test data.
 function rms_error(X, Y, model)
-    N = size(X)[1]
-    preds = model.(eachrow(X))
-    return sqrt((1 / N) * sum((preds - Y).^2))
+    dims = size(Y)[2]
+    preds = reduce(hcat, model.(eachrow(X)))'
+    return [rms_error(preds[:,i], Y[:,i]) for i in 1:dims]
 end
-
 # Calculate RMS error using uniformly sampled test data.
 function rms_error(obj_func, model, a, b, sample_count)
-    X = uniform_sample(a, b, sample_count)
-    Y = reduce(vcat, reduce(vcat, obj_func.(X)))
+    X = reduce(hcat, uniform_sample(a, b, sample_count))'
+    Y = reduce(hcat, obj_func.(X))'
     return rms_error(X, Y, model)
 end
 

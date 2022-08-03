@@ -81,7 +81,7 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
 
     # obj func and data
     label = isnothing(obj_func_label) ? "obj_func" : obj_func_label
-    plot!(data_plot, x->obj_func([x])[1], domain_lb[1], domain_ub[1]; label, color=(isnothing(obj_color) ? :green : obj_color))
+    plot!(data_plot, x->obj_func([x]), domain_lb[1], domain_ub[1]; label, color=(isnothing(obj_color) ? :green : obj_color))
     if init_data > 0
         scatter!(data_plot, x_data[1:init_data], y_data[1:init_data]; label="initial data", color=:yellow)
         scatter!(data_plot, x_data[init_data+1:end], y_data[init_data+1:end]; label="requested data", color=:brown)
