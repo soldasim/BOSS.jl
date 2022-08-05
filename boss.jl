@@ -2,8 +2,7 @@ using Plots
 using LinearAlgebra
 using Optim
 using Distributions
-using Soss
-using SampleChainsDynamicHMC
+using Turing
 using Stheno
 
 include("model.jl")
@@ -83,7 +82,7 @@ function boss(fg, fitness, X, Y, Z, model, domain_lb, domain_ub;
         # parametric model
         if plot_all_models || (use_model == :param) || (use_model == :semiparam)
             post_ = sample_posterior(model.prob_model, noise, X, Y; sample_count)
-            param_samples = post_.params
+            param_samples = post_.value.data[:,1:model.param_count,1] #post_.params
             parametric = (x -> model_predict_MC(model.predict, x; param_samples, ϵ_samples, noise, sample_count), nothing)
         else
             parametric = (nothing, nothing)
@@ -182,9 +181,9 @@ function boss(fg, fitness, X, Y, Z, model, domain_lb, domain_ub;
     return X, Y, Z, bsf, errs, plots
 end
 
-function augment_data!(opt_new_x, f, fitness, X, Y, Z, F, bsf; constrained, info)
+function augment_data!(opt_new_x, fg, fitness, X, Y, Z, F, bsf; constrained, info)
     x_ = opt_new_x
-    y_, z_ = f(x_)
+    y_, z_ = fg(x_)
     f_ = fitness(y_)
 
     info && print("  new data-point: x = $x_\n"
@@ -213,9 +212,7 @@ end
 
 # Sample from the posterior parameter distributions given the data 'X', 'Y'.
 function sample_posterior(prob_model, noise, X, Y; sample_count=4000)
-    # TODO test if the workaround is still needed, disabled for now
-    # q = zeros(length(model.params))  # workaround: https://discourse.julialang.org/t/dynamichmc-reached-maximum-number-of-iterations/24721
-    return Soss.sample(prob_model(X=X, noise=noise) | (Y=Y,), dynamichmc(), sample_count)  # dynamichmc(; init=(q=q,))
+    return sample(prob_model(X, Y, noise), NUTS(), sample_count;);
 end
 
 function construct_acq_func(ei, c_model; constrained, best_yet)
@@ -253,7 +250,7 @@ end
 function model_predict_MC(model_predict, x; param_samples, ϵ_samples, noise, sample_count)
     # TODO include the noise ?
     # '+ (noise * ϵ_samples)' excluded -- The mean of ϵ should approach zero so it is unnecessary.
-    return sum([model_predict(x, param_samples[i,:]...) for i in 1:sample_count]) ./ sample_count
+    return sum([model_predict(x, param_samples[i,:]) for i in 1:sample_count]) ./ sample_count
 end
 
 function opt_acquisition(acq, domain_lb, domain_ub; multistart=1, info=true, debug=false)
@@ -264,7 +261,7 @@ function opt_acquisition(acq, domain_lb, domain_ub; multistart=1, info=true, deb
     convergence_errors = 0
     for i in 1:multistart
         try
-            opt_res = Optim.optimize(x -> -acq(x), domain_lb, domain_ub, starts[:,i], Fminbox(LBFGS()))
+            opt_res = Optim.optimize(x -> -acq(x), domain_lb, domain_ub, starts[:,i], Fminbox(NelderMead()))
             res = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
             (res[2] > best_res[2]) && (best_res = res) 
         catch e
@@ -291,7 +288,7 @@ end
 
 function EI_param(fitness, model_predict, x; noise, param_samples, ϵ_samples, sample_count, best_yet)
     # TODO use samples of noise instead of its mean ?
-    pred_samples = [model_predict(x, param_samples[i,:]...) .+ (noise .* ϵ_samples[i,:]) for i in 1:sample_count]
+    pred_samples = [model_predict(x, param_samples[i,:]) .+ (noise .* ϵ_samples[i,:]) for i in 1:sample_count]
     return EI(fitness, pred_samples; sample_count, best_yet)
 end
 
@@ -331,10 +328,10 @@ function constraint_probabilities(c_model)
     return p
 end
 
-function get_best_yet(L, Z; data_size)
+function get_best_yet(F, Z; data_size)
     feasible = get_feasible(Z; data_size)
     isempty(feasible) && return nothing
-    return maximum([L[i] for i in feasible])
+    return maximum([F[i] for i in feasible])
 end
 
 function get_feasible(Z; data_size)
@@ -343,7 +340,7 @@ function get_feasible(Z; data_size)
 end
 
 function is_feasible(z)
-    return all(z .> 0)
+    return all(z .>= 0)
 end
 
 function model_dim_slice(model, dim)

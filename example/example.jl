@@ -7,8 +7,6 @@ include("data.jl")
 # Load model
 include("models/model-expcos.jl")
 include("models/model-lincos.jl")
-include("models/model-exp.jl")
-include("models/model-sq.jl")
 include("models/model-poly.jl")
 
 Random.seed!(5555)
@@ -59,7 +57,7 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
 
     print("Starting $runs runs.\n")
     results = [Vector{RunResult}(undef, runs) for _ in 1:3]
-    for i in 1:runs  # parallel: Threads.@threads
+    for i in 1:runs  # for parallel computation use macro 'Threads.@threads'
         print("Thread $(Threads.threadid()):  Run $i in progress ...\n")
         info = true
 
