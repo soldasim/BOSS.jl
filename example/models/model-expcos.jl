@@ -1,5 +1,7 @@
 using Distributions
 
+# The model 'y = a * exp(b * x) * cos(c * x + d) + e' is defined below.
+
 const expcos_param_count_ = 5
 
 function expcos_predict_(x, params)
@@ -11,7 +13,7 @@ function safe_cos_(x)
 end
 
 @model function expcos_prob_model_(X, Y, noise)
-    params ~ MvNormal(ones(expcos_param_count_), ones(expcos_param_count_))
+    params ~ MvNormal(zeros(expcos_param_count_), 10. * ones(expcos_param_count_))
 
     for i in 1:size(X)[1]
         Y[i,:] ~ MvNormal(expcos_predict_(X[i,:], params), noise)
@@ -19,5 +21,5 @@ end
 end
 
 function model_expcos()
-    return SSModel(expcos_predict_, expcos_prob_model_, expcos_param_count_)
+    return NonlinModel(expcos_predict_, expcos_prob_model_, expcos_param_count_)
 end

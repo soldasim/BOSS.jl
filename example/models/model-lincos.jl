@@ -1,5 +1,7 @@
 using Distributions
 
+# The model 'y = a * x * cos(b * x + c) + d' is defined below.
+
 const lincos_param_count_ = 4
 
 function lincos_predict_(x, params)
@@ -10,14 +12,14 @@ function safe_cos_(x::Real)
     return cos(x)
 end
 
-@model function lincos_prob_model_(X, Y, noise)
-    params ~ MvNormal(ones(lincos_param_count_), ones(lincos_param_count_))
+Turing.@model function lincos_prob_model_(X, Y, noise)
+    params ~ Distributions.MvNormal(ones(lincos_param_count_), ones(lincos_param_count_))
 
     for i in 1:size(X)[1]
-        Y[i,:] ~ MvNormal(lincos_predict_(X[i,:], params), noise)
+        Y[i,:] ~ Distributions.MvNormal(lincos_predict_(X[i,:], params), noise)
     end
 end
 
 function model_lincos()
-    return SSModel(lincos_predict_, lincos_prob_model_, lincos_param_count_)
+    return NonlinModel(lincos_predict_, lincos_prob_model_, lincos_param_count_)
 end

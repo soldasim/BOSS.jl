@@ -23,7 +23,7 @@ function create_plots(f_true, utils, util_opts, models, c_model, X, Y;
         title = (y_dim > 1) ? "ITER $iter, DIM $d" : "ITER $iter"
         models = model_dim_slice.(models, d)
         
-        p = plot_res_1x1(models, x -> f_true(x)[d], X, Y, domain_lb, domain_ub; utils, util_opts, constraints, yaxis_constraint_label="constraint\nsatisfaction probability", title, init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
+        p = plot_res_1x1(models, x -> f_true(x)[d], X, Y, domain_lb, domain_ub; utils, util_opts, constraints, yaxis_constraint_label="constraint\nsatisfaction prob.", title, init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
         push!(plots, p)
     end
     return plots
@@ -63,7 +63,7 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     if !isnothing(utils)
         util_plot = Plots.plot(; xaxis, yaxis=(:log, [0.1, 1.]), ylabel=yaxis_util_label, kwargs...)
 
-        for ui in 1:length(utils)
+        for ui in 1:lastindex(utils)
             isnothing(utils[ui]) && continue
             u_vals = utils[ui].(xs)
             if !isnothing(util_opts)
@@ -88,9 +88,9 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     constraint_plot = nothing
 
     if !isnothing(constraints)
-        constraint_plot = Plots.plot(; xaxis, ylims=(0.,1.), ylabel=yaxis_constraint_label, kwargs...)
+        constraint_plot = Plots.plot(; xaxis, ylims=(-0.1, 1.1), ylabel=yaxis_constraint_label, kwargs...)
 
-        for ci in 1:length(constraints)
+        for ci in 1:lastindex(constraints)
             isnothing(constraints[ci]) && continue
             c_vals = constraints[ci].(xs)
             label = isnothing(constraint_labels) ? "constraint_$ci" : constraint_labels[ci]
@@ -117,11 +117,11 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     end
 
     # models
-    for i in 1:length(models)
+    for i in 1:lastindex(models)
         isnothing(models[i][1]) && continue
         x_range = (xaxis == :log) ? log_range(domain_lb[1],domain_ub[1],points) : collect(LinRange([domain_lb[1]],[domain_ub[1]],points))
         y_range = reduce(vcat, models[i][1].(x_range))
-        var_range = isnothing(models[i][2]) ? nothing : reduce(vcat, models[i][2].(x_range))
+        var_range = isnothing(models[i][2]) ? nothing : getindex.(models[i][2].(x_range), 1)
         label = isnothing(model_labels) ? (length(models) > 1 ? "model_$i" : "model") : model_labels[i]
         color = isnothing(model_colors) ? :red : model_colors[i]
         plot!(data_plot, reduce(vcat, x_range), reduce(vcat, y_range); label, ribbon=var_range, points, color)
@@ -136,6 +136,12 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     return p
 end
 
+function model_dim_slice(model, dim)
+    μ = isnothing(model[1]) ? nothing : x -> model[1](x)[dim]
+    σ = isnothing(model[2]) ? nothing : x -> model[2](x)[dim]
+    return μ, σ
+end
+
 function plot_res_2x1(model, obj_func; points=200)
     x_range = range(A[1], B[1]; length=points)
     y_range = range(A[2], B[2]; length=points)
@@ -147,7 +153,7 @@ end
 function plot_bsf_boxplots(results; show_plot=true, labels=nothing)
     p = plot(; title="Best-so-far solutions found\n(medians with 1st and 3rd quartiles)", legend=:topleft)
 
-    for i in 1:length(results)
+    for i in 1:lastindex(results)
         bsf_data = getfield.(results[i], :bsf)
         bsf_data = reduce(hcat, bsf_data)
         label = isnothing(labels) ? nothing : labels[i]
