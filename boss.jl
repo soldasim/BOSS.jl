@@ -4,6 +4,7 @@ using Optim
 using Distributions
 using Turing
 using Stheno
+using FLoops
 
 include("model.jl")
 include("plotting.jl")
@@ -23,7 +24,7 @@ const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 #              ->   f(x) = y
 #
 # Constrained  -> boss(f, X, Y, Z, model, domain_lb, domain_ub; kwargs...)
-#              ->   f(x) = (y, g1, g2, ...)
+#              ->   f(x) = (y, z)
 
 function boss(f, fitness, X, Y, model::ParamModel, domain_lb, domain_ub; kwargs...)
     fg(x) = f(x), Float64[]
@@ -288,22 +289,24 @@ function opt_acquisition(acq, domain_lb, domain_ub; multistart=1, info=true, deb
     dim = length(domain_lb)
     starts = rand(dim, multistart) .* (domain_ub .- domain_lb) .+ domain_lb
 
-    best_res = (Float64[], -Inf)
+    results = Vector{Tuple{Vector{Float64}, Float64}}(undef, multistart)
     convergence_errors = 0
-    for i in 1:multistart
+    @floop for i in 1:multistart
         try
             opt_res = Optim.optimize(x -> -acq(x), domain_lb, domain_ub, starts[:,i], Fminbox(LBFGS()))
             res = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
             in_domain(res[1], domain_lb, domain_ub) || throw(ErrorException("Optimization result out of the domain."))
-            (res[2] > best_res[2]) && (best_res = res) 
+            results[i] = res
         catch e
-            convergence_errors += 1
             debug && throw(e)
+            @reduce convergence_errors += 1
+            results[i] = ([], -Inf)
         end
     end
 
-    info && (convergence_errors > 0) && print("      $convergence_errors/$multistart optimization runs failed to converge!\n")
-    return best_res
+    info && (convergence_errors > 0) && print("      $(convergence_errors.x)/$(multistart) optimization runs failed to converge!\n")
+    opt_i = argmax([res[2] for res in results])
+    return results[opt_i]
 end
 
 function in_domain(x, domain_lb, domain_ub)
