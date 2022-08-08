@@ -2,7 +2,6 @@ using Random
 using Distributions
 using PyCall
 using LatinHypercubeSampling
-using FLoops
 
 include("../boss.jl")
 include("../example/data.jl")
@@ -53,20 +52,19 @@ function example_continue(max_iters, res; test_data=(nothing, nothing), info=tru
     ), test_data
 end
 
-function compare_models(; save_run_data=false, filename="rundata.jld2", make_plots=false)
+function compare_models(; info=false, save_run_data=false, filename="rundata", make_plots=false)
     # generate data
     test_X, test_Y = generate_test_data_(20)
 
     # experiment settings
-    runs = 2#16
-    max_iters = 2#200
+    runs = 10
+    max_iters = 200
     init_data_size = 19
 
     print("Starting $runs runs.\n")
     results = [Vector{RunResult}(undef, runs) for _ in 1:3]
-    for i in 1:runs  # parallel: @floop
+    for i in 1:runs
         print("Thread $(Threads.threadid()):  Run $i in progress ...\n")
-        info = true
 
         X, Y, Z = generate_init_data_LHC_(init_data_size)
         Z = nothing  # TODO remove
@@ -75,15 +73,16 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
         semiparam_res = run_boss_(X, Y, Z; use_model=:semiparam, max_iters, info, test_X, test_Y, make_plots)
         nonparam_res = run_boss_(X, Y, Z; use_model=:nonparam, max_iters, info, test_X, test_Y, make_plots)
 
-        @inbounds results[1][i] = param_res
-        @inbounds results[2][i] = semiparam_res
-        @inbounds results[3][i] = nonparam_res
+        results[1][i] = param_res
+        results[2][i] = semiparam_res
+        results[3][i] = nonparam_res
+
+        save_run_data && save_data((param_res, semiparam_res, nonparam_res), "motor/data/", filename*"$i.jld2")
     end
 
     labels = ["param", "semiparam", "nonparam"]
     plot_bsf_boxplots(results; labels)
 
-    save_run_data && save_data(results, "example/data/", filename)
     return results
 end
 
@@ -91,7 +90,7 @@ end
 function run_boss_(init_X, init_Y, init_Z; kwargs...)
     util_opt_multistart = 100
 
-    noise_pred = [0.01, 0.01, 0.01]  # TODO modify
+    noise_pred = [0.01, 0.01, 0.01]
     constraint_noise = [0.01, 0.01, 0.01]
 
     fit = fitness(; alpha=(10.)^1, beta=(10.)^5)
