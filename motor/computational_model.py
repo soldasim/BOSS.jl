@@ -171,17 +171,18 @@ def calc(nk, dk, Ds):
     S_stator =  S_solid - S_dct
  
     # # Feasibility check
-    # if ((const_gap - Ds) or ((par.D1 + 2 * D1_gap) - const_D1) or ((const_D2 - (par.D2 - 2 * D2_gap)))) > 0:
-
+    #
+    # const_1 = const_gap - Ds
+    # const_2 = (par.D1 + 2 * D1_gap) - const_D1
+    # const_3 = const_D2 - (par.D2 - 2 * D2_gap)
+    #
+    # if const_1 < 0 and const_2 < 0 and const_3 < 0:
+    #     pass
+    # else:
     #     raise Exception("Infeasible")
 
-    g = (const_gap - Ds) or ((par.D1 + 2 * D1_gap) - const_D1) or ((const_D2 - (par.D2 - 2 * D2_gap)))
-    if g == False: g = 0
+    g1 = - (const_gap - Ds)
+    g2 = - ((par.D1 + 2 * D1_gap) - const_D1)
+    g3 = - ((const_D2 - (par.D2 - 2 * D2_gap)))
 
-    return [Dp, T_av, S_stator], [-g]
-
-    # g1 = (const_gap - Ds)
-    # g2 = ((par.D1 + 2 * D1_gap) - const_D1)
-    # g3 = ((const_D2 - (par.D2 - 2 * D2_gap)))
-
-    # return [Dp, T_av, S_stator], [g1, g2, g3]
+    return [Dp, T_av, S_stator], [g1, g2, g3]
