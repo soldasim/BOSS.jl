@@ -1,4 +1,5 @@
 using Distributions
+using Turing
 
 # The model 'y = a * x * cos(b * x + c) + d' is defined below.
 
@@ -21,5 +22,5 @@ Turing.@model function lincos_prob_model_(X, Y, noise)
 end
 
 function model_lincos()
-    return NonlinModel(lincos_predict_, lincos_prob_model_, lincos_param_count_)
+    return Boss.NonlinModel(lincos_predict_, lincos_prob_model_, lincos_param_count_)
 end

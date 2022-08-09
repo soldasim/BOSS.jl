@@ -1,7 +1,7 @@
 using Random
 using Distributions
 
-include("../boss.jl")
+include("../src/boss.jl")
 include("data.jl")
 
 # Load model
@@ -83,11 +83,11 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
 
     fg(x; noise=0.) = f_true(x; noise), constraints(x; noise)
     fg_noisy(x) = fg(x; noise=noise_real())
-    fitness = LinFitness([1.])
+    fitness = Boss.LinFitness([1.])
 
     constraint_noise = [noise_pred() for _ in 1:2]
 
-    time = @elapsed X, Y, Z, bsf, errs, plots = boss(fg_noisy, fitness, init_X, init_Y, init_Z, model, domain_lb(), domain_ub();
+    time = @elapsed X, Y, Z, bsf, errs, plots = Boss.boss(fg_noisy, fitness, init_X, init_Y, init_Z, model, domain_lb(), domain_ub();
         f_true,
         noise=noise_pred(),
         constraint_noise,

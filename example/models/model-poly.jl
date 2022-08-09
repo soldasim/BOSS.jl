@@ -1,4 +1,5 @@
 using Distributions
+using Turing
 
 # The model 'y = a + b*x + c*x^2 + d*x^3' is defined below.
 
@@ -18,5 +19,5 @@ function poly_priors_()
 end
 
 function model_poly()
-    return LinModel(poly_lift_, poly_priors_())
+    return Boss.LinModel(poly_lift_, poly_priors_())
 end

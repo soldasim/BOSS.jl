@@ -1,3 +1,5 @@
+module Boss
+
 using Plots
 using LinearAlgebra
 using Optim
@@ -9,6 +11,9 @@ using FLoops
 include("model.jl")
 include("plotting.jl")
 include("utils.jl")
+
+export boss
+export LinFitness, NonlinFitness, LinModel, NonlinModel
 
 const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 
@@ -414,3 +419,5 @@ end
 function is_feasible(z)
     return all(z .>= 0)
 end
+
+end  # module

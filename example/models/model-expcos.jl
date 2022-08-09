@@ -1,4 +1,5 @@
 using Distributions
+using Turing
 
 # The model 'y = a * exp(b * x) * cos(c * x + d) + e' is defined below.
 
@@ -21,5 +22,5 @@ end
 end
 
 function model_expcos()
-    return NonlinModel(expcos_predict_, expcos_prob_model_, expcos_param_count_)
+    return Boss.NonlinModel(expcos_predict_, expcos_prob_model_, expcos_param_count_)
 end
