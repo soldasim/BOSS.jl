@@ -61,7 +61,7 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     util_plot = nothing
 
     if !isnothing(utils)
-        util_plot = Plots.plot(; xaxis, yaxis=(:log, [0.1, 1.]), ylabel=yaxis_util_label, kwargs...)
+        util_plot = Plots.plot(; xaxis, yaxis=(:log, [0.09, 1.1]), ylabel=yaxis_util_label, kwargs...)
 
         for ui in 1:lastindex(utils)
             isnothing(utils[ui]) && continue

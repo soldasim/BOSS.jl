@@ -13,8 +13,9 @@ function safe_cos_(x::Real)
     return cos(x)
 end
 
-Turing.@model function lincos_prob_model_(X, Y, noise)
+Turing.@model function lincos_prob_model_(X, Y, noise_priors)
     params ~ Distributions.MvNormal(ones(lincos_param_count_), ones(lincos_param_count_))
+    noise ~ Product(noise_priors)
 
     for i in 1:size(X)[1]
         Y[i,:] ~ Distributions.MvNormal(lincos_predict_(X[i,:], params), noise)

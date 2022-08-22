@@ -28,7 +28,7 @@ end
 
 # experiment settings
 noise_real() = 0.1
-noise_pred() = 0.1
+noise_prior() = LogNormal(-2.3, 1.)
 domain_lb() = [0.] #[0.,0.]
 domain_ub() = [20.] #[20.,20.]
 
@@ -37,7 +37,8 @@ domain_ub() = [20.] #[20.,20.]
 function example(max_iters; kwargs...)
     # generate data
     X, Y, Z = generate_init_data_(6; noise=noise_real(), constrained=true)
-    test_X, test_Y = generate_test_data_(2000)
+    # test_X, test_Y = generate_test_data_(2000)
+    test_X, test_Y = nothing, nothing
 
     # model
     model = model_lincos()
@@ -78,22 +79,30 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
 end
 
 function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
-    sample_count = 2000
-    util_opt_multistart = 100
+    mc_sample_count = 20 #2000
+    acq_opt_multistart = 16 #100
 
     fg(x; noise=0.) = f_true(x; noise), constraints(x; noise)
     fg_noisy(x) = fg(x; noise=noise_real())
     fitness = Boss.LinFitness([1.])
 
-    constraint_noise = [noise_pred() for _ in 1:2]
+    noise_priors = [noise_prior()]
+    constraint_noise_priors = [noise_prior() for _ in 1:2]
+    gp_params_priors = [MvLogNormal(ones(1), ones(1))]
+    constraint_gp_params_priors = [MvLogNormal(ones(1), ones(1)) for _ in 1:2]
+
+    gp_hyperparam_alg = :NUTS
 
     time = @elapsed X, Y, Z, bsf, errs, plots = Boss.boss(fg_noisy, fitness, init_X, init_Y, init_Z, model, domain_lb(), domain_ub();
         f_true,
-        noise=noise_pred(),
-        constraint_noise,
-        sample_count,
-        util_opt_multistart,
+        noise_priors,
+        constraint_noise_priors,
+        mc_sample_count,
+        acq_opt_multistart,
         target_err=nothing,
+        gp_params_priors,
+        constraint_gp_params_priors,
+        gp_hyperparam_alg,
         kwargs...
     )
 

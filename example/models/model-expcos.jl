@@ -13,8 +13,9 @@ function safe_cos_(x)
     return cos(x)
 end
 
-@model function expcos_prob_model_(X, Y, noise)
+@model function expcos_prob_model_(X, Y, noise_priors)
     params ~ MvNormal(zeros(expcos_param_count_), 10. * ones(expcos_param_count_))
+    noise ~ Product(noise_priors)
 
     for i in 1:size(X)[1]
         Y[i,:] ~ MvNormal(expcos_predict_(X[i,:], params), noise)
