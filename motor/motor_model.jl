@@ -1,5 +1,4 @@
 using Distributions
-include("../model.jl")
 
 motor_lift_(x) = [[
     x[1]^2,
@@ -14,6 +13,8 @@ motor_lift_(x) = [[
     1.,
 ] for _ in 1:3]
 
-motor_priors_() = [(zeros(10), Diagonal(ones(10))) for _ in 1:3]
+const motor_param_count_ = 30
 
-motor_model() = LinModel(motor_lift_, motor_priors_())
+motor_priors_() = [Normal(0., 1.) for _ in 1:motor_param_count_]
+
+motor_model() = Boss.LinModel(motor_lift_, motor_priors_(), motor_param_count_)
