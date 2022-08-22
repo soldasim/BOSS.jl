@@ -111,7 +111,9 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain_lb, domai
 
         # parametric model
         if plot_all_models || (use_model == :param) || (use_model == :semiparam)
-            if lin_model && false  # TODO refactor 'lin_param_posterior'
+            if lin_model
+                # TODO refactor needed
+                throw(ErrorException("Support for linear models broken. Needs refactoring."))
                 param_posts = [lin_param_posterior(Φs[i], Y[:,i], model.param_priors[i], noise_priors[i]) for i in 1:y_dim]
                 parametric = (x->lin_model_predict(x, model.lift, getindex.(param_posts, 1)), x->lin_model_vars(x, model.lift, getindex.(param_posts, 2), noise_priors))
             else
