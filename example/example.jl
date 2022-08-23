@@ -19,10 +19,7 @@ function f_true(x; noise=0.)
     return [y]
 end
 
-# Domain constraints on input.
-# function domain_constraints()
-#     return ([0.], [20.])
-# end
+# Domain constraints on input. (x < 15.)
 function domain_constraints()
     # bounds
     lb = [0.]
@@ -32,7 +29,7 @@ function domain_constraints()
     lc = [0.]
     uc = [Inf]
     function cons_c!(c, x)
-        c[1] = -x[1] + 17.5
+        c[1] = -x[1] + 15.
         return c
     end
     function cons_jac!(J, x)
@@ -47,19 +44,15 @@ function domain_constraints()
     return TwiceDifferentiableConstraints(cons_c!, cons_jac!, cons_hes!, lb, ub, lc, uc)
 end
 
-# Feasibility constraints on output. ( g1(x), g2(x), ... > 0 )
+# Feasibility constraints on output. (x > 5.)
 function feasibility_constraints(x; noise=0.)
     distr = Distributions.Normal(0., noise)
     g1 = x[1] - 5 + rand(distr)
-    g2 = - x[1] + 15 + rand(distr)
-    return [g1, g2]
+    return [g1]
 end
 
-# experiment settings
 noise_real() = 0.1
 noise_prior() = LogNormal(-2.3, 1.)
-domain_lb() = [0.] #[0.,0.]
-domain_ub() = [20.] #[20.,20.]
 
 # EXAMPLES - - - - - - - -
 
@@ -117,7 +110,7 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
     gp_hyperparam_alg = :NUTS
 
     noise_priors = [noise_prior()]
-    feasibility_noise_priors = [noise_prior() for _ in 1:2]
+    feasibility_noise_priors = [noise_prior()]
     gp_params_priors = [MvLogNormal(ones(1), ones(1))]
     feasibility_gp_params_priors = [MvLogNormal(ones(1), ones(1)) for _ in 1:2]
 
