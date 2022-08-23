@@ -1,32 +1,30 @@
 using Optim
 
-function construct_acq(ei, c_model; constrained, best_yet)
-    if constrained
+function construct_acq(ei, feasibility_model; feasibility, best_yet)
+    if feasibility
         if isnothing(best_yet)
-            return x -> constraint_weighted_acq(1., x, c_model)
+            return x -> constraint_weighted_acq(1., x, feasibility_model)
         else
-            return x -> constraint_weighted_acq(ei(x), x, c_model)
+            return x -> constraint_weighted_acq(ei(x), x, feasibility_model)
         end
     else
         return ei
     end
 end
 
-function constraint_weighted_acq(acq, x, c_model)
-    return prod(constraint_probabilities(c_model)(x)) * acq
+function constraint_weighted_acq(acq, x, feasibility_model)
+    return prod(feasibility_probabilities(feasibility_model)(x)) * acq
 end
 
-function opt_acq(acq, domain_lb, domain_ub; multistart=1, info=true, debug=false)
-    dim = length(domain_lb)
-    starts = rand(dim, multistart) .* (domain_ub .- domain_lb) .+ domain_lb
-
+# 'domain' is either 'TwiceDifferentiableConstraints' or a Tuple of lb and ub
+function opt_acq(acq, domain; multistart=1, info=true, debug=false)
     results = Vector{Tuple{Vector{Float64}, Float64}}(undef, multistart)
     convergence_errors = 0
     @floop for i in 1:multistart
         try
-            opt_res = Optim.optimize(x -> -acq(x), domain_lb, domain_ub, starts[:,i], Fminbox(LBFGS()))
+            opt_res = optim_(x -> -acq(x), domain)
             res = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
-            in_domain(res[1], domain_lb, domain_ub) || throw(ErrorException("Optimization result out of the domain."))
+            # in_domain(res[1], domain_lb, domain_ub) || throw(ErrorException("Optimization result out of the domain."))
             results[i] = res
         catch e
             debug && throw(e)
@@ -38,6 +36,35 @@ function opt_acq(acq, domain_lb, domain_ub; multistart=1, info=true, debug=false
     info && (convergence_errors > 0) && print("      $(convergence_errors)/$(multistart) optimization runs failed to converge!\n")
     opt_i = argmax([res[2] for res in results])
     return results[opt_i]
+end
+
+function optim_(acq, domain)
+    domain_lb, domain_ub = domain
+    start = generate_starting_point_(domain_lb, domain_ub)
+    return Optim.optimize(acq, domain[1], domain[2], start, Fminbox(LBFGS()))
+end
+function optim_(acq, constraints::TwiceDifferentiableConstraints)
+    domain_lb, domain_ub = get_bounds(constraints)
+
+    # TODO better starting point generation ?
+    start = nothing
+    while isnothing(start) || (!Optim.isinterior(constraints, start))
+        start = generate_starting_point_(domain_lb, domain_ub)
+    end
+
+    return Optim.optimize(acq, constraints, start, IPNewton())
+end
+
+function get_bounds(constraints::TwiceDifferentiableConstraints)
+    domain_lb = constraints.bounds.bx[1:2:end]
+    domain_ub = constraints.bounds.bx[2:2:end]
+    return domain_lb, domain_ub
+end
+
+function generate_starting_point_(domain_lb, domain_ub)
+    dim = length(domain_lb)
+    start = rand(dim) .* (domain_ub .- domain_lb) .+ domain_lb
+    return start
 end
 
 function in_domain(x, domain_lb, domain_ub)

@@ -19,36 +19,34 @@ const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 # TODO refactor: add typing, multiple dispatch, ...
 # TODO docs, comments & example usage
 # TODO refactor model error computation
-# TODO NUTS/LBFGS selection for GP hyperparam opt
-# TODO constraints on input
 
 # Bayesian optimization with a N->N dimensional semiparametric surrogate model.
 # Gaussian noise only. (for now)
 # Plotting only works for 1D->1D problems.
 #
-# Uncostrained -> boss(f, X, Y, model, domain_lb, domain_ub; kwargs...)
-#              ->   f(x) = y
+# w/o feasibility -> boss(f, X, Y, model, domain; kwargs...)
+#                 ->   f(x) = y
 #
-# Constrained  -> boss(f, X, Y, Z, model, domain_lb, domain_ub; kwargs...)
-#              ->   f(x) = (y, z)
+# w/  feasibility -> boss(f, X, Y, Z, model, domain; kwargs...)
+#                 ->   f(x) = (y, z)
 
-function boss(f, fitness, X, Y, model::ParamModel, domain_lb, domain_ub; kwargs...)
+function boss(f, fitness, X, Y, model::ParamModel, domain; kwargs...)
     fg(x) = f(x), Float64[]
-    return boss(fg, fitness, X, Y, nothing, model, domain_lb, domain_ub; kwargs...)
+    return boss(fg, fitness, X, Y, nothing, model, domain; kwargs...)
 end
 
-function boss(f, fitness::Function, X, Y, Z, model::ParamModel, domain_lb, domain_ub; kwargs...)
+function boss(fg, fitness::Function, X, Y, Z, model::ParamModel, domain; kwargs...)
     fit = NonlinFitness(fitness)
-    return boss(f, fit, X, Y, Z, model, domain_lb, domain_ub; kwargs...)
+    return boss(fg, fit, X, Y, Z, model, domain; kwargs...)
 end
 
-function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain_lb, domain_ub;
+function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
     noise_priors,
-    constraint_noise_priors,
+    feasibility_noise_priors,
     mc_sample_count=4000,
     acq_opt_multistart=200,
     gp_params_priors=nothing,
-    constraint_gp_params_priors=nothing,
+    feasibility_gp_params_priors=nothing,
     info=true,
     debug=false,  # stop on exception
     make_plots=false,
@@ -60,7 +58,7 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain_lb, domai
     test_Y=nothing,
     target_err=nothing,
     kernel=Matern52Kernel(),
-    constraint_kernel=kernel,
+    feasibility_kernel=kernel,
     use_model=:semiparam,  # :param, :semiparam, :nonparam
     gp_hyperparam_alg=:NUTS,  # :NUTS, :LBFGS
     kwargs...
@@ -70,13 +68,13 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain_lb, domai
 
     lin_model = (model isa LinModel)
     lin_fitness = (fitness isa LinFitness)
-    constrained = !isnothing(Z)
-    c_count = constrained ? size(Z)[2] : 0
+    feasibility = !isnothing(Z)
+    feasibility_count = feasibility ? size(Z)[2] : 0
     init_data_size = size(X)[1]
     y_dim = size(Y)[2]
     x_dim = size(X)[2]
     isnothing(gp_params_priors) && (gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:y_dim])
-    isnothing(constraint_gp_params_priors) && (constraint_gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:c_count])
+    isnothing(feasibility_gp_params_priors) && (feasibility_gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:feasibility_count])
 
     Φs = lin_model ? init_Φs(model.lift, X) : nothing
     F = [fitness(y) for y in eachrow(Y)]
@@ -94,7 +92,7 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain_lb, domai
         # - - - - - - - - NEW DATA - - - - - - - - - - - - - - - -
         if iter != 0
             info && print("  evaluating the objective function ...\n")
-            X, Y, Z, Φs, F, bsf = augment_data!(opt_new_x, fg, model, fitness, X, Y, Z, Φs, F, bsf; constrained, y_dim, info)
+            X, Y, Z, Φs, F, bsf = augment_data!(opt_new_x, fg, model, fitness, X, Y, Z, Φs, F, bsf; feasibility, y_dim, info)
         end
 
         # - - - - - - - - MODEL INFERENCE - - - - - - - - - - - - - - - -
@@ -107,7 +105,7 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain_lb, domai
             ϵ_samples = rand(Distributions.Normal(), (mc_sample_count, y_dim))
         end
         noise_samples = collect(eachcol(rand(Product(noise_priors), mc_sample_count)))
-        c_noise_samples = collect(eachcol(rand(Product(constraint_noise_priors), mc_sample_count)))
+        feasibility_noise_samples = collect(eachcol(rand(Product(feasibility_noise_priors), mc_sample_count)))
 
         # parametric model
         if plot_all_models || (use_model == :param) || (use_model == :semiparam)
@@ -150,19 +148,19 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain_lb, domai
             nonparametric = (nothing, nothing)
         end
 
-        # constraint models (GPs)
-        if constrained
+        # feasibility models (GPs)
+        if feasibility
             # TODO modify the prior mean ?
-            # TODO provide option for defining semiparametric models for constraints ?
+            # TODO provide option for defining semiparametric models for feasibility constraints ?
             if gp_hyperparam_alg == :LBFGS
-                c_gp_params_ = [gp_fit_params_lbfgs(X, Z[:,i]; kernel=constraint_kernel, params_prior=constraint_gp_params_priors[i], noise_prior=constraint_noise_priors[i], multistart=mc_sample_count, info, debug) for i in 1:c_count]
-                c_model = fit_gps(X, Z, [p[1] for p in c_gp_params_], [p[2] for p in c_gp_params_]; y_dim=c_count, kernel=constraint_kernel)
+                f_gp_params_ = [gp_fit_params_lbfgs(X, Z[:,i]; kernel=feasibility_kernel, params_prior=feasibility_gp_params_priors[i], noise_prior=feasibility_noise_priors[i], multistart=mc_sample_count, info, debug) for i in 1:feasibility_count]
+                feasibility_model = fit_gps(X, Z, [p[1] for p in f_gp_params_], [p[2] for p in f_gp_params_]; y_dim=feasibility_count, kernel=feasibility_kernel)
             elseif gp_hyperparam_alg == :NUTS
-                c_gp_params_ = [gp_sample_params_nuts(X, Z[:,i]; kernel=constraint_kernel, params_prior=constraint_gp_params_priors[i], noise_prior=constraint_noise_priors[i], sample_count=mc_sample_count) for i in 1:c_count]
-                c_model = fit_gps_mc(X, Z, c_gp_params_, c_noise_samples; y_dim=c_count, kernel=constraint_kernel, sample_count=mc_sample_count)
+                f_gp_params_ = [gp_sample_params_nuts(X, Z[:,i]; kernel=feasibility_kernel, params_prior=feasibility_gp_params_priors[i], noise_prior=feasibility_noise_priors[i], sample_count=mc_sample_count) for i in 1:feasibility_count]
+                feasibility_model = fit_gps_mc(X, Z, f_gp_params_, feasibility_noise_samples; y_dim=feasibility_count, kernel=feasibility_kernel, sample_count=mc_sample_count)
             end
         else
-            c_model = nothing
+            feasibility_model = nothing
         end
 
         # - - - - - - - - UTILITY MAXIMIZATION - - - - - - - - - - - - - - - -
@@ -178,22 +176,22 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain_lb, domai
             else
                 ei_param_ = x->EI_nongauss(x, fitness, model.predict, lin_param_samples, noise_samples, ϵ_samples; best_yet=last(bsf), sample_count=mc_sample_count)
             end
-            acq_param = construct_acq(ei_param_, c_model; constrained, best_yet=last(bsf))
-            res_param = opt_acq(acq_param, domain_lb, domain_ub; multistart, info, debug)
+            acq_param = construct_acq(ei_param_, feasibility_model; feasibility, best_yet=last(bsf))
+            res_param = opt_acq(acq_param, domain; multistart, info, debug)
         end
 
         # semiparametric
         if plot_all_models || (use_model == :semiparam)
             ei_semiparam_ = x->EI_gauss(x, fitness, semiparametric, noise_samples, ϵ_samples; best_yet=last(bsf), sample_count=mc_sample_count)
-            acq_semiparam = construct_acq(ei_semiparam_, c_model; constrained, best_yet=last(bsf))
-            res_semiparam = opt_acq(acq_semiparam, domain_lb, domain_ub; multistart, info, debug)
+            acq_semiparam = construct_acq(ei_semiparam_, feasibility_model; feasibility, best_yet=last(bsf))
+            res_semiparam = opt_acq(acq_semiparam, domain; multistart, info, debug)
         end
 
         # nonparametric
         if plot_all_models || (use_model == :nonparam)
             ei_nonparam_ = x->EI_gauss(x, fitness, nonparametric, noise_samples, ϵ_samples; best_yet=last(bsf), sample_count=mc_sample_count)
-            acq_nonparam = construct_acq(ei_nonparam_, c_model; constrained, best_yet=last(bsf))
-            res_nonparam = opt_acq(acq_nonparam, domain_lb, domain_ub; multistart, info, debug)
+            acq_nonparam = construct_acq(ei_nonparam_, feasibility_model; feasibility, best_yet=last(bsf))
+            res_nonparam = opt_acq(acq_nonparam, domain; multistart, info, debug)
         end
 
         opt_new_x, err = select_opt_x_and_calculate_model_error(use_model, res_param, res_semiparam, res_nonparam, parametric, semiparametric, nonparametric, !isnothing(errs), test_X, test_Y; info)
@@ -208,14 +206,13 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain_lb, domai
                 [acq_param, acq_semiparam, acq_nonparam],
                 [res_param, res_semiparam, res_nonparam],
                 [parametric, semiparametric, nonparametric],
-                c_model,
+                feasibility_model,
                 X, Y;
                 iter,
                 y_dim,
-                constrained,
-                c_count,
-                domain_lb,
-                domain_ub,
+                feasibility,
+                feasibility_count,
+                domain,
                 init_data_size,
                 show_plots,
                 kwargs...
@@ -233,7 +230,11 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain_lb, domai
         iter += 1
     end
 
-    return X, Y, Z, bsf, errs, plots
+    if feasibility
+        return X, Y, Z, bsf, errs, plots
+    else
+        return X, Y, bsf, errs, plots     
+    end
 end
 
 function init_Φs(lift, X)
@@ -242,7 +243,7 @@ function init_Φs(lift, X)
     return Φs
 end
 
-function augment_data!(opt_new_x, fg, model, fitness, X, Y, Z, Φs, F, bsf; constrained, y_dim, info)
+function augment_data!(opt_new_x, fg, model, fitness, X, Y, Z, Φs, F, bsf; feasibility, y_dim, info)
     x_ = opt_new_x
     y_, z_ = fg(x_)
     f_ = fitness(y_)
@@ -261,7 +262,7 @@ function augment_data!(opt_new_x, fg, model, fitness, X, Y, Z, Φs, F, bsf; cons
         end
     end
     
-    if constrained
+    if feasibility
         feasible_ = is_feasible(z_)
         info && (feasible_ ? print("                  feasible\n") : print("                  infeasible\n"))
         Z = vcat(Z, [z_...]')
@@ -343,9 +344,9 @@ function lin_param_posterior(Φ, Y_col, param_prior, noise)
     return μθ_, Σθ_
 end
 
-function constraint_probabilities(c_model)
+function feasibility_probabilities(feasibility_model)
     function p(x)
-        μ, σ = c_model[1](x), c_model[2](x)
+        μ, σ = feasibility_model[1](x), feasibility_model[2](x)
         N = length(μ)
         distrs = [Distributions.Normal(μ[i], σ[i]) for i in 1:N]
         return [(1. - cdf(d, 0.)) for d in distrs]

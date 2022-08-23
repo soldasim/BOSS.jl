@@ -1,5 +1,6 @@
 using Random
 using Distributions
+using Optim
 
 include("../src/boss.jl")
 include("data.jl")
@@ -18,8 +19,36 @@ function f_true(x; noise=0.)
     return [y]
 end
 
-# The constraints. ( g1(x), g2(x), ... > 0 )
-function constraints(x; noise=0.)
+# Domain constraints on input.
+# function domain_constraints()
+#     return ([0.], [20.])
+# end
+function domain_constraints()
+    # bounds
+    lb = [0.]
+    ub = [20.]
+
+    # constraints
+    lc = [0.]
+    uc = [Inf]
+    function cons_c!(c, x)
+        c[1] = -x[1] + 17.5
+        return c
+    end
+    function cons_jac!(J, x)
+        J[1,1] = -1. 
+        return J
+    end
+    function cons_hes!(h, x, λ)
+        h[1,1] += λ[1] * 0.
+        return h
+    end
+
+    return TwiceDifferentiableConstraints(cons_c!, cons_jac!, cons_hes!, lb, ub, lc, uc)
+end
+
+# Feasibility constraints on output. ( g1(x), g2(x), ... > 0 )
+function feasibility_constraints(x; noise=0.)
     distr = Distributions.Normal(0., noise)
     g1 = x[1] - 5 + rand(distr)
     g2 = - x[1] + 15 + rand(distr)
@@ -36,7 +65,7 @@ domain_ub() = [20.] #[20.,20.]
 
 function example(max_iters; kwargs...)
     # generate data
-    X, Y, Z = generate_init_data_(6; noise=noise_real(), constrained=true)
+    X, Y, Z = generate_init_data_(6; noise=noise_real(), feasibility=true)
     # test_X, test_Y = generate_test_data_(2000)
     test_X, test_Y = nothing, nothing
 
@@ -60,7 +89,7 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
         print("Thread $(Threads.threadid()):  Run $i in progress ...\n")
         info = true
         
-        X, Y, Z = generate_init_data_(2; noise=noise_real(), constrained=true)
+        X, Y, Z = generate_init_data_(2; noise=noise_real(), feasibility=true)
 
         param_res, _ = run_boss_(model, X, Y, Z; max_iters, test_X, test_Y, use_model=:param, make_plots, info, kwargs...)
         semiparam_res, _ = run_boss_(model, X, Y, Z; max_iters, test_X, test_Y, use_model=:semiparam, make_plots, info, kwargs...)
@@ -82,26 +111,25 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
     mc_sample_count = 20 #2000
     acq_opt_multistart = 16 #100
 
-    fg(x; noise=0.) = f_true(x; noise), constraints(x; noise)
+    fg(x; noise=0.) = f_true(x; noise), feasibility_constraints(x; noise)
     fg_noisy(x) = fg(x; noise=noise_real())
     fitness = Boss.LinFitness([1.])
-
-    noise_priors = [noise_prior()]
-    constraint_noise_priors = [noise_prior() for _ in 1:2]
-    gp_params_priors = [MvLogNormal(ones(1), ones(1))]
-    constraint_gp_params_priors = [MvLogNormal(ones(1), ones(1)) for _ in 1:2]
-
     gp_hyperparam_alg = :NUTS
 
-    time = @elapsed X, Y, Z, bsf, errs, plots = Boss.boss(fg_noisy, fitness, init_X, init_Y, init_Z, model, domain_lb(), domain_ub();
+    noise_priors = [noise_prior()]
+    feasibility_noise_priors = [noise_prior() for _ in 1:2]
+    gp_params_priors = [MvLogNormal(ones(1), ones(1))]
+    feasibility_gp_params_priors = [MvLogNormal(ones(1), ones(1)) for _ in 1:2]
+
+    time = @elapsed X, Y, Z, bsf, errs, plots = Boss.boss(fg_noisy, fitness, init_X, init_Y, init_Z, model, domain_constraints();
         f_true,
         noise_priors,
-        constraint_noise_priors,
+        feasibility_noise_priors,
         mc_sample_count,
         acq_opt_multistart,
         target_err=nothing,
         gp_params_priors,
-        constraint_gp_params_priors,
+        feasibility_gp_params_priors,
         gp_hyperparam_alg,
         kwargs...
     )
@@ -109,11 +137,11 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
     return RunResult(time, X, Y, Z, bsf, errs), plots
 end
 
-function generate_init_data_(size; noise=0., constrained)
+function generate_init_data_(size; noise=0., feasibility)
     X = hcat(rand(Product(Distributions.Uniform.(domain_lb(), domain_ub())), size))'
     Y = reduce(hcat, [f_true(x; noise) for x in eachrow(X)])'
-    if constrained
-        Z = reduce(hcat, [constraints(x; noise) for x in eachrow(X)])'
+    if feasibility
+        Z = reduce(hcat, [feasibility_constraints(x; noise) for x in eachrow(X)])'
         return X, Y, Z
     else
         return X, Y

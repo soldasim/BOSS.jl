@@ -1,29 +1,35 @@
 using Plots; pyplot()
 using LaTeXStrings
 using Statistics
+using Optim
 
-function create_plots(f_true, utils, util_opts, models, c_model, X, Y;
+function create_plots(f_true, utils, util_opts, models, feasibility_model, X, Y;
     iter,
     y_dim,
-    constrained,
-    c_count,
-    domain_lb,
-    domain_ub,
+    feasibility,
+    feasibility_count,
+    domain,
     init_data_size,
     show_plots,
     kwargs...
 )
+    if domain isa TwiceDifferentiableConstraints
+        domain_lb, domain_ub = get_bounds(domain)
+    else
+        domain_lb, domain_ub = domain
+    end
+
     colors = [:red, :purple, :blue]
     labels = ["param", "semiparam", "nonparam"]
-    util_label = constrained ? "cwEI" : "EI"
-    constraints = constrained ? [x -> constraint_probabilities(c_model)(x)[i] for i in 1:c_count] : nothing
+    util_label = feasibility ? "cwEI" : "EI"
+    feasibility_funcs = feasibility ? [x -> feasibility_probabilities(feasibility_model)(x)[i] for i in 1:feasibility_count] : nothing
 
     plots = Plots.Plot[]
     for d in 1:y_dim
         title = (y_dim > 1) ? "ITER $iter, DIM $d" : "ITER $iter"
         models = model_dim_slice.(models, d)
         
-        p = plot_res_1x1(models, x -> f_true(x)[d], X, Y, domain_lb, domain_ub; utils, util_opts, constraints, yaxis_constraint_label="constraint\nsatisfaction prob.", title, init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
+        p = plot_res_1x1(models, x -> f_true(x)[d], X, Y, domain_lb, domain_ub; utils, util_opts, feasibility_funcs, yaxis_feasibility_label="feasibility constraint\nsatisfaction prob.", title, init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
         push!(plots, p)
     end
     return plots
@@ -32,7 +38,7 @@ end
 function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     utils=nothing,
     util_opts=nothing,
-    constraints=nothing,
+    feasibility_funcs=nothing,
     points=200,
     title="",
     show_plot=true,
@@ -41,16 +47,16 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     obj_func_label=nothing,
     model_labels=nothing,
     util_labels=nothing,
-    constraint_labels=nothing,
+    feasibility_labels=nothing,
     xaxis_label=nothing,
     yaxis_util_label="normalized utility",
     yaxis_data_label=nothing,
-    yaxis_constraint_label="constraints",
+    yaxis_feasibility_label="feasibility",
     init_data=0,
     obj_color=nothing,
     model_colors=nothing,
     util_colors=nothing,
-    constraint_colors=nothing,
+    feasibility_colors=nothing,
     kwargs...
 )
     x_data = X
@@ -84,20 +90,20 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
         end
     end
 
-    # CONSTRAINTS PLOT
-    constraint_plot = nothing
+    # FEASIBILITY PLOT
+    feasibility_plot = nothing
 
-    if !isnothing(constraints)
-        constraint_plot = Plots.plot(; xaxis, ylims=(-0.1, 1.1), ylabel=yaxis_constraint_label, kwargs...)
+    if !isnothing(feasibility_funcs)
+        feasibility_plot = Plots.plot(; xaxis, ylims=(-0.1, 1.1), ylabel=yaxis_feasibility_label, kwargs...)
 
-        for ci in 1:lastindex(constraints)
-            isnothing(constraints[ci]) && continue
-            c_vals = constraints[ci].(xs)
-            label = isnothing(constraint_labels) ? "constraint_$ci" : constraint_labels[ci]
-            if isnothing(constraint_colors)
-                plot!(constraint_plot, reduce(vcat, xs), reduce(vcat, c_vals); label)
+        for fi in 1:lastindex(feasibility_funcs)
+            isnothing(feasibility_funcs[fi]) && continue
+            f_vals = feasibility_funcs[fi].(xs)
+            label = isnothing(feasibility_labels) ? "feasibility_$fi" : feasibility_labels[fi]
+            if isnothing(feasibility_colors)
+                plot!(feasibility_plot, reduce(vcat, xs), reduce(vcat, f_vals); label)
             else
-                plot!(constraint_plot, reduce(vcat, xs), reduce(vcat, c_vals); label, color=constraint_colors[ci])
+                plot!(feasibility_plot, reduce(vcat, xs), reduce(vcat, f_vals); label, color=feasibility_colors[fi])
             end
         end
     end
@@ -129,7 +135,7 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     
     # COMBINED PLOT
     plots = [data_plot]
-    isnothing(constraint_plot) || push!(plots, constraint_plot)
+    isnothing(feasibility_plot) || push!(plots, feasibility_plot)
     isnothing(util_plot) || push!(plots, util_plot)
     p = Plots.plot(plots...; layout=(length(plots),1), legend=:outerright, minorgrid=true, xlabel=xaxis_label, kwargs...)
     show_plot && display(p)
