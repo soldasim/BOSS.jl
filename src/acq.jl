@@ -20,7 +20,7 @@ end
 function opt_acq(acq, domain; multistart=1, info=true, debug=false)
     results = Vector{Tuple{Vector{Float64}, Float64}}(undef, multistart)
     convergence_errors = 0
-    @floop for i in 1:multistart
+    for i in 1:multistart  # @floop TODO
         try
             opt_res = optim_(x -> -acq(x), domain)
             res = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
@@ -73,9 +73,7 @@ function in_domain(x, domain_lb, domain_ub)
     return true
 end
 
-# Used when: model posterior predictive distribution is Gaussian
-#            and fitness is linear
-function EI_gauss(x, fitness::LinFitness, model, noise_samples, ϵ_samples; best_yet, sample_count)
+function EI(x, fitness::LinFitness, model, ϵ_samples; best_yet, sample_count)
     μy, Σy = model[1](x), model[2](x)
 
     μf = fitness.coefs' * μy
@@ -85,20 +83,9 @@ function EI_gauss(x, fitness::LinFitness, model, noise_samples, ϵ_samples; best
     return (μf - best_yet) * cdf(Distributions.Normal(), norm_ϵ) + σf * pdf(Distributions.Normal(), norm_ϵ)
 end
 
-# Used when: model posterior predictive distribution is Gaussian
-#            but fitness is NOT linear
-function EI_gauss(x, fitness::NonlinFitness, model, noise_samples, ϵ_samples; best_yet, sample_count)
+# TODO try run with NonlinFitness
+function EI(x, fitness::NonlinFitness, model, ϵ_samples; best_yet, sample_count)
     μy, Σy = model[1](x), model[2](x)
-    pred_samples = [μy .+ (noise_samples[i] .* ϵ_samples[i]) for i in 1:sample_count]
-    return EI_MC(fitness, pred_samples; sample_count, best_yet)
-end
-
-# Used when: model posterior predictive distribution is NOT Gaussian
-function EI_nongauss(x, fitness::Fitness, model_predict, param_samples, noise_samples, ϵ_samples; best_yet, sample_count)
-    pred_samples = [model_predict(x, param_samples[i]) .+ (noise_samples[i] .* ϵ_samples[i]) for i in 1:sample_count]
-    return EI_MC(fitness, pred_samples; sample_count, best_yet)
-end
-
-function EI_MC(fitness::Fitness, pred_samples; sample_count, best_yet)
+    pred_samples = [μy .+ (Σy .* ϵ_samples[i,:]) for i in 1:sample_count]
     return sum(max.(0, fitness.(pred_samples) .- best_yet)) / sample_count
 end

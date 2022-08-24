@@ -20,10 +20,11 @@ function f_true(x; noise=0.)
 end
 
 # Domain constraints on input. (x < 15.)
+domain_bounds() = [0.], [20.]
+
 function domain_constraints()
     # bounds
-    lb = [0.]
-    ub = [20.]
+    lb, ub = domain_bounds()
 
     # constraints
     lc = [0.]
@@ -58,7 +59,7 @@ noise_prior() = LogNormal(-2.3, 1.)
 
 function example(max_iters; kwargs...)
     # generate data
-    X, Y, Z = generate_init_data_(6; noise=noise_real(), feasibility=true)
+    X, Y, Z = generate_init_data_(2; noise=noise_real(), feasibility=true)
     # test_X, test_Y = generate_test_data_(2000)
     test_X, test_Y = nothing, nothing
 
@@ -106,7 +107,10 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
 
     fg(x; noise=0.) = f_true(x; noise), feasibility_constraints(x; noise)
     fg_noisy(x) = fg(x; noise=noise_real())
+    
     fitness = Boss.LinFitness([1.])
+    # fitness = Boss.NonlinFitness(y -> y[1])
+    
     gp_hyperparam_alg = :NUTS
 
     noise_priors = [noise_prior()]
@@ -131,7 +135,7 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
 end
 
 function generate_init_data_(size; noise=0., feasibility)
-    X = hcat(rand(Product(Distributions.Uniform.(domain_lb(), domain_ub())), size))'
+    X = hcat(rand(Product(Distributions.Uniform.(domain_bounds()...)), size))'
     Y = reduce(hcat, [f_true(x; noise) for x in eachrow(X)])'
     if feasibility
         Z = reduce(hcat, [feasibility_constraints(x; noise) for x in eachrow(X)])'

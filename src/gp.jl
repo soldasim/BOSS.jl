@@ -28,12 +28,11 @@ function construct_finite_gp(X; mean=x->0., kernel, params, noise)
     all(params .> 0.) || throw(ArgumentError("Params must be positive."))
     (noise < 0.) && throw(ArgumentError("Noise cannot be negative."))
 
-    # kernel = kernel ∘ ScaleTransform(params[1])
     kernel = with_lengthscale(kernel, params)  # TODO add amplitude? ( * amp)  "https://discourse.julialang.org/t/gaussian-process-model-with-turing/42453/13"
     return GP(mean, kernel)(X', noise + MIN_NOISE())  # 'MIN_NOISE' for numerical stability
 end
 
-function gp_sample_params_nuts(X, y; mean=x->0., kernel, params_prior, noise_prior, sample_count)
+function gp_sample_params_nuts(X, y; x_dim, mean=x->0., kernel, params_prior, noise_prior, sample_count)
     Turing.@model function gp_model(X, y, mean, kernel, params_prior, noise_prior)
         params ~ params_prior
         noise ~ noise_prior
@@ -42,9 +41,9 @@ function gp_sample_params_nuts(X, y; mean=x->0., kernel, params_prior, noise_pri
     end
 
     chain = Turing.sample(gp_model(X, y, mean, kernel, params_prior, noise_prior), NUTS(), sample_count; verbose=false)
-    param_samples = collect(eachrow(chain.value.data[:,1:gp_param_len(size(X)[2]),1]))
-    # return Distributions.mean(param_samples)
-    return param_samples
+    params = reduce(hcat, [chain[Symbol("params[$i]")][:] for i in 1:gp_param_len(x_dim)])
+    noise = chain[:noise][:]
+    return params, noise
 end
 
 function gp_params_loglikelihood(X, y; mean=x->0., kernel, params_prior, noise_prior)

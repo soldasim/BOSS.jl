@@ -1,4 +1,5 @@
 # TODO docs, comments & example
+# !!! use var names 'params' and 'noise' in prob model
 
 # - - - - - - - - FITNESS - - - - - - - - - - - - - - - -
 
