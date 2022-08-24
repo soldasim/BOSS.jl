@@ -58,12 +58,10 @@ noise_prior() = LogNormal(-2.3, 1.)
 # EXAMPLES - - - - - - - -
 
 function example(max_iters; kwargs...)
-    # generate data
     X, Y, Z = generate_init_data_(2; noise=noise_real(), feasibility=true)
     # test_X, test_Y = generate_test_data_(2000)
     test_X, test_Y = nothing, nothing
 
-    # model
     model = model_lincos()
 
     return run_boss_(model, X, Y, Z; max_iters, info=true, make_plots=true, plot_all_models=true, test_X, test_Y, kwargs...)
@@ -112,6 +110,7 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
     # fitness = Boss.NonlinFitness(y -> y[1])
     
     gp_hyperparam_alg = :NUTS
+    # gp_hyperparam_alg = :LBFGS
 
     noise_priors = [noise_prior()]
     feasibility_noise_priors = [noise_prior()]

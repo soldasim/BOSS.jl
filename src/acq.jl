@@ -1,4 +1,7 @@
 using Optim
+using FLoops
+
+include("model.jl")
 
 function construct_acq(ei, feasibility_model; feasibility, best_yet)
     if feasibility
@@ -20,7 +23,7 @@ end
 function opt_acq(acq, domain; multistart=1, info=true, debug=false)
     results = Vector{Tuple{Vector{Float64}, Float64}}(undef, multistart)
     convergence_errors = 0
-    for i in 1:multistart  # @floop TODO
+    @floop for i in 1:multistart
         try
             opt_res = optim_(x -> -acq(x), domain)
             res = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
@@ -83,7 +86,6 @@ function EI(x, fitness::LinFitness, model, ϵ_samples; best_yet, sample_count)
     return (μf - best_yet) * cdf(Distributions.Normal(), norm_ϵ) + σf * pdf(Distributions.Normal(), norm_ϵ)
 end
 
-# TODO try run with NonlinFitness
 function EI(x, fitness::NonlinFitness, model, ϵ_samples; best_yet, sample_count)
     μy, Σy = model[1](x), model[2](x)
     pred_samples = [μy .+ (Σy .* ϵ_samples[i,:]) for i in 1:sample_count]
