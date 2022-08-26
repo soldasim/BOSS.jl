@@ -13,12 +13,6 @@ function create_plots(f_true, utils, util_opts, models, feasibility_model, X, Y;
     show_plots,
     kwargs...
 )
-    if domain isa TwiceDifferentiableConstraints
-        domain_lb, domain_ub = get_bounds(domain)
-    else
-        domain_lb, domain_ub = domain
-    end
-
     colors = [:red, :purple, :blue]
     labels = ["param", "semiparam", "nonparam"]
     util_label = feasibility ? "cwEI" : "EI"
@@ -29,13 +23,13 @@ function create_plots(f_true, utils, util_opts, models, feasibility_model, X, Y;
         title = (y_dim > 1) ? "ITER $iter, DIM $d" : "ITER $iter"
         models = model_dim_slice.(models, d)
         
-        p = plot_res_1x1(models, x -> f_true(x)[d], X, Y, domain_lb, domain_ub; utils, util_opts, feasibility_funcs, yaxis_feasibility_label="feasibility constraint\nsatisfaction prob.", title, init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
+        p = plot_res_1x1(models, x -> f_true(x)[d], X, Y, domain; utils, util_opts, feasibility_funcs, yaxis_feasibility_label="feasibility constraint\nsatisfaction prob.", title, init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
         push!(plots, p)
     end
     return plots
 end
 
-function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
+function plot_res_1x1(models, obj_func, x_data, y_data, domain;
     utils=nothing,
     util_opts=nothing,
     feasibility_funcs=nothing,
@@ -59,8 +53,11 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
     feasibility_colors=nothing,
     kwargs...
 )
-    x_data = X
-    y_data = Y
+    if domain isa TwiceDifferentiableConstraints
+        domain_lb, domain_ub = get_bounds(domain)
+    else
+        domain_lb, domain_ub = domain
+    end
     xs = LinRange(domain_lb, domain_ub, points)
 
     # UTIL PLOT
@@ -71,15 +68,15 @@ function plot_res_1x1(models, obj_func, X, Y, domain_lb, domain_ub;
 
         for ui in 1:lastindex(utils)
             isnothing(utils[ui]) && continue
-            u_vals = utils[ui].(xs)
-            if !isnothing(util_opts)
-                u_opt = util_opts[ui]
-                if !isnothing(u_opt)
-                    u_max = max(u_opt[2], maximum(u_vals))
-                    (u_max != 0) && (u_vals .*= (1/u_max) * (9/10))
-                    u_vals .+= 0.1
-                    scatter!(util_plot, u_opt[1], [u_opt[2] / u_max]; label="", color=util_colors[ui])
+            u_vals = util_vals(utils[ui], xs, domain)
+            if !(isnothing(util_opts) || isnothing(util_opts[ui]))
+                u_opt_x, u_opt_y = util_opts[ui]
+                u_max = max(u_opt_y, maximum(u_vals))
+                if u_max > 0.
+                    u_vals = u_vals .* ((1/u_max) * (9/10)) .+ 0.1
+                    u_opt_y = u_opt_y .* ((1/u_max) * (9/10)) .+ 0.1
                 end
+                scatter!(util_plot, u_opt_x, [u_opt_y]; label="", color=util_colors[ui])
             end
             label = isnothing(util_labels) ? "utility_$ui" : util_labels[ui]
             if isnothing(util_colors)
@@ -171,4 +168,12 @@ function plot_bsf_boxplots(results; show_plot=true, labels=nothing)
 
     show_plot && display(p)
     return p
+end
+
+function util_vals(util, xs, domain::Tuple)
+    return util.(xs)
+end
+function util_vals(util, xs, domain::TwiceDifferentiableConstraints)
+    interior = Optim.isinterior.(Ref(domain), xs)
+    return [(interior[i] ? util(xs[i]) : 0.) for i in eachindex(xs)]
 end

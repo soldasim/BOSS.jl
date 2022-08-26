@@ -1,62 +1,109 @@
 # TODO docs, comments & example
-# !!! use var names 'params' and 'noise' in prob model
-
-# - - - - - - - - FITNESS - - - - - - - - - - - - - - - -
-
-abstract type Fitness end
-
-"""
-Used to define a linear fitness function for the BOSS algorithm.
-
-# Example
-A fitness function 'f(y) = y[1] + a * y[2] + b * y[3]' can be defined as:
-```julia-repl
-julia> LinFitness([1., a, b])
-```
-"""
-struct LinFitness <: Fitness
-    coefs
-end
-function (f::LinFitness)(y)
-    return f.coefs' * y
-end
-
-"""
-Used to define a fitness function for the BOSS algorithm.
-If possible, the 'LinFitness' option should be used instead for a better performance.
-
-# Example
-```julia-repl
-julia> NonlinFitness(y -> cos(y[1]) + sin(y[2]))
-```
-"""
-struct NonlinFitness <: Fitness
-    fitness
-end
-function (f::NonlinFitness)(y)
-    return f.fitness(y)
-end
-
-# - - - - - - - - MODEL - - - - - - - - - - - - - - - -
 
 abstract type ParamModel end
 
+function (m::ParamModel)(params)
+    return x -> m(x, params)
+end
+
 """
+!!! CURRENTLY UNSUPPORTED !!!
+
 Used to define a linear parametric model for the BOSS algorithm.
 The model has to be linear in its parameters and have Gaussian parameter priors.
 This model definition provides better performance than the 'NonlinModel' option.
+
+The linear model is defined as
+    ϕs = lift(x)
+    y = [θs[i]' * ϕs[i] for i in 1:m]
+where
+    x = [x₁, ..., xₙ]
+    y = [y₁, ..., yₘ]
+    θs = [θ₁, ..., θₘ], θ_i = [θᵢ₁, ..., θᵢₚ]
+    ϕs = [ϕ₁, ..., ϕₘ], ϕ_i = [ϕᵢ₁, ..., ϕᵢₚ]
+     n, m, p ∈ R .
+
+# Fields
+  - lift:           A function: x::Vector{Float64} -> ϕs::Vector{Vector{Float64}}
+  - param_priors:   A vector of priors for all params θᵢⱼ.
+  - param_count:    The number of model parameters. Equal to 'm * p'.
 """
 struct LinModel <: ParamModel
-    lift
-    param_priors
+    lift::Function
+    param_priors::Vector{Normal}
+    param_count::Int
+end
+
+function (m::LinModel)(x, params)
+    ϕs = m.lift(x)
+    m = length(ϕs)
+    θs = [params[(i-1)*m.θ_len:(i)*m.θ_len] for i in 1:m]
+    y = transpose.(θs) .* ϕs
+    return y
 end
 
 """
 Used to define a parametric model for the BOSS algorithm.
-If possible, the 'LinModel' option should be used instead for a better performance.
+
+# Fields
+  - predict:        A function: x::Vector{Float64}, params::Vector{Float64} -> y::Vector{Float64}
+  - param_priors:   A vector of priors for each model parameter.
+  - param_count:    The number of model parameters. (The length of 'params'.)
 """
-struct NonlinModel <: ParamModel
-    predict
-    prob_model
-    param_count
+struct NonlinModel{D} <: ParamModel
+    predict::Function
+    param_priors::Vector{D}
+    param_count::Int
+end
+
+function (m::NonlinModel)(x, params)
+    return m.predict(x, params)
+end
+
+# - - - - - - - - - - - - - - - - - - - - - - - -
+
+function param_posterior(Φs, Y, model::LinModel, noise_priors)
+    throw(ErrorException("Support for linear models not implemented yet."))
+    # θ_posterior_(...)
+end
+
+function θ_posterior_(Φ, y, θ_prior, noise)
+    # refactor for noise prior instead of a given noise value
+
+    ω = 1 / noise
+    μθ, Σθ = θ_prior
+    inv_Σθ = inv(Σθ)
+
+    Σθ_ = inv(inv_Σθ + ω * Φ' * Φ)
+    μθ_ = Σθ_ * (inv_Σθ * μθ + ω * Φ' * y)
+
+    return μθ_, Σθ_
+end
+
+function fit_model_params_lbfgs(X, Y, model::ParamModel, noise_priors; y_dim, multistart, info=true, debug=false, min_param_value=1e-6)
+    xs = collect(eachrow(X))
+    data_size = length(xs)
+
+    softplus(x) = log(1. + exp(x))
+    lift(p) = softplus.(p) .+ min_param_value  # 'min_param_value' for numerical stability
+
+    function loglike(p)
+        noise, params = p[1:y_dim], p[y_dim+1:end]
+        μs = model(params).(xs)
+        
+        L_data = sum([logpdf(MvNormal(μs[i], noise), Y[i,:]) for i in 1:data_size])
+        L_params = sum([logpdf(model.param_priors[i], params[i]) for i in 1:model.param_count])
+        L_noise = sum([logpdf(noise_priors[i], noise[i]) for i in 1:y_dim])
+        return L_data + L_params + L_noise
+    end
+
+    starts = reduce(hcat, [generate_start_(model, noise_priors) for _ in 1:multistart])'
+    p, _ = optim_params(p -> loglike(lift(p)), starts; info, debug)
+    p = lift(p)
+    noise, params = p[1:y_dim], p[y_dim+1:end]
+    return params, noise
+end
+
+function generate_start_(model, noise_priors)
+    return vcat([rand(d) for d in noise_priors], [rand(d) for d in model.param_priors])
 end

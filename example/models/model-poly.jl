@@ -3,6 +3,8 @@ using Turing
 
 # The model 'y = a + b*x + c*x^2 + d*x^3' is defined below.
 
+const poly_param_count_ = 4
+
 function poly_lift_(x)
     ϕ1 = [
         1.,
@@ -14,10 +16,13 @@ function poly_lift_(x)
 end
 
 function poly_priors_()
-    p1 = (zeros(4), Diagonal(10. * ones(4)))
-    return [p1]
+    return [Normal(1., 1.) for _ in 1:poly_param_count_]
 end
 
-function model_poly()
-    return Boss.LinModel(poly_lift_, poly_priors_())
+function poly()
+    return Boss.LinModel(
+        poly_lift_,
+        poly_priors_(),
+        poly_param_count_,
+    )
 end

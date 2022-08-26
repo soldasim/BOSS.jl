@@ -1,7 +1,40 @@
 using Optim
 using FLoops
+using LatinHypercubeSampling
 
-include("model.jl")
+abstract type Fitness end
+
+"""
+Used to define a linear fitness function for the BOSS algorithm.
+
+# Example
+A fitness function 'f(y) = y[1] + a * y[2] + b * y[3]' can be defined as:
+```julia-repl
+julia> LinFitness([1., a, b])
+```
+"""
+struct LinFitness <: Fitness
+    coefs
+end
+function (f::LinFitness)(y)
+    return f.coefs' * y
+end
+
+"""
+Used to define a fitness function for the BOSS algorithm.
+If possible, the 'LinFitness' option should be used instead for a better performance.
+
+# Example
+```julia-repl
+julia> NonlinFitness(y -> cos(y[1]) + sin(y[2]))
+```
+"""
+struct NonlinFitness <: Fitness
+    fitness
+end
+function (f::NonlinFitness)(y)
+    return f.fitness(y)
+end
 
 function construct_acq(ei, feasibility_model; feasibility, best_yet)
     if feasibility
@@ -19,61 +52,14 @@ function constraint_weighted_acq(acq, x, feasibility_model)
     return prod(feasibility_probabilities(feasibility_model)(x)) * acq
 end
 
-# 'domain' is either 'TwiceDifferentiableConstraints' or a Tuple of lb and ub
-function opt_acq(acq, domain; multistart=1, info=true, debug=false)
-    results = Vector{Tuple{Vector{Float64}, Float64}}(undef, multistart)
-    convergence_errors = 0
-    @floop for i in 1:multistart
-        try
-            opt_res = optim_(x -> -acq(x), domain)
-            res = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
-            # in_domain(res[1], domain_lb, domain_ub) || throw(ErrorException("Optimization result out of the domain."))
-            results[i] = res
-        catch e
-            debug && throw(e)
-            @reduce convergence_errors += 1
-            results[i] = ([], -Inf)
-        end
+function feasibility_probabilities(feasibility_model)
+    function p(x)
+        μ, σ = feasibility_model[1](x), feasibility_model[2](x)
+        N = length(μ)
+        distrs = [Distributions.Normal(μ[i], σ[i]) for i in 1:N]
+        return [(1. - cdf(d, 0.)) for d in distrs]
     end
-
-    info && (convergence_errors > 0) && print("      $(convergence_errors)/$(multistart) optimization runs failed to converge!\n")
-    opt_i = argmax([res[2] for res in results])
-    return results[opt_i]
-end
-
-function optim_(acq, domain)
-    domain_lb, domain_ub = domain
-    start = generate_starting_point_(domain_lb, domain_ub)
-    return Optim.optimize(acq, domain[1], domain[2], start, Fminbox(LBFGS()))
-end
-function optim_(acq, constraints::TwiceDifferentiableConstraints)
-    domain_lb, domain_ub = get_bounds(constraints)
-
-    # TODO better starting point generation ?
-    start = nothing
-    while isnothing(start) || (!Optim.isinterior(constraints, start))
-        start = generate_starting_point_(domain_lb, domain_ub)
-    end
-
-    return Optim.optimize(acq, constraints, start, IPNewton())
-end
-
-function get_bounds(constraints::TwiceDifferentiableConstraints)
-    domain_lb = constraints.bounds.bx[1:2:end]
-    domain_ub = constraints.bounds.bx[2:2:end]
-    return domain_lb, domain_ub
-end
-
-function generate_starting_point_(domain_lb, domain_ub)
-    dim = length(domain_lb)
-    start = rand(dim) .* (domain_ub .- domain_lb) .+ domain_lb
-    return start
-end
-
-function in_domain(x, domain_lb, domain_ub)
-    any(x .< domain_lb) && return false
-    any(x .> domain_ub) && return false
-    return true
+    return p
 end
 
 function EI(x, fitness::LinFitness, model, ϵ_samples; best_yet, sample_count)
@@ -90,4 +76,61 @@ function EI(x, fitness::NonlinFitness, model, ϵ_samples; best_yet, sample_count
     μy, Σy = model[1](x), model[2](x)
     pred_samples = [μy .+ (Σy .* ϵ_samples[i,:]) for i in 1:sample_count]
     return sum(max.(0, fitness.(pred_samples) .- best_yet)) / sample_count
+end
+
+# 'domain' is a Tuple of lb and ub or TwiceDifferentiableConstraints
+function opt_acq(acq, domain; x_dim, multistart=1, info=true, debug=false)
+    # starts = generate_starts_random_(domain, multistart)
+    starts = generate_starts_LHC_(domain, multistart; x_dim)
+    return optim_params(acq, starts, domain; info, debug)
+end
+
+function generate_starts_LHC_(domain::Tuple, count; x_dim)
+    lb, ub = domain
+    starts = scaleLHC(randomLHC(count, x_dim), [(lb[i], ub[i]) for i in 1:x_dim])
+    return starts
+end
+function generate_starts_LHC_(domain::TwiceDifferentiableConstraints, count; x_dim)
+    bounds = get_bounds(domain)
+    starts = generate_starts_LHC_(bounds, count; x_dim)
+    
+    # replace exterior vertices with random points
+    interior = Optim.isinterior.(Ref(domain), collect(eachrow(starts)))
+    for i in 1:count
+        interior[i] && continue
+        starts[i,:] = generate_start_(domain)
+    end
+
+    return starts
+end
+
+function generate_starts_random_(domain, count)
+    return reduce(hcat, [generate_starting_point_(domain) for _ in 1:count])'
+end
+
+function generate_start_(domain::Tuple)
+    lb, ub = domain
+    dim = length(lb)
+    start = rand(dim) .* (ub .- lb) .+ lb
+    return start
+end
+function generate_start_(domain::TwiceDifferentiableConstraints)
+    bounds = get_bounds(domain)
+    start = nothing
+    while isnothing(start) || (!Optim.isinterior(domain, start))
+        start = generate_start_(bounds)
+    end
+    return start
+end
+
+function get_bounds(constraints::TwiceDifferentiableConstraints)
+    domain_lb = constraints.bounds.bx[1:2:end]
+    domain_ub = constraints.bounds.bx[2:2:end]
+    return domain_lb, domain_ub
+end
+
+function in_domain(x, domain_lb, domain_ub)
+    any(x .< domain_lb) && return false
+    any(x .> domain_ub) && return false
+    return true
 end

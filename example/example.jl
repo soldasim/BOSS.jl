@@ -53,12 +53,12 @@ function feasibility_constraints(x; noise=0.)
 end
 
 noise_real() = 0.1
-noise_prior() = LogNormal(-2.3, 1.)
+noise_prior() = LogNormal(-2.3, 0.5)
 
 # EXAMPLES - - - - - - - -
 
 function example(max_iters; kwargs...)
-    X, Y, Z = generate_init_data_(2; noise=noise_real(), feasibility=true)
+    X, Y, Z = generate_init_data_(6; noise=noise_real(), feasibility=true)
     # test_X, test_Y = generate_test_data_(2000)
     test_X, test_Y = nothing, nothing
 
@@ -100,8 +100,9 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
 end
 
 function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
-    mc_sample_count = 20 #2000
-    acq_opt_multistart = 16 #100
+    mc_settings = Boss.MCSettings(100, 5, 8, 3) #Boss.MCSettings(400, 20, 8, 6)
+    acq_opt_multistart = 16 #80
+    param_opt_multistart = 16 #80
 
     fg(x; noise=0.) = f_true(x; noise), feasibility_constraints(x; noise)
     fg_noisy(x) = fg(x; noise=noise_real())
@@ -114,15 +115,16 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
 
     noise_priors = [noise_prior()]
     feasibility_noise_priors = [noise_prior()]
-    gp_params_priors = [MvLogNormal(ones(1), ones(1))]
-    feasibility_gp_params_priors = [MvLogNormal(ones(1), ones(1)) for _ in 1:2]
+    gp_params_priors = [Product([Gamma(2., 1.)])]
+    feasibility_gp_params_priors = [Product([Gamma(2., 1.)])]
 
     time = @elapsed X, Y, Z, bsf, errs, plots = Boss.boss(fg_noisy, fitness, init_X, init_Y, init_Z, model, domain_constraints();
         f_true,
         noise_priors,
         feasibility_noise_priors,
-        mc_sample_count,
+        mc_settings,
         acq_opt_multistart,
+        param_opt_multistart,
         target_err=nothing,
         gp_params_priors,
         feasibility_gp_params_priors,

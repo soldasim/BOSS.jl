@@ -13,15 +13,14 @@ function safe_cos_(x::Real)
     return cos(x)
 end
 
-Turing.@model function lincos_prob_model_(X, Y, noise_priors)
-    params ~ Distributions.MvNormal(ones(lincos_param_count_), ones(lincos_param_count_))
-    noise ~ Product(noise_priors)
-
-    for i in 1:size(X)[1]
-        Y[i,:] ~ Distributions.MvNormal(lincos_predict_(X[i,:], params), noise)
-    end
+function lincos_priors_()
+    return [Normal(1., 1.) for _ in 1:lincos_param_count_]
 end
 
 function model_lincos()
-    return Boss.NonlinModel(lincos_predict_, lincos_prob_model_, lincos_param_count_)
+    return Boss.NonlinModel(
+        lincos_predict_,
+        lincos_priors_(),
+        lincos_param_count_,
+    )
 end
