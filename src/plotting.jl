@@ -3,7 +3,7 @@ using LaTeXStrings
 using Statistics
 using Optim
 
-function create_plots(f_true, utils, util_opts, models, feas_probs, X, Y;
+function create_plots(f_true, utils, util_opts, models, par_model_samples, feas_probs, X, Y;
     iter,
     y_dim,
     feasibility,
@@ -11,25 +11,51 @@ function create_plots(f_true, utils, util_opts, models, feas_probs, X, Y;
     domain,
     init_data_size,
     show_plots,
+    gp_hyperparam_alg,
     kwargs...
 )
     colors = [:red, :purple, :blue]
-    labels = ["param", "semiparam", "nonparam"]
-    util_label = feasibility ? "cwEI" : "EI"
+    model_labels = (gp_hyperparam_alg == :LBFGS) ?
+        ["param (MLE)", "semiparam\n(MLE)", "nonparam\n(MLE)"] :
+        ["param (MLE)", "semiparam\n(NUTS sample)", "nonparam\n(NUTS sample)"]
+    u_label = feasibility ? "cwEI" : "EI"
+    util_labels = (gp_hyperparam_alg == :LBFGS) ?
+        ["param\n(NUTS)", "semiparam\n(LBFGS)", "nonparam\n(LBFGS)"] :
+        ["param\n(NUTS)", "semiparam\n(NUTS)", "nonparam\n(NUTS)"]
     feasibility_funcs = feasibility ? [x->feas_probs(x)[i] for i in 1:feasibility_count] : nothing
+    model_sample_labels = ["param samples", [nothing for _ in 1:length(par_model_samples)]...]
+    model_sample_colors = [:red for _ in 1:length(par_model_samples)]
 
     plots = Plots.Plot[]
     for d in 1:y_dim
         title = (y_dim > 1) ? "ITER $iter, DIM $d" : "ITER $iter"
         models = model_dim_slice.(models, d)
         
-        p = plot_res_1x1(models, x -> f_true(x)[d], X, Y, domain; utils, util_opts, feasibility_funcs, yaxis_feasibility_label="feasibility constraint\nsatisfaction prob.", title, init_data=init_data_size, model_colors=colors, util_colors=colors, model_labels=labels, util_labels=labels, show_plot=show_plots, yaxis_util_label=util_label, kwargs...)
+        p = plot_res_1x1(models, x -> f_true(x)[d], X, Y, domain;
+            utils,
+            util_opts,
+            feasibility_funcs,
+            yaxis_feasibility_label="feasibility constraint\nsatisfaction prob.",
+            title,
+            init_data=init_data_size,
+            model_colors=colors,
+            util_colors=colors,
+            model_labels,
+            util_labels,
+            show_plot=show_plots,
+            yaxis_util_label=u_label,
+            model_samples=par_model_samples,
+            model_sample_labels,
+            model_sample_colors,
+            kwargs...
+        )
         push!(plots, p)
     end
     return plots
 end
 
 function plot_res_1x1(models, obj_func, x_data, y_data, domain;
+    model_samples=nothing,
     utils=nothing,
     util_opts=nothing,
     feasibility_funcs=nothing,
@@ -40,6 +66,7 @@ function plot_res_1x1(models, obj_func, x_data, y_data, domain;
     yaxis=:identity,
     obj_func_label=nothing,
     model_labels=nothing,
+    model_sample_labels=nothing,
     util_labels=nothing,
     feasibility_labels=nothing,
     xaxis_label=nothing,
@@ -49,6 +76,7 @@ function plot_res_1x1(models, obj_func, x_data, y_data, domain;
     init_data=0,
     obj_color=nothing,
     model_colors=nothing,
+    model_sample_colors=nothing,
     util_colors=nothing,
     feasibility_colors=nothing,
     kwargs...
@@ -109,14 +137,16 @@ function plot_res_1x1(models, obj_func, x_data, y_data, domain;
     # DATA PLOT
     data_plot = Plots.plot(; xaxis, yaxis, title, ylabel=yaxis_data_label, kwargs...)
 
-    # obj func and data
-    label = isnothing(obj_func_label) ? "obj_func" : obj_func_label
-    plot!(data_plot, x->obj_func([x]), domain_lb[1], domain_ub[1]; label, color=(isnothing(obj_color) ? :green : obj_color))
-    if init_data > 0
-        scatter!(data_plot, x_data[1:init_data], y_data[1:init_data]; label="initial data", color=:yellow)
-        scatter!(data_plot, x_data[init_data+1:end], y_data[init_data+1:end]; label="requested data", color=:brown)
-    else
-        scatter!(data_plot, x_data, y_data; label="data", color=:orange)
+    # model samples
+    if !isnothing(model_samples)
+        for i in 1:lastindex(model_samples)
+            x_range = (xaxis == :log) ? log_range(domain_lb[1],domain_ub[1],points) : collect(LinRange([domain_lb[1]],[domain_ub[1]],points))
+            y_range = reduce(vcat, model_samples[i][1].(x_range))
+            var_range = nothing  # isnothing(model_samples[i][2]) ? nothing : getindex.(model_samples[i][2].(x_range), 1)
+            label = isnothing(model_sample_labels) ? "sample_$i" : model_sample_labels[i]
+            color = isnothing(model_sample_colors) ? :red : model_sample_colors[i]
+            plot!(data_plot, reduce(vcat, x_range), reduce(vcat, y_range); label, linestyle=:dash, linealpha=0.4, ribbon=var_range, points, color)
+        end
     end
 
     # models
@@ -128,6 +158,16 @@ function plot_res_1x1(models, obj_func, x_data, y_data, domain;
         label = isnothing(model_labels) ? (length(models) > 1 ? "model_$i" : "model") : model_labels[i]
         color = isnothing(model_colors) ? :red : model_colors[i]
         plot!(data_plot, reduce(vcat, x_range), reduce(vcat, y_range); label, ribbon=var_range, points, color)
+    end
+
+    # obj func and data
+    label = isnothing(obj_func_label) ? "obj_func" : obj_func_label
+    plot!(data_plot, x->obj_func([x]), domain_lb[1], domain_ub[1]; label, color=(isnothing(obj_color) ? :green : obj_color))
+    if init_data > 0
+        scatter!(data_plot, x_data[1:init_data], y_data[1:init_data]; label="initial data", color=:yellow)
+        scatter!(data_plot, x_data[init_data+1:end], y_data[init_data+1:end]; label="requested data", color=:brown)
+    else
+        scatter!(data_plot, x_data, y_data; label="data", color=:orange)
     end
     
     # COMBINED PLOT
@@ -166,6 +206,15 @@ function plot_bsf_boxplots(results; show_plot=true, labels=["param", "semiparam"
         plot!(p, y_vals; yerror=(y_err_l, y_err_u), label, markerstrokecolor=:auto)
     end
 
+    show_plot && display(p)
+    return p
+end
+
+function plot_model_sample(model, domain; xaxis=:identity, label=nothing, color=:red, points=200, show_plot=true)
+    x_range = (xaxis == :log) ? log_range(domain[1][1], domain[2][1], points) : collect(LinRange([domain[1][1]], [domain[2][1]], points))
+    y_range = reduce(vcat, model[1].(x_range))
+    var_range = isnothing(model[2]) ? nothing : getindex.(model[2].(x_range), 1)
+    p = plot(reduce(vcat, x_range), reduce(vcat, y_range); label, ribbon=var_range, points, color)
     show_plot && display(p)
     return p
 end

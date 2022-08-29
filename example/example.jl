@@ -92,13 +92,13 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
         results[3][i] = nonparam_res
     end
 
-    plot_bsf_boxplots(results; labels)
+    plot_bsf_boxplots(results)
     save_run_data && save_data(results, "example/data/", filename)
     return results
 end
 
 function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
-    mc_settings = Boss.MCSettings(100, 5, 8, 3) #Boss.MCSettings(400, 20, 8, 6)
+    mc_settings = Boss.MCSettings(20, 4, 8, 3) #Boss.MCSettings(400, 20, 8, 6)
     acq_opt_multistart = 16 #80
     param_opt_multistart = 16 #80
 

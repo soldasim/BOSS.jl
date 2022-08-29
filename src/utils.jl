@@ -55,8 +55,8 @@ Amount of used samples:     'chain_count * sample_count'
 # Fields
   - warmup: The amount of initial discarded samples (in each chain).
   - sample_count: The amount of samples used from each chain.
-  - leap_size: The "distance" in a chain between two following used samples.
   - chain_count: The amount of chains sampled.
+  - leap_size: The "distance" in a chain between two following used samples.
 
 In each chain;
     Firstly, the first 'warmup' samples are discarded.

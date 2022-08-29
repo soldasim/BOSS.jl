@@ -124,6 +124,9 @@ function get_bounds(constraints::TwiceDifferentiableConstraints)
     domain_ub = constraints.bounds.bx[2:2:end]
     return domain_lb, domain_ub
 end
+function get_bound(domain::Tuple)
+    return domain
+end
 
 function in_domain(x, domain_lb, domain_ub)
     any(x .< domain_lb) && return false

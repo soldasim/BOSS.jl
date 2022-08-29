@@ -106,26 +106,30 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
         # - - - - - - - - MODEL INFERENCE - - - - - - - - - - - - - - - -
         info && print("  model inference ...\n")
 
-        # parametric model
+        # PARAMETRIC MODEL
+        if model isa LinModel
+            # TODO
+            throw(ErrorException("Support for linear models not implemented yet."))
+            # param_post_ = param_posterior(Φs, Y, model, noise_priors)
+            # parametric = (...)
+        end
+
+        if plot_all_models || (use_model == :param)
+            # NUTS - model posterior samples (for par acq)
+            par_param_samples, par_noise_samples = sample_param_posterior(X, Y, model, noise_priors; y_dim, mc_settings)
+            par_models = [(x->model(x, par_param_samples[i]), x->par_noise_samples[i]) for i in 1:sample_count(mc_settings)]
+        end
+
         if plot_all_models || (use_model == :param) || (use_model == :semiparam)
-            if model isa LinModel
-                throw(ErrorException("Support for linear models not implemented yet."))
-                # param_post_ = param_posterior(Φs, Y, model, noise_priors)
-                # parametric = (...)
-            else
-                # LBFGS - maximum likelihood fit (for semipar model mean and plotting)
-                par_params, par_noise = fit_model_params_lbfgs(X, Y, model, noise_priors; y_dim, multistart=param_opt_multistart, info, debug)
-                parametric = (x -> model.predict(x, par_params),
-                              x -> par_noise)
-                # NUTS - model posterior samples (for par acq)
-                par_param_samples, par_noise_samples = sample_param_posterior(X, Y, model, noise_priors; y_dim, mc_settings)
-                par_models = [(x->model(x, par_param_samples[i]), x->par_noise_samples[i]) for i in 1:sample_count(mc_settings)]
-            end
+            # LBFGS - maximum likelihood fit (for semipar model mean and plotting)
+            par_params, par_noise = fit_model_params_lbfgs(X, Y, model, noise_priors; y_dim, multistart=param_opt_multistart, info, debug)
+            parametric = (x -> model.predict(x, par_params),
+                            x -> par_noise)
         else
             parametric = (nothing, nothing)
         end
 
-        # semiparametric model (param + GP)
+        # SEMIPARAMETRIC MODEL (param + GP)
         if plot_all_models || (use_model == :semiparam)
             if gp_hyperparam_alg == :LBFGS
                 semi_params, semi_noise = opt_gp_posterior(X, Y, gp_params_priors, noise_priors; y_dim, mean=parametric[1], kernel, multistart=param_opt_multistart, info, debug)
@@ -133,14 +137,17 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
             elseif gp_hyperparam_alg == :NUTS
                 semipar_param_samples, semipar_noise_samples = sample_gp_posterior(X, Y, gp_params_priors, noise_priors; x_dim, y_dim, mean=parametric[1], kernel, mc_settings)
                 semipar_models = fit_gp_samples(X, Y, semipar_param_samples, semipar_noise_samples; y_dim, mean=parametric[1], kernel, sample_count=sample_count(mc_settings))
-                semiparametric = (x -> mean([m[1](x) for m in semipar_models]),  # for plotting only
-                                  x -> mean([m[2](x) for m in semipar_models]))
+                
+                # For plotting only:
+                # semiparametric = (x -> mean([m[1](x) for m in semipar_models]),
+                #                   x -> mean([m[2](x) for m in semipar_models]))
+                semiparametric = last(semipar_models)
             end
         else
             semiparametric = (nothing, nothing)
         end
 
-        # nonparametric model (GP)
+        # NONPARAMETRIC MODEL (GP)
         if plot_all_models || (use_model == :nonparam)
             if gp_hyperparam_alg == :LBFGS
                 nonpar_params, nonpar_noise = opt_gp_posterior(X, Y, gp_params_priors, noise_priors; y_dim, kernel, multistart=param_opt_multistart, info, debug)
@@ -148,8 +155,11 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
             elseif gp_hyperparam_alg == :NUTS
                 nonpar_param_samples, nonpar_noise_samples = sample_gp_posterior(X, Y, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings)
                 nonpar_models = fit_gp_samples(X, Y, nonpar_param_samples, nonpar_noise_samples; y_dim, kernel, sample_count=sample_count(mc_settings))
-                nonparametric = (x -> mean([m[1](x) for m in nonpar_models]),  # for plotting only
-                                 x -> mean([m[2](x) for m in nonpar_models]))
+                
+                # For plotting only:
+                # nonparametric = (x -> mean([m[1](x) for m in nonpar_models]),
+                #                  x -> mean([m[2](x) for m in nonpar_models]))
+                nonparametric = last(nonpar_models)
             end
         else
             nonparametric = (nothing, nothing)
@@ -220,6 +230,7 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
                 [acq_par, acq_semipar, acq_nonpar],
                 [res_par, res_semipar, res_nonpar],
                 [parametric, semiparametric, nonparametric],
+                par_models,
                 feas_probs,
                 X, Y;
                 iter,
@@ -229,10 +240,20 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
                 domain,
                 init_data_size,
                 show_plots,
+                gp_hyperparam_alg,
                 kwargs...
             )
             append!(plots, ps)
         end
+
+        # TODO remove
+        # skip = 5
+        # for i in 1:skip:length(semipar_models)
+        #     plot_model_sample(semipar_models[i], get_bounds(domain); label="semiparam", color=:purple)
+        # end
+        # for i in 1:skip:length(nonpar_models)
+        #     plot_model_sample(nonpar_models[i], get_bounds(domain); label="nonparam", color=:blue)
+        # end
 
         # - - - - - - - - TERMINATION CONDITIONS - - - - - - - - - - - - - - - -
         if !isnothing(max_iters)
