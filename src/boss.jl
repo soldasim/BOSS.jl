@@ -28,16 +28,129 @@ const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 # TODO refactor model error computation
 # TODO add param & return types
 
-# Bayesian optimization with a N->N dimensional semiparametric surrogate model.
-# Gaussian noise only. (for now)
-# Plotting only works for 1D->1D problems.
-#
-# w/o feasibility -> boss(f, X, Y, model, domain; kwargs...)
-#                 ->   f(x) = y
-#
-# w/  feasibility -> boss(f, X, Y, Z, model, domain; kwargs...)
-#                 ->   f(x) = (y, z)
 
+"""
+Bayesian optimization with a N->N dimensional semiparametric surrogate model.
+
+
+
+# Without feasibility constraints (only input domain constraints):
+
+To maximize 'fitness(f(x))' such that 'x ∈ domain' call:
+```julia-repl
+X, Y, bsf, errs, plots = boss(f, fitness, X, Y, model, domain; kwargs...);
+```
+
+## Parameters:
+
+- f:           The objective function 'f: x -> y'. Takes vector x, returns vector y.
+ 
+- fitness:     Fitness function 'fitness: y -> Float' given as an instance of 'Boss.Fitness' or as a Function.
+ 
+- X:           Matrix containing the previously evaluated input points 'x' as its rows.
+ 
+- Y:           Matrix containing the output vectors 'y' of previous evaluations of the objective function as its rows.
+ 
+- model:       The parametric model used as the prior mean of the semiparametric model given as an instance of 'Boss.ParamModel'.
+                !!! The 'Boss.LinModel' is currently unsupported. Use the 'Boss.NonlinModel' for all models for now.
+ 
+- domain:      The input domain of the objective function given as a Tuple of lower and upper bound vectors
+                or as an instance of 'Optim.TwiceDifferentiableConstraints' for more complex input constraints.
+
+## Outputs:
+
+- bsf:         Vector containing the history of the best-so-far found fitness in each iteration.
+
+- errs:        Vector containing the history of the model RMS error.
+                Returns 'nothing' if no test data have been provided.
+
+- plots:       Vector of 'Plots.Plot' of each iteration of the algorithm.
+                Returns 'nothing' unless the kwarg 'make_plots' is set to true.
+
+
+
+# With feasibility constraints on the output 'y':
+
+To maximize 'fitness(f(x))' such that 'gᵢ(x) > 0' and 'x ∈ domain' call:
+```julia-repl
+X, Y, Z, bsf, errs, plots = boss(fg, fitness, X, Y, Z, model, domain; kwargs...);
+```
+
+## Parameters:
+
+- fg:          Function 'fg: x -> (f(x), [gᵢ(x) for ∀i])'
+                where 'f: x -> y' is the objective function
+                and 'gᵢ: x -> zᵢ' are the feasibility constraints.
+                The return value should be a Tuple of two vectors.
+
+- Z:           Matrix containing the output values 'zᵢ' of previous evaluations of the feasibility constraints.
+
+
+
+# Keyword arguments:
+
+## Required kwargs:
+
+- noise_priors:                 Vector of distributions describing the prior belief about the evaluation noise of each output dimension.
+
+- feasibility_noise_priors:     Vector of distributions describing the prior belief about the evaluation noise of each feasibility constraint.
+                                Only required if feasibility constraints are provided.
+
+## Termination conditions:
+
+At least one of the termination conditions has to be provided.
+
+- max_iters:                    The number of iterations after which the algorithm stops.
+                                Equal to the number of objective function evaluations.
+                                If it is set to zero, the models will be fitted and the objective function will not be evaluated.
+
+- target_error:                 The target RMS error of the model. The algorithm stops when the model error is lower than this value.
+                                !!! Might not work properly atm.
+                                The kwargs 'test_X' and 'test_Y' containing the test data have to be provided if this termination condition is used.
+
+## Optional kwargs:
+
+- mc_settings:                  An instance of 'Boss.MCSettings' defining the hyperparameters of the MC sampler.
+
+- acq_opt_multistart:           Defines how many times is the acquisition function optimization restarted to find the global optimum.
+
+- param_opt_multistart:         Defines how many times is the model parameter optimization restarted to find the global optimum.
+
+- gp_params_priors:             The prior distributions of the GP hyperparameters.
+
+- feasibility_gp_params_priors  The prior distributions of the hyperparameters of the GPs used to model the feasibility constraints.
+
+- info:                         Set to false to disable the info prints.
+
+- debug:                        Set to true to stop the algorithm on any optimization error.
+
+- make_plots:                   Set to true to generate plots.
+
+- show_plots:                   Set to false to not display plots as they are generated.
+
+- plot_all_models:              Set to true to fit and plot all models (not only the one used by the algorithm).
+                                Significantly slows down the algorithm!
+
+- f_true:                       The objective function 'f: x -> y' without noise. (For plotting purposes only.)
+
+- kernel:                       The kernel used in the GP models. See 'AbstractGPs.jl' for more info.
+
+- feasibility_kernel:           The kernel used in the GPs used to model the feasibility constraints. See 'AbstractGPs.jl' for more info.
+
+- use_model:                    Defines which surrogate model type is to be used by the algorithm.
+                                Possible values are ':param, :semiparam, :nonparam' for the parametric, semiparametric or nonparametric models.
+
+- gp_hyperparam_alg:            Defines which algorithm is used to fit the GP hyperparameters.
+                                Possible values are: ':LBFGS' for the MLE via the LBFGS optimization algorithm,
+                                                     ':NUTS' for the MC sampling of the hyperparameter posterior via the NUTS algorithm.
+
+- feasibility_gp_hyperparam_alg: Defines which algorithm us used to fit the hyperparameters of the GPs used to model the feasibility constraints.
+
+## Other kwargs:
+
+- kwargs...:        Additional kwargs are forwarded to plotting.
+
+"""
 function boss(f, fitness, X, Y, model::ParamModel, domain; kwargs...)
     fg(x) = f(x), Float64[]
     return boss(fg, fitness, X, Y, nothing, model, domain; kwargs...)
@@ -48,7 +161,7 @@ function boss(fg, fitness::Function, X, Y, Z, model::ParamModel, domain; kwargs.
     return boss(fg, fit, X, Y, Z, model, domain; kwargs...)
 end
 
-function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
+function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
     noise_priors,
     feasibility_noise_priors,
     mc_settings=MCSettings(400, 20, 8, 6),

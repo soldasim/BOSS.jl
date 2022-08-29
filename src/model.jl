@@ -7,7 +7,7 @@ function (m::ParamModel)(params)
 end
 
 """
-!!! CURRENTLY UNSUPPORTED !!!
+!!! CURRENTLY UNSUPPORTED (Use the 'NonlinModel' instead.)
 
 Used to define a linear parametric model for the BOSS algorithm.
 The model has to be linear in its parameters and have Gaussian parameter priors.
