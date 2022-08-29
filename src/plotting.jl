@@ -3,7 +3,7 @@ using LaTeXStrings
 using Statistics
 using Optim
 
-function create_plots(f_true, utils, util_opts, models, feasibility_model, X, Y;
+function create_plots(f_true, utils, util_opts, models, feas_probs, X, Y;
     iter,
     y_dim,
     feasibility,
@@ -16,7 +16,7 @@ function create_plots(f_true, utils, util_opts, models, feasibility_model, X, Y;
     colors = [:red, :purple, :blue]
     labels = ["param", "semiparam", "nonparam"]
     util_label = feasibility ? "cwEI" : "EI"
-    feasibility_funcs = feasibility ? [x -> feasibility_probabilities(feasibility_model)(x)[i] for i in 1:feasibility_count] : nothing
+    feasibility_funcs = feasibility ? [x->feas_probs(x)[i] for i in 1:feasibility_count] : nothing
 
     plots = Plots.Plot[]
     for d in 1:y_dim

@@ -36,20 +36,16 @@ function (f::NonlinFitness)(y)
     return f.fitness(y)
 end
 
-function construct_acq(ei, feasibility_model; feasibility, best_yet)
+function construct_acq(acq, feas_probs; feasibility, best_yet)
     if feasibility
         if isnothing(best_yet)
-            return x -> constraint_weighted_acq(1., x, feasibility_model)
+            return x -> prod(feas_probs(x))
         else
-            return x -> constraint_weighted_acq(ei(x), x, feasibility_model)
+            return x -> prod(feas_probs(x)) * acq(x)
         end
     else
-        return ei
+        return acq
     end
-end
-
-function constraint_weighted_acq(acq, x, feasibility_model)
-    return prod(feasibility_probabilities(feasibility_model)(x)) * acq
 end
 
 function feasibility_probabilities(feasibility_model)
