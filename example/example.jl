@@ -4,6 +4,7 @@ using Optim
 
 include("../src/boss.jl")
 include("data.jl")
+include("../src/plotting.jl")
 
 # Load model
 include("models/model-expcos.jl")
@@ -71,14 +72,13 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
     test_X, test_Y = generate_test_data_(2000)
 
     # experiment settings
-    runs = 16
+    runs = 10
     max_iters = 20
     model = model_lincos()
 
-    print("Starting $runs runs.\n")
     results = [Vector{RunResult}(undef, runs) for _ in 1:3]
-    for i in 1:runs  # for parallel computation use macro 'Threads.@threads'
-        print("Thread $(Threads.threadid()):  Run $i in progress ...\n")
+    for i in 1:runs
+        print("\n ### RUN $i/$runs ### \n")
         info = true
         
         X, Y, Z = generate_init_data_(2; noise=noise_real(), feasibility=true)
@@ -92,9 +92,7 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
         results[3][i] = nonparam_res
     end
 
-    labels = ["param", "semiparam", "nonparam"]
     plot_bsf_boxplots(results; labels)
-
     save_run_data && save_data(results, "example/data/", filename)
     return results
 end
@@ -148,7 +146,7 @@ function generate_init_data_(size; noise=0., feasibility)
 end
 
 function generate_test_data_(size)
-    test_X = reduce(hcat, (LinRange(domain_lb(), domain_ub(), size)))'
+    test_X = reduce(hcat, (LinRange(domain_bounds()..., size)))'
     test_Y = reduce(hcat, [f_true(x) for x in eachrow(test_X)])'
     return test_X, test_Y
 end

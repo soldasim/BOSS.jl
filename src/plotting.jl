@@ -153,7 +153,7 @@ function plot_res_2x1(model, obj_func; points=200)
     surface!(x_range, y_range, (x,y)->model([x,y])[1]; color=:reds, alpha=0.4)
 end
 
-function plot_bsf_boxplots(results; show_plot=true, labels=nothing)
+function plot_bsf_boxplots(results; show_plot=true, labels=["param", "semiparam", "nonparam"])
     p = plot(; title="Best-so-far solutions found\n(medians with 1st and 3rd quartiles)", legend=:topleft)
 
     for i in 1:lastindex(results)

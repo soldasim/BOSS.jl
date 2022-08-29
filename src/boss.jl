@@ -177,6 +177,7 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
         ϵ_samples = rand(Distributions.Normal(), (sample_count(mc_settings), y_dim))
 
         # parametric
+        res_par = nothing
         if plot_all_models || (use_model == :param)
             ei_par_ = x->mean([EI(x, fitness, m, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings)) for m in par_models])
             acq_par = construct_acq(ei_par_, feas_probs; feasibility, best_yet=last(bsf))
@@ -184,6 +185,7 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
         end
 
         # semiparametric
+        res_semipar = nothing
         if plot_all_models || (use_model == :semiparam)
             if gp_hyperparam_alg == :LBFGS
                 ei_semipar_ = x->EI(x, fitness, semiparametric, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings))
@@ -195,6 +197,7 @@ function boss(fg, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
         end
 
         # nonparametric
+        res_nonpar = nothing
         if plot_all_models || (use_model == :nonparam)
             if gp_hyperparam_alg == :LBFGS
                 ei_nonpar_ = x->EI(x, fitness, nonparametric, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings))
