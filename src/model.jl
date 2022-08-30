@@ -80,12 +80,9 @@ function θ_posterior_(Φ, y, θ_prior, noise)
     return μθ_, Σθ_
 end
 
-function fit_model_params_lbfgs(X, Y, model::ParamModel, noise_priors; y_dim, multistart, info=true, debug=false, min_param_value=1e-6)
+function model_params_loglike(X, Y, model::ParamModel, noise_priors; y_dim)
     xs = collect(eachrow(X))
     data_size = length(xs)
-
-    softplus(x) = log(1. + exp(x))
-    lift(p) = softplus.(p) .+ min_param_value  # 'min_param_value' for numerical stability
 
     function loglike(p)
         noise, params = p[1:y_dim], p[y_dim+1:end]
@@ -97,9 +94,14 @@ function fit_model_params_lbfgs(X, Y, model::ParamModel, noise_priors; y_dim, mu
         return L_data + L_params + L_noise
     end
 
+    return loglike
+end
+
+function fit_model_params_lbfgs(X, Y, model::ParamModel, noise_priors; y_dim, multistart, info=true, debug=false, min_param_value=1e-6)
+    loglike = model_params_loglike(X, Y, model::ParamModel, noise_priors; y_dim)
+
     starts = reduce(hcat, [generate_start_(model, noise_priors) for _ in 1:multistart])'
-    p, _ = optim_params(p -> loglike(lift(p)), starts; info, debug)
-    p = lift(p)
+    p, _ = optim_params(loglike, starts; info, debug)
     noise, params = p[1:y_dim], p[y_dim+1:end]
     return params, noise
 end
