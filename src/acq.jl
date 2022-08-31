@@ -1,5 +1,4 @@
 using Optim
-using FLoops
 using LatinHypercubeSampling
 
 abstract type Fitness end

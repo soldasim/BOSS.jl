@@ -1,5 +1,4 @@
 using AbstractGPs
-using FLoops
 
 include("utils.jl")
 
@@ -52,27 +51,47 @@ function sample_gp_params_nuts(X, y, params_prior, noise_prior; x_dim, mean=x->0
     return params, noise
 end
 
-function gp_params_loglikelihood(X, y, params_prior, noise_prior; mean=x->0., kernel)
+function gp_params_loglike(X, y, params_prior; mean=x->0., kernel)
     function logposterior(params, noise)
         gp = construct_finite_gp(X, params, noise; mean, kernel)
         return logpdf(gp, y)
     end
-    
-    function loglike(p)
-        noise, params... = p
-        return logposterior(params, noise) + logpdf(params_prior, params) + logpdf(noise_prior, noise)
-    end
 
+    function loglike(params, noise)
+        return logposterior(params, noise) + logpdf(params_prior, params)
+    end
     return loglike
 end
 
 function fit_gp_params_lbfgs(X, y, params_prior, noise_prior; mean=x->0., kernel, multistart, info=true, debug=false, min_param_value=1e-6)
     softplus(x) = log(1. + exp(x))
     lift(p) = softplus.(p) .+ min_param_value  # 'min_param_value' for numerical stability
-    loglike = gp_params_loglikelihood(X, y, params_prior, noise_prior; mean, kernel)
     
+    params_loglike = gp_params_loglike(X, y, params_prior; mean, kernel)
+    noise_loglike = noise -> logpdf(noise_prior, noise)
+
+    function loglike(p)
+        noise, params... = p
+        return params_loglike(params, noise) + noise_loglike(noise)
+    end
+
     starts = hcat(rand(noise_prior, multistart), rand(params_prior, multistart)')
+    
     p, _ = optim_params(p -> loglike(lift(p)), starts; info, debug)
     noise, params... = lift(p)
+    return params, noise
+end
+
+function opt_gp_posterior(X, Y, params_priors, noise_priors; y_dim, mean=x->zeros(y_dim), kernel, multistart, info, debug)
+    P = [fit_gp_params_lbfgs(X, Y[:,i], params_priors[i], noise_priors[i]; mean=x->mean(x)[i], kernel, multistart, info, debug) for i in 1:y_dim]
+    params = [p[1] for p in P]
+    noise = [p[2] for p in P]
+    return params, noise
+end
+
+function sample_gp_posterior(X, Y, params_priors, noise_priors; x_dim, y_dim, mean=x->zeros(y_dim), kernel, mc_settings::MCSettings)
+    samples = [sample_gp_params_nuts(X, Y[:,i], params_priors[i], noise_priors[i]; x_dim, mean=x->mean(x)[i], kernel, mc_settings) for i in 1:y_dim]
+    params = [(s->s[1][i,:]).(samples) for i in 1:sample_count(mc_settings)]
+    noise = [(s->s[2][i]).(samples) for i in 1:sample_count(mc_settings)]
     return params, noise
 end

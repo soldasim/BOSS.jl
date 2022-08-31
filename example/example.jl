@@ -108,8 +108,8 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
     fitness = Boss.LinFitness([1.])
     # fitness = Boss.NonlinFitness(y -> y[1])
     
-    gp_hyperparam_alg = :NUTS
-    feasibility_gp_hyperparam_alg = :LBFGS
+    param_fit_alg = :NUTS
+    feasibility_param_fit_alg = :LBFGS
 
     noise_priors = [noise_prior()]
     feasibility_noise_priors = [noise_prior()]
@@ -126,8 +126,8 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
         target_err=nothing,
         gp_params_priors,
         feasibility_gp_params_priors,
-        gp_hyperparam_alg,
-        feasibility_gp_hyperparam_alg,
+        param_fit_alg,
+        feasibility_param_fit_alg,
         kwargs...
     )
 

@@ -14,7 +14,7 @@ function optim_params(f, starts, constraints; info=true, debug=false)
 
     results = Vector{Tuple{Vector{Float64}, Float64}}(undef, multistart)
     convergence_errors = 0
-    for i in 1:multistart  # TODO @floop
+    @floop for i in 1:multistart
         try
             results[i] = optim_(f, starts[i,:], constraints)
         catch e

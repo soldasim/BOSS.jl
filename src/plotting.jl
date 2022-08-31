@@ -3,7 +3,7 @@ using LaTeXStrings
 using Statistics
 using Optim
 
-function create_plots(f_true, utils, util_opts, models, par_model_samples, feas_probs, X, Y;
+function create_plots(f_true, utils, util_opts, models, model_samples, feas_probs, X, Y;
     iter,
     y_dim,
     feasibility,
@@ -11,20 +11,20 @@ function create_plots(f_true, utils, util_opts, models, par_model_samples, feas_
     domain,
     init_data_size,
     show_plots,
-    gp_hyperparam_alg,
+    param_fit_alg,
     kwargs...
 )
     colors = [:red, :purple, :blue]
-    model_labels = (gp_hyperparam_alg == :LBFGS) ?
-        ["param (MLE)", "semiparam\n(MLE)", "nonparam\n(MLE)"] :
-        ["param (MLE)", "semiparam\n(NUTS sample)", "nonparam\n(NUTS sample)"]
+    model_labels = (param_fit_alg == :LBFGS) ?
+        ["param\n(MLE fit)", "semiparam\n(MLE fit)", "nonparam\n(MLE fit)"] :
+        ["param\n(best sample)", "semiparam\n(best sample)", "nonparam\n(best sample)"]
     u_label = feasibility ? "cwEI" : "EI"
-    util_labels = (gp_hyperparam_alg == :LBFGS) ?
-        ["param\n(NUTS)", "semiparam\n(LBFGS)", "nonparam\n(LBFGS)"] :
+    util_labels = (param_fit_alg == :LBFGS) ?
+        ["param\n(LBFGS)", "semiparam\n(LBFGS)", "nonparam\n(LBFGS)"] :
         ["param\n(NUTS)", "semiparam\n(NUTS)", "nonparam\n(NUTS)"]
     feasibility_funcs = feasibility ? [x->feas_probs(x)[i] for i in 1:feasibility_count] : nothing
-    model_sample_labels = ["param samples", [nothing for _ in 1:length(par_model_samples)]...]
-    model_sample_colors = [:red for _ in 1:length(par_model_samples)]
+    model_sample_labels = isnothing(model_samples) ? nothing : ["param samples", [nothing for _ in 1:length(model_samples)]...]
+    model_sample_colors = isnothing(model_samples) ? nothing : [:black for _ in 1:length(model_samples)]
 
     plots = Plots.Plot[]
     for d in 1:y_dim
@@ -44,7 +44,7 @@ function create_plots(f_true, utils, util_opts, models, par_model_samples, feas_
             util_labels,
             show_plot=show_plots,
             yaxis_util_label=u_label,
-            model_samples=par_model_samples,
+            model_samples=model_samples,
             model_sample_labels,
             model_sample_colors,
             kwargs...
@@ -145,7 +145,7 @@ function plot_res_1x1(models, obj_func, x_data, y_data, domain;
             var_range = nothing  # isnothing(model_samples[i][2]) ? nothing : getindex.(model_samples[i][2].(x_range), 1)
             label = isnothing(model_sample_labels) ? "sample_$i" : model_sample_labels[i]
             color = isnothing(model_sample_colors) ? :red : model_sample_colors[i]
-            plot!(data_plot, reduce(vcat, x_range), reduce(vcat, y_range); label, linestyle=:dash, linealpha=0.4, ribbon=var_range, points, color)
+            plot!(data_plot, reduce(vcat, x_range), reduce(vcat, y_range); label, linestyle=:dash, linealpha=0.2, ribbon=var_range, points, color)
         end
     end
 
