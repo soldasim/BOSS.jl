@@ -1,10 +1,6 @@
 module Boss
 
-# Workaround: https://github.com/TuringLang/Turing.jl/issues/1398
 using Logging
-Logging.disable_logging(Logging.Info)
-Logging.disable_logging(Logging.Warn)
-
 using Plots
 using LinearAlgebra
 using Distributions
@@ -189,6 +185,13 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
     # - - - - - - - - INITIALIZATION - - - - - - - - - - - - - - - -
     isnothing(max_iters) && isnothing(target_err) && throw(ArgumentError("No termination condition provided. Use kwargs 'max_iters' or 'target_err' to define a termination condition."))
 
+    # Workaround: https://github.com/TuringLang/Turing.jl/issues/1398
+    if debug
+        Logging.disable_logging(Logging.BelowMinLevel)
+    else
+        Logging.disable_logging(Logging.Warn)
+    end
+
     feasibility = !isnothing(Z)
     feasibility_count = feasibility ? size(Z)[2] : 0
     init_data_size = size(X)[1]
@@ -238,7 +241,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             
             elseif param_fit_alg == :NUTS
                 par_param_samples, par_noise_samples = sample_param_posterior(X, Y, model, noise_priors; y_dim, mc_settings)
-                par_models = [(x->model(x, par_param_samples[i]), x->par_noise_samples[i]) for i in 1:sample_count(mc_settings)]
+                par_models = [(x->model(x, par_param_samples[s]), x->par_noise_samples[s]) for s in 1:sample_count(mc_settings)]
 
                 if make_plots
                     loglikes_ = [loglike(m, X, Y; data_size=size(X)[1]) for m in par_models]
@@ -260,14 +263,8 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             
             elseif param_fit_alg == :NUTS
                 semipar_mean_param_samples, semipar_param_samples, semipar_noise_samples = sample_semipar_posterior(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings)
-                semipar_models = [fit_gps(X, Y, semipar_param_samples[i], semipar_noise_samples[i]; y_dim, mean=x->model.predict(x, semipar_mean_param_samples[i]), kernel) for i in 1:sample_count(mc_settings)]
-
-                if make_plots
-                    loglikes_ = [loglike(m, X, Y; data_size=size(X)[1]) for m in semipar_models]
-                    semiparametric = semipar_models[argmax(loglikes_)]
-                else
-                    semiparametric = (nothing, nothing)
-                end
+                semipar_models = [fit_gps(X, Y, semipar_param_samples[s], semipar_noise_samples[s]; y_dim, mean=x->model.predict(x, semipar_mean_param_samples[s]), kernel) for s in 1:sample_count(mc_settings)]
+                semiparametric = (nothing, nothing)
             end
         else
             semiparametric = (nothing, nothing)
@@ -281,14 +278,8 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             
             elseif param_fit_alg == :NUTS
                 nonpar_param_samples, nonpar_noise_samples = sample_gp_posterior(X, Y, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings)
-                nonpar_models = [fit_gps(X, Y, nonpar_param_samples[i], nonpar_noise_samples[i]; y_dim, kernel) for i in 1:sample_count(mc_settings)]
-
-                if make_plots
-                    loglikes_ = [loglike(m, X, Y; data_size=size(X)[1]) for m in nonpar_models]
-                    nonparametric = nonpar_models[argmax(loglikes_)]
-                else
-                    nonparametric = (nothing, nothing)
-                end
+                nonpar_models = [fit_gps(X, Y, nonpar_param_samples[s], nonpar_noise_samples[s]; y_dim, kernel) for s in 1:sample_count(mc_settings)]
+                nonparametric = (nothing, nothing)
             end
         else
             nonparametric = (nothing, nothing)
@@ -303,7 +294,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             
             elseif feasibility_param_fit_alg == :NUTS
                 feas_param_samples, feas_noise_samples = sample_gp_posterior(X, Z, feasibility_gp_params_priors, feasibility_noise_priors; x_dim, y_dim=feasibility_count, kernel=feasibility_kernel, mc_settings)
-                feas_models = [fit_gps(X, Z, feas_param_samples[i], feas_noise_samples[i]; y_dim=feasibility_count, kernel=feasibility_kernel) for i in 1:sample_count(mc_settings)]
+                feas_models = [fit_gps(X, Z, feas_param_samples[s], feas_noise_samples[s]; y_dim=feasibility_count, kernel=feasibility_kernel) for s in 1:sample_count(mc_settings)]
                 feas_probs = x->mean([feasibility_probabilities(m)(x) for m in feas_models])
             end
         else
@@ -464,12 +455,6 @@ function select_opt_x_and_calculate_model_error(use_model, res_param, res_semipa
     info && print("  optimal next x: $opt_new_x\n")
     info && print("  model error: $err\n")
     return opt_new_x, err
-end
-
-function fit_gps(X, Y, params, noise; y_dim, mean=x->zeros(y_dim), kernel)
-    gp_preds = [gp_pred_distr(X, Y[:,i], params[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
-    return (x -> [pred[1](x) for pred in gp_preds],
-            x -> [pred[2](x) for pred in gp_preds])
 end
 
 function get_best_yet(F, Z; data_size)

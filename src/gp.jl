@@ -2,6 +2,19 @@ using AbstractGPs
 
 include("utils.jl")
 
+function fit_gps(X, Y, params, noise; y_dim, mean=x->zeros(y_dim), kernel)
+    gp_preds = [gp_pred_distr(X, Y[:,i], params[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
+    return fit_gps(gp_preds)
+end
+function fit_gps(finite_gps, Y)
+    gp_preds = gp_pred_distr.(gp_posterior.(finite_gps, collect(eachcol(Y))))
+    return fit_gps(gp_preds)
+end
+function fit_gps(gp_preds)
+    return (x -> [pred[1](x) for pred in gp_preds],
+            x -> [pred[2](x) for pred in gp_preds])
+end
+
 function gp_pred_distr(X, y, params, noise; mean=x->0., kernel)
     post_gp = gp_posterior(X, y, params, noise; mean, kernel)
     return gp_pred_distr(post_gp)
@@ -22,6 +35,10 @@ end
 
 function gp_param_count(x_dim)
     return x_dim
+end
+
+function construct_finite_gps(X, params, noise; y_dim, mean=x->ones(y_dim), kernel, min_param_val=1e-6, min_noise=1e-6)
+    return [construct_finite_gp(X, params[i], noise[i]; mean=x->mean(x)[i], kernel, min_param_val, min_noise) for i in 1:y_dim]
 end
 function construct_finite_gp(X, params, noise; mean=x->0., kernel, min_param_val=1e-6, min_noise=1e-6)
     any(params .< 0.) && throw(ArgumentError("Params must be positive. Got '$params'."))
