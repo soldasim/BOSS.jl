@@ -13,7 +13,7 @@ julia> LinFitness([1., a, b])
 ```
 """
 struct LinFitness <: Fitness
-    coefs
+    coefs::Vector{Float64}
 end
 function (f::LinFitness)(y)
     return f.coefs' * y
@@ -29,7 +29,7 @@ julia> NonlinFitness(y -> cos(y[1]) + sin(y[2]))
 ```
 """
 struct NonlinFitness <: Fitness
-    fitness
+    fitness::Function
 end
 function (f::NonlinFitness)(y)
     return f.fitness(y)

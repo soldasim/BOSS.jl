@@ -2,6 +2,7 @@ using Distributions
 using Optim
 using Turing
 using FLoops
+using ReverseDiff
 
 # - - - - - - LBFGS OPTIMIZATION - - - - - -
 
@@ -73,10 +74,12 @@ end
 
 sample_count(mc::MCSettings) = mc.chain_count * mc.samples_in_chain
 
+Turing.setadbackend(:reversediff)
+
 # Sample parameters of the given probabilistic model (defined with Turing.jl) using parallel NUTS MC sampling.
-function sample_params_nuts(model, param_symbols, mc::MCSettings)
+function sample_params_nuts(model, param_symbols, mc::MCSettings; sampler=NUTS())
     total_samples = mc.warmup + (mc.leap_size * mc.samples_in_chain)
-    chains = Turing.sample(model, NUTS(), MCMCThreads(), total_samples, mc.chain_count)
+    chains = Turing.sample(model, sampler, MCMCThreads(), total_samples, mc.chain_count)
     samples = [reduce(vcat, chains[s][mc.warmup+mc.leap_size:mc.leap_size:end,:]) for s in param_symbols]
     return samples
 end

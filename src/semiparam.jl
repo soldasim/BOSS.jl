@@ -51,8 +51,8 @@ function split_opt_params_(; x_dim, y_dim, par_model)
     return split
 end
 
-function sample_semipar_posterior(X, Y, par_model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings::MCSettings)
-    Turing.@model function semipar_model()
+function sample_semipar_posterior(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings::MCSettings)
+    Turing.@model function semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim)
         noise = Vector{Float64}(undef, y_dim)
         for i in 1:y_dim
             noise[i] ~ noise_priors[i]
@@ -63,7 +63,7 @@ function sample_semipar_posterior(X, Y, par_model, gp_params_priors, noise_prior
             model_params[i] ~ par_model.param_priors[i]
         end
 
-        gp_hyperparams = [Vector{Float64}(undef, gp_param_count(x_dim)) for i in 1:y_dim]
+        gp_hyperparams = [Vector{Float64}(undef, gp_param_count(x_dim)) for _ in 1:y_dim]
         for i in 1:y_dim
             gp_hyperparams[i] ~ gp_params_priors[i]
         end
@@ -75,7 +75,7 @@ function sample_semipar_posterior(X, Y, par_model, gp_params_priors, noise_prior
         end
     end
     
-    model = semipar_model()
+    model = semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim)
     param_symbols = vcat([Symbol("noise[$i]") for i in 1:y_dim],
                          [Symbol("model_params[$i]") for i in 1:par_model.param_count],
                          reduce(vcat, [[Symbol("gp_hyperparams[$i][$j]") for j in 1:gp_param_count(x_dim)] for i in 1:y_dim]))

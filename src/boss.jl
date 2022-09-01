@@ -202,7 +202,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
 
     Φs = (model isa LinModel) ? init_Φs(model.lift, X) : nothing
     F = [fitness(y) for y in eachrow(Y)]
-    bsf = [get_best_yet(F, Z; data_size=init_data_size)]
+    bsf = Union{Nothing, Float64}[get_best_yet(F, Z; data_size=init_data_size)]
 
     plots = make_plots ? Plots.Plot[] : nothing
     errs = (isnothing(test_X) || isnothing(test_Y)) ? nothing : Vector{Float64}[]
@@ -233,7 +233,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             # parametric = (...)
         end
 
-        if plot_all_models || (use_model == :param)
+        if (make_plots && plot_all_models) || (use_model == :param)
             if param_fit_alg == :LBFGS
                 par_params, par_noise = fit_model_params_lbfgs(X, Y, model, noise_priors; y_dim, multistart=param_opt_multistart, info, debug)
                 parametric = (x -> model.predict(x, par_params),
@@ -255,7 +255,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         end
 
         # SEMIPARAMETRIC MODEL (param + GP)
-        if plot_all_models || (use_model == :semiparam)
+        if (make_plots && plot_all_models) || (use_model == :semiparam)
             if param_fit_alg == :LBFGS
                 semipar_mean_params, semipar_params, semipar_noise = opt_semipar_posterior(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, multistart=param_opt_multistart, info, debug)
                 semipar_mean(x) = model.predict(x, semipar_mean_params)
@@ -271,7 +271,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         end
 
         # NONPARAMETRIC MODEL (GP)
-        if plot_all_models || (use_model == :nonparam)
+        if (make_plots && plot_all_models) || (use_model == :nonparam)
             if param_fit_alg == :LBFGS
                 nonpar_params, nonpar_noise = opt_gp_posterior(X, Y, gp_params_priors, noise_priors; y_dim, kernel, multistart=param_opt_multistart, info, debug)
                 nonparametric = fit_gps(X, Y, nonpar_params, nonpar_noise; y_dim, kernel)
@@ -307,7 +307,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
 
         # parametric
         res_par = nothing
-        if plot_all_models || (use_model == :param)
+        if (make_plots && plot_all_models) || (use_model == :param)
             if param_fit_alg == :LBFGS
                 ei_par_ = x->EI(x, fitness, parametric, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings))
             elseif param_fit_alg == :NUTS
@@ -319,7 +319,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
 
         # semiparametric
         res_semipar = nothing
-        if plot_all_models || (use_model == :semiparam)
+        if (make_plots && plot_all_models) || (use_model == :semiparam)
             if param_fit_alg == :LBFGS
                 ei_semipar_ = x->EI(x, fitness, semiparametric, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings))
             elseif param_fit_alg == :NUTS
@@ -331,7 +331,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
 
         # nonparametric
         res_nonpar = nothing
-        if plot_all_models || (use_model == :nonparam)
+        if (make_plots && plot_all_models) || (use_model == :nonparam)
             if param_fit_alg == :LBFGS
                 ei_nonpar_ = x->EI(x, fitness, nonparametric, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings))
             elseif param_fit_alg == :NUTS
@@ -401,7 +401,7 @@ function init_Φs(lift, X)
     return Φs
 end
 
-function augment_data!(opt_new_x, fg, model, fitness, X, Y, Z, Φs, F, bsf; feasibility, y_dim, info)
+function augment_data!(opt_new_x, fg, model::ParamModel, fitness::Fitness, X, Y, Z, Φs, F, bsf; feasibility, y_dim, info)
     x_ = opt_new_x
     y_, z_ = fg(x_)
     f_ = fitness(y_)

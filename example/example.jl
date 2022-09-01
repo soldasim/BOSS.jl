@@ -58,14 +58,14 @@ noise_prior() = LogNormal(-2.3, 0.5)
 
 # EXAMPLES - - - - - - - -
 
-function example(max_iters; kwargs...)
-    X, Y, Z = generate_init_data_(6; noise=noise_real(), feasibility=true)
+function example(max_iters; info=true, make_plots=true, plot_all_models=true, kwargs...)
+    X, Y, Z = generate_init_data_(2; noise=noise_real(), feasibility=true)
     # test_X, test_Y = generate_test_data_(2000)
     test_X, test_Y = nothing, nothing
 
     model = model_lincos()
 
-    return run_boss_(model, X, Y, Z; max_iters, info=true, make_plots=true, plot_all_models=true, test_X, test_Y, kwargs...)
+    return run_boss_(model, X, Y, Z; max_iters, info, make_plots, plot_all_models, test_X, test_Y, kwargs...)
 end
 
 function compare_models(; save_run_data=false, filename="rundata.jld2", make_plots=false, kwargs...)
@@ -73,7 +73,7 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
 
     # experiment settings
     runs = 10
-    max_iters = 20
+    max_iters = 30
     model = model_lincos()
 
     results = [Vector{RunResult}(undef, runs) for _ in 1:3]

@@ -45,8 +45,8 @@ function construct_finite_gp(X, params, noise; mean=x->0., kernel, min_param_val
     (noise < 0.) && throw(ArgumentError("Noise must be positive. Got '$noise'."))
 
     # for numerical stability
-    params .+= min_param_val
-    noise += min_noise
+    params = params .+ min_param_val
+    noise = noise + min_noise
 
     kernel = with_lengthscale(kernel, params)
     return GP(mean, kernel)(X', noise)
