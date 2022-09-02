@@ -120,13 +120,13 @@ end
 
 # Sample from the posterior parameter distributions given the data 'X', 'Y'.
 function sample_param_posterior(X, Y, par_model, noise_priors; y_dim, mc_settings::MCSettings)
-    Turing.@model function prob_model(X, Y, model, noise_priors, y_dim)
-        params = Vector{Float64}(undef, model.param_count)
+    Turing.@model function prob_model(X, Y, model, noise_priors, y_dim, ::Type{V}=Float64) where {V}
+        params = Vector{V}(undef, model.param_count)
         for i in 1:model.param_count
             params[i] ~ model.param_priors[i]
         end
 
-        noise = Vector{Float64}(undef, y_dim)
+        noise = Vector{V}(undef, y_dim)
         for i in 1:y_dim
             noise[i] ~ noise_priors[i]
         end

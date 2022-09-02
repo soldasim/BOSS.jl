@@ -28,6 +28,9 @@ const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 """
 Bayesian optimization with a N->N dimensional semiparametric surrogate model.
 
+The algorithm performs most expensive computations in parallel.
+Make sure you have set the 'JULIA_NUM_THREDS' environment variable correctly.
+
 
 
 # Without feasibility constraints (only input domain constraints):
@@ -236,7 +239,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         if (make_plots && plot_all_models) || (use_model == :param)
             if param_fit_alg == :LBFGS
                 par_params, par_noise = fit_model_params_lbfgs(X, Y, model, noise_priors; y_dim, multistart=param_opt_multistart, info, debug)
-                parametric = (x -> model.predict(x, par_params),
+                parametric = (x -> model(x, par_params),
                               x -> par_noise)
             
             elseif param_fit_alg == :NUTS
@@ -258,12 +261,12 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         if (make_plots && plot_all_models) || (use_model == :semiparam)
             if param_fit_alg == :LBFGS
                 semipar_mean_params, semipar_params, semipar_noise = opt_semipar_posterior(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, multistart=param_opt_multistart, info, debug)
-                semipar_mean(x) = model.predict(x, semipar_mean_params)
+                semipar_mean(x) = model(x, semipar_mean_params)
                 semiparametric = fit_gps(X, Y, semipar_params, semipar_noise; y_dim, mean=semipar_mean, kernel)
             
             elseif param_fit_alg == :NUTS
                 semipar_mean_param_samples, semipar_param_samples, semipar_noise_samples = sample_semipar_posterior(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings)
-                semipar_models = [fit_gps(X, Y, semipar_param_samples[s], semipar_noise_samples[s]; y_dim, mean=x->model.predict(x, semipar_mean_param_samples[s]), kernel) for s in 1:sample_count(mc_settings)]
+                semipar_models = [fit_gps(X, Y, semipar_param_samples[s], semipar_noise_samples[s]; y_dim, mean=x->model(x, semipar_mean_param_samples[s]), kernel) for s in 1:sample_count(mc_settings)]
                 semiparametric = (nothing, nothing)
             end
         else

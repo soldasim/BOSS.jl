@@ -52,23 +52,23 @@ function split_opt_params_(; x_dim, y_dim, par_model)
 end
 
 function sample_semipar_posterior(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings::MCSettings)
-    Turing.@model function semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim)
-        noise = Vector{Float64}(undef, y_dim)
+    Turing.@model function semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim, ::Type{V}=Float64) where {V}
+        noise = Vector{V}(undef, y_dim)
         for i in 1:y_dim
             noise[i] ~ noise_priors[i]
         end
 
-        model_params = Vector{Float64}(undef, par_model.param_count)
+        model_params = Vector{V}(undef, par_model.param_count)
         for i in 1:par_model.param_count
             model_params[i] ~ par_model.param_priors[i]
         end
 
-        gp_hyperparams = [Vector{Float64}(undef, gp_param_count(x_dim)) for _ in 1:y_dim]
+        gp_hyperparams = [Vector{V}(undef, gp_param_count(x_dim)) for _ in 1:y_dim]
         for i in 1:y_dim
             gp_hyperparams[i] ~ gp_params_priors[i]
         end
 
-        mean = x -> par_model.predict(x, model_params)
+        mean = x -> par_model(x, model_params)
         gps = [construct_finite_gp(X, gp_hyperparams[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
         for i in 1:y_dim
             Y[:,i] ~ gps[i]
@@ -80,7 +80,7 @@ function sample_semipar_posterior(X, Y, par_model::ParamModel, gp_params_priors,
                          [Symbol("model_params[$i]") for i in 1:par_model.param_count],
                          reduce(vcat, [[Symbol("gp_hyperparams[$i][$j]") for j in 1:gp_param_count(x_dim)] for i in 1:y_dim]))
     samples = sample_params_nuts(model, param_symbols, mc_settings)
-    
+
     noise_samples, model_params_samples, gp_hyperparams_samples = split_sample_params_(; x_dim, y_dim, par_model, sample_count=sample_count(mc_settings))(samples)
     return model_params_samples, gp_hyperparams_samples, noise_samples
 end

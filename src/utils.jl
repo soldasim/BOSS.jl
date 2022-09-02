@@ -54,10 +54,10 @@ Amount of drawn samples:    'chain_count * (warmup + leap_size * sample_count)'
 Amount of used samples:     'chain_count * sample_count'
 
 # Fields
-  - warmup: The amount of initial discarded samples (in each chain).
+  - warmup: The amount of initial unused 'warmup' samples in each chain.
   - sample_count: The amount of samples used from each chain.
-  - chain_count: The amount of chains sampled.
-  - leap_size: The "distance" in a chain between two following used samples.
+  - chain_count: The amount of independent chains sampled.
+  - leap_size: The "distance" between two following used samples in a chain. (To avoid correlated samples.)
 
 In each chain;
     Firstly, the first 'warmup' samples are discarded.
@@ -78,9 +78,12 @@ Turing.setadbackend(:reversediff)
 
 # Sample parameters of the given probabilistic model (defined with Turing.jl) using parallel NUTS MC sampling.
 function sample_params_nuts(model, param_symbols, mc::MCSettings; sampler=NUTS())
-    total_samples = mc.warmup + (mc.leap_size * mc.samples_in_chain)
-    chains = Turing.sample(model, sampler, MCMCThreads(), total_samples, mc.chain_count)
-    samples = [reduce(vcat, chains[s][mc.warmup+mc.leap_size:mc.leap_size:end,:]) for s in param_symbols]
+    total_samples_in_chain = mc.warmup + (mc.leap_size * mc.samples_in_chain)
+    chains = Vector{Chains}(undef, mc.chain_count)
+    @floop for i in 1:mc.chain_count
+        chains[i] = Turing.sample(model, sampler, MCMCThreads(), total_samples_in_chain, 1; progress=false)
+    end
+    samples = [reduce(vcat, [chains[i][s][mc.warmup+mc.leap_size:mc.leap_size:end,:] for i in 1:mc.chain_count]) for s in param_symbols]
     return samples
 end
 
