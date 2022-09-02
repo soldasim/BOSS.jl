@@ -93,7 +93,13 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
     end
 
     plot_bsf_boxplots(results)
-    save_run_data && save_data(results, "example/data/", filename)
+    if save_run_data
+        try
+            save_data(results, "example/data/", filename)
+        catch e
+            showerror(stdout, e)
+        end
+    end
     return results
 end
 
