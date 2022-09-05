@@ -2,6 +2,8 @@ using AbstractGPs
 
 include("utils.jl")
 
+const MIN_PARAM_VALUE = 1e-6
+
 function fit_gps(X, Y, params, noise; y_dim, mean=x->zeros(y_dim), kernel)
     gp_preds = [gp_pred_distr(X, Y[:,i], params[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
     return fit_gps(gp_preds)
@@ -37,10 +39,10 @@ function gp_param_count(x_dim)
     return x_dim
 end
 
-function construct_finite_gps(X, params, noise; y_dim, mean=x->ones(y_dim), kernel, min_param_val=1e-6, min_noise=1e-6)
+function construct_finite_gps(X, params, noise; y_dim, mean=x->ones(y_dim), kernel, min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
     return [construct_finite_gp(X, params[i], noise[i]; mean=x->mean(x)[i], kernel, min_param_val, min_noise) for i in 1:y_dim]
 end
-function construct_finite_gp(X, params, noise; mean=x->0., kernel, min_param_val=1e-6, min_noise=1e-6)
+function construct_finite_gp(X, params, noise; mean=x->0., kernel, min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
     any(params .< 0.) && throw(ArgumentError("Params must be positive. Got '$params'."))
     (noise < 0.) && throw(ArgumentError("Noise must be positive. Got '$noise'."))
 
@@ -80,7 +82,7 @@ function gp_params_loglike(X, y, params_prior; mean=x->0., kernel)
     return loglike
 end
 
-function fit_gp_params_lbfgs(X, y, params_prior, noise_prior; mean=x->0., kernel, multistart, info=true, debug=false, min_param_value=1e-6)
+function fit_gp_params_lbfgs(X, y, params_prior, noise_prior; mean=x->0., kernel, multistart, info=true, debug=false, min_param_value=MIN_PARAM_VALUE)
     softplus(x) = log(1. + exp(x))
     lift(p) = softplus.(p) .+ min_param_value  # 'min_param_value' for numerical stability
     

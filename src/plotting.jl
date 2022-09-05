@@ -12,6 +12,7 @@ function create_plots(f_true, utils, util_opts, models, model_samples, feas_prob
     init_data_size,
     show_plots,
     param_fit_alg,
+    samples_lable,
     kwargs...
 )
     colors = [:red, :purple, :blue]
@@ -23,7 +24,7 @@ function create_plots(f_true, utils, util_opts, models, model_samples, feas_prob
         ["param\n(LBFGS)", "semiparam\n(LBFGS)", "nonparam\n(LBFGS)"] :
         ["param\n(NUTS)", "semiparam\n(NUTS)", "nonparam\n(NUTS)"]
     feasibility_funcs = feasibility ? [x->feas_probs(x)[i] for i in 1:feasibility_count] : nothing
-    model_sample_labels = isnothing(model_samples) ? nothing : ["param samples", [nothing for _ in 1:length(model_samples)]...]
+    model_sample_labels = isnothing(model_samples) ? nothing : [samples_lable, [nothing for _ in 1:length(model_samples)]...]
     model_sample_colors = isnothing(model_samples) ? nothing : [:black for _ in 1:length(model_samples)]
 
     plots = Plots.Plot[]

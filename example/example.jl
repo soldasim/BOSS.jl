@@ -58,8 +58,8 @@ noise_prior() = LogNormal(-2.3, 0.5)
 
 # EXAMPLES - - - - - - - -
 
-function example(max_iters; info=true, make_plots=true, plot_all_models=true, kwargs...)
-    X, Y, Z = generate_init_data_(2; noise=noise_real(), feasibility=true)
+function example(max_iters; init_data_size=2, info=true, make_plots=true, plot_all_models=true, kwargs...)
+    X, Y, Z = generate_init_data_(init_data_size; noise=noise_real(), feasibility=true)
     # test_X, test_Y = generate_test_data_(2000)
     test_X, test_Y = nothing, nothing
 
@@ -92,7 +92,12 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
         results[3][i] = nonparam_res
     end
 
-    plot_bsf_boxplots(results)
+    try
+        plot_bsf_boxplots(results)
+    catch e
+        showerror(stdout, e)
+    end
+
     if save_run_data
         try
             save_data(results, "example/data/", filename)
@@ -100,6 +105,7 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
             showerror(stdout, e)
         end
     end
+
     return results
 end
 

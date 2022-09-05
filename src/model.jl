@@ -6,16 +6,14 @@ include("utils.jl")
 
 abstract type ParamModel end
 
-function (m::ParamModel)(params)
-    return x -> m(x, params)
+function (model::ParamModel)(params)
+    return x -> model(x, params)
 end
 
 """
-!!! CURRENTLY UNSUPPORTED (Use the 'NonlinModel' instead.)
-
 Used to define a linear parametric model for the BOSS algorithm.
 The model has to be linear in its parameters and have Gaussian parameter priors.
-This model definition provides better performance than the 'NonlinModel' option.
+This model definition will provide better performance than the 'NonlinModel' option in the future. (Not yet implemented.)
 
 The linear model is defined as
     ϕs = lift(x)
@@ -38,11 +36,14 @@ struct LinModel <: ParamModel
     param_count::Int
 end
 
-function (m::LinModel)(x, params)
-    ϕs = m.lift(x)
+function (model::LinModel)(x, params)
+    ϕs = model.lift(x)
     m = length(ϕs)
-    θs = [params[(i-1)*m.θ_len:(i)*m.θ_len] for i in 1:m]
-    y = transpose.(θs) .* ϕs
+
+    ϕ_lens = length.(ϕs)
+    θ_indices = vcat(0, partial_sums(ϕ_lens))
+    
+    y = [(params[θ_indices[i]+1:θ_indices[i+1]])' * ϕs[i] for i in 1:m]
     return y
 end
 
@@ -62,6 +63,14 @@ end
 
 function (m::NonlinModel)(x, params)
     return m.predict(x, params)
+end
+
+function convert(::Type{NonlinModel}, model::LinModel)
+    return NonlinModel(
+        (x, params) -> model(x, params),
+        model.param_priors,
+        model.param_count,
+    )
 end
 
 # - - - - - - - - - - - - - - - - - - - - - - - -

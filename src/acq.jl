@@ -42,8 +42,14 @@ function construct_acq(acq, feas_probs; feasibility, best_yet)
         else
             return x -> prod(feas_probs(x)) * acq(x)
         end
+
     else
-        return acq
+        if isnothing(best_yet)
+            # TODO better solution (May be unnecessary as this case is rare and can only happen in the zero-th iteration.)
+            return x -> 0.
+        else
+            return acq
+        end
     end
 end
 
@@ -123,12 +129,6 @@ function get_bounds(constraints::TwiceDifferentiableConstraints)
     domain_ub = constraints.bounds.bx[2:2:end]
     return domain_lb, domain_ub
 end
-function get_bound(domain::Tuple)
+function get_bounds(domain::Tuple)
     return domain
-end
-
-function in_domain(x, domain_lb, domain_ub)
-    any(x .< domain_lb) && return false
-    any(x .> domain_ub) && return false
-    return true
 end

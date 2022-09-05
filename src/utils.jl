@@ -77,13 +77,13 @@ sample_count(mc::MCSettings) = mc.chain_count * mc.samples_in_chain
 Turing.setadbackend(:reversediff)
 
 # Sample parameters of the given probabilistic model (defined with Turing.jl) using parallel NUTS MC sampling.
-function sample_params_nuts(model, param_symbols, mc::MCSettings; sampler=NUTS())
-    total_samples_in_chain = mc.warmup + (mc.leap_size * mc.samples_in_chain)
+function sample_params_nuts(model, param_symbols, mc::MCSettings)
+    samples_in_chain = mc.leap_size * mc.samples_in_chain
     chains = Vector{Chains}(undef, mc.chain_count)
     @floop for i in 1:mc.chain_count
-        chains[i] = Turing.sample(model, sampler, MCMCThreads(), total_samples_in_chain, 1; progress=false)
+        chains[i] = Turing.sample(model, NUTS(mc.warmup, 0.65), MCMCThreads(), samples_in_chain, 1; progress=false)
     end
-    samples = [reduce(vcat, [chains[i][s][mc.warmup+mc.leap_size:mc.leap_size:end,:] for i in 1:mc.chain_count]) for s in param_symbols]
+    samples = [reduce(vcat, [chains[i][s][mc.leap_size:mc.leap_size:end,:] for i in 1:mc.chain_count]) for s in param_symbols]
     return samples
 end
 
@@ -129,4 +129,12 @@ function rms_error(obj_func, model, a, b, sample_count)
     X = reduce(hcat, uniform_sample(a, b, sample_count))'
     Y = reduce(hcat, obj_func.(X))'
     return rms_error(X, Y, model)
+end
+
+function partial_sums(array)
+    isempty(array) && return empty(array)
+    
+    s = zero(first(array))
+    sums = [(s += val) for val in array]
+    return sums
 end

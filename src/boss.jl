@@ -18,11 +18,11 @@ export MCSettings
 
 const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 
-# TODO Try out param model fitting via NUTS sampling.
 # TODO refactor: add typing, multiple dispatch, ...
 # TODO docs, comments & example usage
 # TODO refactor model error computation
 # TODO add param & return types
+# TODO input/output space normalization
 
 
 """
@@ -51,7 +51,7 @@ X, Y, bsf, errs, plots = boss(f, fitness, X, Y, model, domain; kwargs...);
 - Y:           Matrix containing the output vectors 'y' of previous evaluations of the objective function as its rows.
  
 - model:       The parametric model used as the prior mean of the semiparametric model given as an instance of 'Boss.ParamModel'.
-                !!! The 'Boss.LinModel' is currently unsupported. Use the 'Boss.NonlinModel' for all models for now.
+               The use of 'Boss.LinModel' will allow for more efficient analytical computations in the future. (Not implemented yet.)
  
 - domain:      The input domain of the objective function given as a Tuple of lower and upper bound vectors
                 or as an instance of 'Optim.TwiceDifferentiableConstraints' for more complex input constraints.
@@ -162,7 +162,7 @@ end
 
 function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
     noise_priors,
-    feasibility_noise_priors,
+    feasibility_noise_priors=nothing,
     mc_settings=MCSettings(400, 20, 8, 6),
     acq_opt_multistart=80,
     param_opt_multistart=80,
@@ -205,13 +205,18 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
 
     Φs = (model isa LinModel) ? init_Φs(model.lift, X) : nothing
     F = [fitness(y) for y in eachrow(Y)]
-    bsf = Union{Nothing, Float64}[get_best_yet(F, Z; data_size=init_data_size)]
+    bsf = Union{Nothing, Float64}[get_best_yet(F, X, Z, domain; data_size=init_data_size)]
 
     plots = make_plots ? Plots.Plot[] : nothing
     errs = (isnothing(test_X) || isnothing(test_Y)) ? nothing : Vector{Float64}[]
 
     # TODO refactor model error computation
     errs = nothing  # remove
+
+    if model isa LinModel
+        # TODO implement analytical calculations for linear models
+        model = convert(NonlinModel, model)
+    end
 
     # - - - - - - - - MAIN OPTIMIZATION LOOP - - - - - - - - - - - - - - - -
     iter = 0
@@ -222,25 +227,19 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         # - - - - - - - - NEW DATA - - - - - - - - - - - - - - - -
         if iter != 0
             info && print("  evaluating the objective function ...\n")
-            X, Y, Z, Φs, F, bsf = augment_data!(opt_new_x, fg, model, fitness, X, Y, Z, Φs, F, bsf; feasibility, y_dim, info)
+            X, Y, Z, Φs, F, bsf = augment_data!(opt_new_x, fg, model, fitness, domain, X, Y, Z, Φs, F, bsf; feasibility, y_dim, info)
         end
 
         # - - - - - - - - MODEL INFERENCE - - - - - - - - - - - - - - - -
         info && print("  model inference ...\n")
 
         # PARAMETRIC MODEL
-        if model isa LinModel
-            # TODO
-            throw(ErrorException("Support for linear models not implemented yet."))
-            # param_post_ = param_posterior(Φs, Y, model, noise_priors)
-            # parametric = (...)
-        end
-
         if (make_plots && plot_all_models) || (use_model == :param)
             if param_fit_alg == :LBFGS
                 par_params, par_noise = fit_model_params_lbfgs(X, Y, model, noise_priors; y_dim, multistart=param_opt_multistart, info, debug)
                 parametric = (x -> model(x, par_params),
                               x -> par_noise)
+                par_models = nothing
             
             elseif param_fit_alg == :NUTS
                 par_param_samples, par_noise_samples = sample_param_posterior(X, Y, model, noise_priors; y_dim, mc_settings)
@@ -249,12 +248,14 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 if make_plots
                     loglikes_ = [loglike(m, X, Y; data_size=size(X)[1]) for m in par_models]
                     parametric = par_models[argmax(loglikes_)]
+                    samples_lable = "param samples"
                 else
                     parametric = (nothing, nothing)
                 end
             end
         else
             parametric = (nothing, nothing)
+            par_models = nothing
         end
 
         # SEMIPARAMETRIC MODEL (param + GP)
@@ -268,6 +269,13 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 semipar_mean_param_samples, semipar_param_samples, semipar_noise_samples = sample_semipar_posterior(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings)
                 semipar_models = [fit_gps(X, Y, semipar_param_samples[s], semipar_noise_samples[s]; y_dim, mean=x->model(x, semipar_mean_param_samples[s]), kernel) for s in 1:sample_count(mc_settings)]
                 semiparametric = (nothing, nothing)
+
+                if make_plots
+                    if isnothing(par_models)
+                        par_models = [(x->model(x, semipar_mean_param_samples[s]), nothing) for s in 1:sample_count(mc_settings)]
+                        samples_lable = "mean samples"
+                    end
+                end
             end
         else
             semiparametric = (nothing, nothing)
@@ -318,6 +326,8 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             end
             acq_par = construct_acq(ei_par_, feas_probs; feasibility, best_yet=last(bsf))
             res_par = opt_acq(acq_par, domain; x_dim, multistart=acq_opt_multistart, info, debug)
+        else
+            acq_par, res_par = nothing, nothing
         end
 
         # semiparametric
@@ -330,6 +340,8 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             end
             acq_semipar = construct_acq(ei_semipar_, feas_probs; feasibility, best_yet=last(bsf))
             res_semipar = opt_acq(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, info, debug)
+        else
+            acq_semipar, res_semipar = nothing, nothing
         end
 
         # nonparametric
@@ -342,6 +354,8 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             end
             acq_nonpar = construct_acq(ei_nonpar_, feas_probs; feasibility, best_yet=last(bsf))
             res_nonpar = opt_acq(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, info, debug)
+        else
+            acq_nonpar, res_nonpar = nothing, nothing
         end
 
         opt_new_x, err = select_opt_x_and_calculate_model_error(use_model, res_par, res_semipar, res_nonpar, parametric, semiparametric, nonparametric, !isnothing(errs), test_X, test_Y; info)
@@ -356,7 +370,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 [acq_par, acq_semipar, acq_nonpar],
                 [res_par, res_semipar, res_nonpar],
                 [parametric, semiparametric, nonparametric],
-                (param_fit_alg == :NUTS) ? par_models : nothing,
+                par_models,
                 feas_probs,
                 X, Y;
                 iter,
@@ -367,6 +381,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 init_data_size,
                 show_plots,
                 param_fit_alg,
+                samples_lable,
                 kwargs...
             )
             append!(plots, ps)
@@ -404,7 +419,7 @@ function init_Φs(lift, X)
     return Φs
 end
 
-function augment_data!(opt_new_x, fg, model::ParamModel, fitness::Fitness, X, Y, Z, Φs, F, bsf; feasibility, y_dim, info)
+function augment_data!(opt_new_x, fg, model::ParamModel, fitness::Fitness, domain, X, Y, Z, Φs, F, bsf; feasibility, y_dim, info)
     x_ = opt_new_x
     y_, z_ = fg(x_)
     f_ = fitness(y_)
@@ -416,12 +431,15 @@ function augment_data!(opt_new_x, fg, model::ParamModel, fitness::Fitness, X, Y,
     Y = vcat(Y, [y_...]')
     F = vcat(F, f_)
 
-    if model isa LinModel
-        ϕs = model.lift(x_)
-        for i in 1:y_dim
-            Φs[i] = vcat(Φs[i], ϕs[i]')
-        end
-    end
+    # TODO
+    # if model isa LinModel
+    #     ϕs = model.lift(x_)
+    #     for i in 1:y_dim
+    #         Φs[i] = vcat(Φs[i], ϕs[i]')
+    #     end
+    # end
+
+    in_domain_ = is_in_domain(x_, domain)
     
     if feasibility
         feasible_ = is_feasible(z_)
@@ -431,7 +449,7 @@ function augment_data!(opt_new_x, fg, model::ParamModel, fitness::Fitness, X, Y,
         feasible_ = true
     end
 
-    if feasible_ && (isnothing(last(bsf)) || (f_ > last(bsf)))
+    if in_domain_ && feasible_ && (isnothing(last(bsf)) || (f_ > last(bsf)))
         push!(bsf, f_)
     else
         push!(bsf, last(bsf))
@@ -460,15 +478,32 @@ function select_opt_x_and_calculate_model_error(use_model, res_param, res_semipa
     return opt_new_x, err
 end
 
-function get_best_yet(F, Z; data_size)
+function get_best_yet(F, X, Z, domain; data_size)
+    in_domain = get_in_domain(X, domain; data_size)
     feasible = get_feasible(Z; data_size)
-    isempty(feasible) && return nothing
-    return maximum([F[i] for i in feasible])
+    good = in_domain .& feasible
+    any(good) || return nothing
+    return maximum([F[i] for i in 1:data_size if good[i]])
+end
+
+function get_in_domain(X, domain; data_size)
+    return [is_in_domain(X[i,:], domain) for i in 1:data_size]
+end
+
+function is_in_domain(x, domain::Tuple)
+    lb, ub = domain
+    any(x .< lb) && return false
+    any(x .> ub) && return false
+    return true
+end
+
+function is_in_domain(x, domain::TwiceDifferentiableConstraints)
+    return Optim.isinterior(domain, x)
 end
 
 function get_feasible(Z; data_size)
-    isnothing(Z) && return [i for i in 1:data_size]
-    return [i for i in 1:data_size if is_feasible(Z[i,:])]
+    isnothing(Z) && return [false for i in 1:data_size]
+    return [is_feasible(Z[i,:]) for i in 1:data_size]
 end
 
 function is_feasible(z)

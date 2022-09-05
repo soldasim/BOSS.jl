@@ -19,7 +19,7 @@ function poly_priors_()
     return [Normal(1., 1.) for _ in 1:poly_param_count_]
 end
 
-function poly()
+function model_poly()
     return Boss.LinModel(
         poly_lift_,
         poly_priors_(),
