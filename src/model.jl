@@ -147,9 +147,9 @@ function sample_param_posterior(X, Y, par_model, noise_priors; y_dim, mc_setting
 
     param_symbols = vcat([Symbol("params[$i]") for i in 1:par_model.param_count],
                          [Symbol("noise[$i]") for i in 1:y_dim])
-    
     model = prob_model(X, Y, par_model, noise_priors, y_dim)
     samples = sample_params_nuts(model, param_symbols, mc_settings)
+    
     params = collect(eachrow(reduce(hcat, samples[1:par_model.param_count])))
     noise = collect(eachrow(reduce(hcat, samples[par_model.param_count+1:end])))
     return params, noise

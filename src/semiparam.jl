@@ -69,9 +69,17 @@ function sample_semipar_posterior(X, Y, par_model::ParamModel, gp_params_priors,
         end
 
         mean = x -> par_model(x, model_params)
-        gps = [construct_finite_gp(X, gp_hyperparams[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
+        
+        # # Loglike computation via AbstractGPs.jl
+        # # Causes issues: https://discourse.julialang.org/t/gaussian-process-regression-with-turing-gets-stuck/86892
+        # gps = [construct_finite_gp(X, gp_hyperparams[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
+        # for i in 1:y_dim
+        #     Y[:,i] ~ gps[i]
+        # end
+
+        # Manual loglike computation
         for i in 1:y_dim
-            Y[:,i] ~ gps[i]
+            Turing.@addlogprob! gp_loglike(X, Y[:,i], x->mean(x)[i], kernel, noise[i])
         end
     end
     

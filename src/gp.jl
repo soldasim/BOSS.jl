@@ -1,4 +1,5 @@
 using AbstractGPs
+using LinearAlgebra
 
 include("utils.jl")
 
@@ -58,13 +59,20 @@ function sample_gp_params_nuts(X, y, params_prior, noise_prior; x_dim, mean=x->0
     Turing.@model function gp_model(X, y, mean, kernel, params_prior, noise_prior)
         params ~ params_prior
         noise ~ noise_prior
-        gp = construct_finite_gp(X, params, noise; mean, kernel)
-        y ~ gp
+        
+        # # Loglike computation via AbstractGPs.jl
+        # # Causes issues: https://discourse.julialang.org/t/gaussian-process-regression-with-turing-gets-stuck/86892
+        # gp = construct_finite_gp(X, params, noise; mean, kernel)
+        # y ~ gp
+
+        # Manual loglike computation
+        Turing.@addlogprob! gp_loglike(X, y, mean, kernel, noise)
     end
     
     model = gp_model(X, y, mean, kernel, params_prior, noise_prior)
     param_symbols = vcat([Symbol("params[$i]") for i in 1:gp_param_count(x_dim)], :noise)
     samples = sample_params_nuts(model, param_symbols, mc_settings)
+    
     params = reduce(hcat, samples[1:gp_param_count(x_dim)])
     noise = samples[end]
     return params, noise
@@ -113,4 +121,21 @@ function sample_gp_posterior(X, Y, params_priors, noise_priors; x_dim, y_dim, me
     params = [(s->s[1][i,:]).(samples) for i in 1:sample_count(mc_settings)]
     noise = [(s->s[2][i]).(samples) for i in 1:sample_count(mc_settings)]
     return params, noise
+end
+
+function gp_loglike(X, y, mean, kernel, noise; N=length(y))
+    m = [mean(x) for x in eachrow(X)]
+    K = construct_kernel_matrix(X, kernel; N)
+    return gp_loglike(y, m, K, noise; N)
+end
+
+# 'Taking the Human Out of the Loop' https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7352306
+function gp_loglike(y, m, K, noise; N=length(y))
+    return - (1/2) * (y .- m)' * inv(K + noise*I) * (y .- m)
+           - (1/2) * log(det(K + noise*I))
+           - (N/2) * log(2π)
+end
+
+function construct_kernel_matrix(X, kernel; N=size(X)[1])
+    return reduce(hcat, [[kernel(X[i,:], X[j,:]) for i in 1:N] for j in 1:N])
 end
