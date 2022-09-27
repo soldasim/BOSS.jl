@@ -1,7 +1,5 @@
 using Turing
 
-include("utils.jl")
-
 # TODO docs, comments & example
 
 abstract type ParamModel end
@@ -129,20 +127,13 @@ end
 
 # Sample from the posterior parameter distributions given the data 'X', 'Y'.
 function sample_param_posterior(X, Y, par_model, noise_priors; y_dim, mc_settings::MCSettings)
-    Turing.@model function prob_model(X, Y, model, noise_priors, y_dim, ::Type{V}=Float64) where {V}
-        params = Vector{V}(undef, model.param_count)
-        for i in 1:model.param_count
-            params[i] ~ model.param_priors[i]
-        end
-
-        noise = Vector{V}(undef, y_dim)
-        for i in 1:y_dim
-            noise[i] ~ noise_priors[i]
-        end
+    Turing.@model function prob_model(X, Y, model, noise_priors, y_dim)
+        params ~ arraydist(model.param_priors)
+        noise ~ arraydist(noise_priors)
     
-        for i in 1:size(X)[1]
-            Y[i,:] ~ Distributions.MvNormal(model(X[i,:], params), noise)
-        end
+        means = reduce(hcat, model.(eachrow(X), Ref(params)))'
+        
+        Y ~ arraydist([Distributions.MvNormal(means[:,i], noise[i]) for i in 1:y_dim])
     end
 
     param_symbols = vcat([Symbol("params[$i]") for i in 1:par_model.param_count],

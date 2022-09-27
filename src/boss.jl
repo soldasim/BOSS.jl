@@ -5,11 +5,11 @@ using Plots
 using LinearAlgebra
 using Distributions
 
+include("utils.jl")
 include("acq.jl")
 include("model.jl")
 include("gp.jl")
 include("semiparam.jl")
-include("utils.jl")
 include("plotting.jl")
 
 export boss
@@ -22,6 +22,7 @@ const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 # TODO docs, comments & example usage
 # TODO refactor model error computation
 # TODO add param & return types
+# TODO cleanup kwargs
 # TODO input/output space normalization
 
 
@@ -232,6 +233,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
 
         # - - - - - - - - MODEL INFERENCE - - - - - - - - - - - - - - - -
         info && print("  model inference ...\n")
+        samples_lable = nothing
 
         # PARAMETRIC MODEL
         if (make_plots && plot_all_models) || (use_model == :param)

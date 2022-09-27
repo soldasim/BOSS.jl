@@ -2,10 +2,7 @@ using Distributions
 using Optim
 using Turing
 using FLoops
-# using ReverseDiff
-
-# Turing.setadbackend(:reversediff)
-
+using Zygote
 
 # - - - - - - LBFGS OPTIMIZATION - - - - - -
 
@@ -78,7 +75,10 @@ end
 sample_count(mc::MCSettings) = mc.chain_count * mc.samples_in_chain
 
 # Sample parameters of the given probabilistic model (defined with Turing.jl) using parallel NUTS MC sampling.
-function sample_params_nuts(model, param_symbols, mc::MCSettings)
+# Other AD backends than Zygote cause issues: https://discourse.julialang.org/t/gaussian-process-regression-with-turing-gets-stuck/86892
+function sample_params_nuts(model, param_symbols, mc::MCSettings; adbackend=:zygote)
+    Turing.setadbackend(adbackend)
+
     samples_in_chain = mc.leap_size * mc.samples_in_chain
     chains = Turing.sample(model, NUTS(mc.warmup, 0.65), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
     samples = [vec(chains[s][mc.leap_size:mc.leap_size:end,:]) for s in param_symbols]

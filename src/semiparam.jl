@@ -1,10 +1,5 @@
 using Turing
 
-include("acq.jl")
-include("model.jl")
-include("gp.jl")
-include("utils.jl")
-
 function opt_semipar_posterior(X, Y, par_model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, multistart, min_gp_hyperparam_value=1e-6, info=true, debug=false)
     softplus(x) = log(1. + exp(x))
     lift(p) = softplus.(p) .+ min_gp_hyperparam_value  # 'min_gp_hyperparam_value' for numerical stability
@@ -51,42 +46,25 @@ function split_opt_params_(; x_dim, y_dim, par_model)
     return split
 end
 
+# Needed for `arraydist` to work with multivariate distributions.
+Bijectors.bijector(d::Turing.DistributionsAD.VectorOfMultivariate) = Bijectors.PDBijector()
+
 function sample_semipar_posterior(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings::MCSettings)
-    Turing.@model function semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim, ::Type{V}=Float64) where {V}
-        noise = Vector{V}(undef, y_dim)
-        for i in 1:y_dim
-            noise[i] ~ noise_priors[i]
-        end
-
-        model_params = Vector{V}(undef, par_model.param_count)
-        for i in 1:par_model.param_count
-            model_params[i] ~ par_model.param_priors[i]
-        end
-
-        gp_hyperparams = [Vector{V}(undef, gp_param_count(x_dim)) for _ in 1:y_dim]
-        for i in 1:y_dim
-            gp_hyperparams[i] ~ gp_params_priors[i]
-        end
+    Turing.@model function semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim)
+        noise ~ arraydist(noise_priors)
+        model_params ~ arraydist(par_model.param_priors)
+        gp_hyperparams ~ arraydist(gp_params_priors)
 
         mean = x -> par_model(x, model_params)
-        
-        # # Loglike computation via AbstractGPs.jl
-        # # Causes issues: https://discourse.julialang.org/t/gaussian-process-regression-with-turing-gets-stuck/86892
-        # gps = [construct_finite_gp(X, gp_hyperparams[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
-        # for i in 1:y_dim
-        #     Y[:,i] ~ gps[i]
-        # end
+        gps = [construct_finite_gp(X, gp_hyperparams[:,i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
 
-        # Manual loglike computation
-        for i in 1:y_dim
-            Turing.@addlogprob! gp_loglike(X, Y[:,i], x->mean(x)[i], kernel, noise[i])
-        end
+        Y ~ arraydist(gps)
     end
     
     model = semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim)
     param_symbols = vcat([Symbol("noise[$i]") for i in 1:y_dim],
                          [Symbol("model_params[$i]") for i in 1:par_model.param_count],
-                         reduce(vcat, [[Symbol("gp_hyperparams[$i][$j]") for j in 1:gp_param_count(x_dim)] for i in 1:y_dim]))
+                         reduce(vcat, [[Symbol("gp_hyperparams[$j,$i]") for j in 1:gp_param_count(x_dim)] for i in 1:y_dim]))
     samples = sample_params_nuts(model, param_symbols, mc_settings)
 
     noise_samples, model_params_samples, gp_hyperparams_samples = split_sample_params_(; x_dim, y_dim, par_model, sample_count=sample_count(mc_settings))(samples)

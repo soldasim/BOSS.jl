@@ -1,9 +1,16 @@
 using AbstractGPs
-using LinearAlgebra
-
-include("utils.jl")
+using Turing
 
 const MIN_PARAM_VALUE = 1e-6
+
+# A workaround: https://discourse.julialang.org/t/zygote-gradient-does-not-work-with-abstractgps-custommean/87815/7
+struct CustomMean{Tf} <: AbstractGPs.MeanFunction
+    f::Tf
+end
+
+AbstractGPs._map_meanfunction(m::CustomMean, x::ColVecs) = map(m.f, eachcol(x.X))
+AbstractGPs._map_meanfunction(m::CustomMean, x::RowVecs) = map(m.f, eachcol(x.X))
+AbstractGPs._map_meanfunction(m::CustomMean, x::AbstractVector) = map(m.f, x)
 
 function fit_gps(X, Y, params, noise; y_dim, mean=x->zeros(y_dim), kernel)
     gp_preds = [gp_pred_distr(X, Y[:,i], params[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
@@ -52,7 +59,7 @@ function construct_finite_gp(X, params, noise; mean=x->0., kernel, min_param_val
     noise = noise + min_noise
 
     kernel = with_lengthscale(kernel, params)
-    return GP(mean, kernel)(X', noise)
+    return GP(CustomMean(mean), kernel)(X', noise)
 end
 
 function sample_gp_params_nuts(X, y, params_prior, noise_prior; x_dim, mean=x->0., kernel, mc_settings::MCSettings)
@@ -60,13 +67,9 @@ function sample_gp_params_nuts(X, y, params_prior, noise_prior; x_dim, mean=x->0
         params ~ params_prior
         noise ~ noise_prior
         
-        # # Loglike computation via AbstractGPs.jl
-        # # Causes issues: https://discourse.julialang.org/t/gaussian-process-regression-with-turing-gets-stuck/86892
-        # gp = construct_finite_gp(X, params, noise; mean, kernel)
-        # y ~ gp
-
-        # Manual loglike computation
-        Turing.@addlogprob! gp_loglike(X, y, mean, kernel, noise)
+        gp = construct_finite_gp(X, params, noise; mean, kernel)
+        
+        y ~ gp
     end
     
     model = gp_model(X, y, mean, kernel, params_prior, noise_prior)
@@ -121,21 +124,4 @@ function sample_gp_posterior(X, Y, params_priors, noise_priors; x_dim, y_dim, me
     params = [(s->s[1][i,:]).(samples) for i in 1:sample_count(mc_settings)]
     noise = [(s->s[2][i]).(samples) for i in 1:sample_count(mc_settings)]
     return params, noise
-end
-
-function gp_loglike(X, y, mean, kernel, noise; N=length(y))
-    m = [mean(x) for x in eachrow(X)]
-    K = construct_kernel_matrix(X, kernel; N)
-    return gp_loglike(y, m, K, noise; N)
-end
-
-# 'Taking the Human Out of the Loop' https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7352306
-function gp_loglike(y, m, K, noise; N=length(y))
-    return - (1/2) * (y .- m)' * inv(K + noise*I) * (y .- m)
-           - (1/2) * log(det(K + noise*I))
-           - (N/2) * log(2π)
-end
-
-function construct_kernel_matrix(X, kernel; N=size(X)[1])
-    return reduce(hcat, [[kernel(X[i,:], X[j,:]) for i in 1:N] for j in 1:N])
 end
