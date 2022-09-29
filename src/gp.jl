@@ -12,6 +12,49 @@ AbstractGPs._map_meanfunction(m::CustomMean, x::ColVecs) = map(m.f, eachcol(x.X)
 AbstractGPs._map_meanfunction(m::CustomMean, x::RowVecs) = map(m.f, eachcol(x.X))
 AbstractGPs._map_meanfunction(m::CustomMean, x::AbstractVector) = map(m.f, x)
 
+"""
+A special kernel for dealing with discrete input variables.
+It is implemented as a wrapper and can be used together with any other kernel.
+The kernel rounds the input variables to an integer and then applies the given kernel.
+
+`DiscreteKernel.discrete_dims` can be used to define which variables are discrete if only some are.
+By providing `DiscreteKernel.discrete_dims` the kernel is limited to only inputs of the same length.
+
+# Examples
+```julia-repl
+julia> Boss.DiscreteKernel(Matern52Kernel())
+Main.Boss.DiscreteKernel(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), nothing)
+
+julia> Boss.DiscreteKernel(Matern52Kernel(), [true, false, false])
+Main.Boss.DiscreteKernel(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), Bool[1, 0, 0])
+
+```
+"""
+struct DiscreteKernel <: KernelFunctions.Kernel
+    kernel::Kernel
+    discrete_dims::Union{Nothing,AbstractArray{<:Bool}}
+end
+DiscreteKernel(kernel) = DiscreteKernel(kernel, nothing)
+
+(dk::DiscreteKernel)(x1, x2) = dk(x1, x2, dk.discrete_dims)
+(dk::DiscreteKernel)(x1, x2, ::Nothing) = dk.kernel(round.(x1), round.(x2))
+function (dk::DiscreteKernel)(x1, x2, discrete_dims::AbstractArray{<:Bool})
+    if length(x1) != length(discrete_dims) || length(x2) != length(discrete_dims)
+        throw(ArgumentError("The length of `discrete_dims` ($(length(discrete_dims))) does not match to the lengths of the vectors $(length.((x1, x2)))."))
+    end
+
+    x1_ = [discrete_dims[i] ? round(x1[i]) : x1[i] for i in eachindex(discrete_dims)]
+    x2_ = [discrete_dims[i] ? round(x2[i]) : x2[i] for i in eachindex(discrete_dims)]
+    dk.kernel(x1_, x2_)
+end
+
+function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscales::AbstractVector{<:Real})
+    return DiscreteKernel(
+        KernelFunctions.with_lengthscale(dk.kernel, lengthscales),
+        dk.discrete_dims,
+    )
+end
+
 function fit_gps(X, Y, params, noise; y_dim, mean=x->zeros(y_dim), kernel)
     gp_preds = [gp_pred_distr(X, Y[:,i], params[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
     return fit_gps(gp_preds)
@@ -50,6 +93,7 @@ end
 function construct_finite_gps(X, params, noise; y_dim, mean=x->ones(y_dim), kernel, min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
     return [construct_finite_gp(X, params[i], noise[i]; mean=x->mean(x)[i], kernel, min_param_val, min_noise) for i in 1:y_dim]
 end
+
 function construct_finite_gp(X, params, noise; mean=x->0., kernel, min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
     any(params .< 0.) && throw(ArgumentError("Params must be positive. Got '$params'."))
     (noise < 0.) && throw(ArgumentError("Noise must be positive. Got '$noise'."))

@@ -14,8 +14,10 @@ include("plotting.jl")
 
 export boss
 export LinFitness, NonlinFitness, LinModel, NonlinModel
+export DiscreteKernel
 export MCSettings
 
+# TODO remove
 const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 
 # TODO refactor: add typing, multiple dispatch, ...
@@ -203,6 +205,11 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
     x_dim = size(X)[2]
     isnothing(gp_params_priors) && (gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:y_dim])
     isnothing(feasibility_gp_params_priors) && (feasibility_gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:feasibility_count])
+    discrete_dims = (kernel isa DiscreteKernel) ?
+        isnothing(kernel.discrete_dims) ?
+            [true for _ in 1:x_dim] :
+            kernel.discrete_dims :
+        nothing
 
     Φs = (model isa LinModel) ? init_Φs(model.lift, X) : nothing
     F = [fitness(y) for y in eachrow(Y)]
@@ -327,7 +334,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 ei_par_ = x->mean([EI(x, fitness, m, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings)) for m in par_models])
             end
             acq_par = construct_acq(ei_par_, feas_probs; feasibility, best_yet=last(bsf))
-            res_par = opt_acq(acq_par, domain; x_dim, multistart=acq_opt_multistart, info, debug)
+            res_par = opt_acq(acq_par, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, info, debug)
         else
             acq_par, res_par = nothing, nothing
         end
@@ -341,7 +348,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 ei_semipar_ = x->mean([EI(x, fitness, m, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings)) for m in semipar_models])
             end
             acq_semipar = construct_acq(ei_semipar_, feas_probs; feasibility, best_yet=last(bsf))
-            res_semipar = opt_acq(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, info, debug)
+            res_semipar = opt_acq(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, info, debug)
         else
             acq_semipar, res_semipar = nothing, nothing
         end
@@ -355,7 +362,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 ei_nonpar_ = x->mean([EI(x, fitness, m, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings)) for m in nonpar_models])
             end
             acq_nonpar = construct_acq(ei_nonpar_, feas_probs; feasibility, best_yet=last(bsf))
-            res_nonpar = opt_acq(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, info, debug)
+            res_nonpar = opt_acq(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, info, debug)
         else
             acq_nonpar, res_nonpar = nothing, nothing
         end

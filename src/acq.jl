@@ -80,10 +80,15 @@ function EI(x, fitness::NonlinFitness, model, ϵ_samples; best_yet, sample_count
 end
 
 # 'domain' is a Tuple of lb and ub or TwiceDifferentiableConstraints
-function opt_acq(acq, domain; x_dim, multistart=1, info=true, debug=false)
+function opt_acq(acq, domain; x_dim, multistart=1, discrete_dims=nothing, info=true, debug=false)
     # starts = generate_starts_random_(domain, multistart)
     starts = generate_starts_LHC_(domain, multistart; x_dim)
-    return optim_params(acq, starts, domain; info, debug)
+    arg, val = optim_params(acq, starts, domain; info, debug)
+    
+    if !isnothing(discrete_dims)
+        arg = [discrete_dims[i] ? round(arg[i]) : arg[i] for i in eachindex(discrete_dims)]
+    end
+    return arg, val
 end
 
 function generate_starts_LHC_(domain::Tuple, count; x_dim)
