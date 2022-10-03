@@ -60,7 +60,7 @@ function gp_param_count(x_dim)
     return x_dim
 end
 
-function construct_finite_gps(X, params, noise; y_dim, mean=x->ones(y_dim), kernel, min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
+function construct_finite_gps(X, params, noise; y_dim, mean=x->zeros(y_dim), kernel, min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
     return [construct_finite_gp(X, params[i], noise[i]; mean=x->mean(x)[i], kernel, min_param_val, min_noise) for i in 1:y_dim]
 end
 
