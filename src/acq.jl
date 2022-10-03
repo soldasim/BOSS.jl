@@ -85,9 +85,7 @@ function opt_acq(acq, domain; x_dim, multistart=1, discrete_dims=nothing, info=t
     starts = generate_starts_LHC_(domain, multistart; x_dim)
     arg, val = optim_params(acq, starts, domain; info, debug)
     
-    if !isnothing(discrete_dims)
-        arg = [discrete_dims[i] ? round(arg[i]) : arg[i] for i in eachindex(discrete_dims)]
-    end
+    isnothing(discrete_dims) || (arg = discrete_round(discrete_dims)(arg))
     return arg, val
 end
 

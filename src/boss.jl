@@ -6,10 +6,10 @@ using LinearAlgebra
 using Distributions
 
 include("utils.jl")
-include("acq.jl")
 include("model.jl")
 include("gp.jl")
 include("semiparam.jl")
+include("acq.jl")
 include("plotting.jl")
 
 export boss
@@ -148,6 +148,8 @@ At least one of the termination conditions has to be provided.
 
 - feasibility_param_fit_alg:    Defines which algorithm is used to fit the parameters of the the feasibility constraint models.
 
+- discrete_dims:                Vector of booleans specifying which input variables are to be considered as discrete.
+
 ## Other kwargs:
 
 - kwargs...:        Additional kwargs are forwarded to plotting.
@@ -186,6 +188,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
     use_model=:semiparam,  # :param, :semiparam, :nonparam
     param_fit_alg=:NUTS,  # :NUTS, :LBFGS
     feasibility_param_fit_alg=:LBFGS,  # :NUTS, :LBFGS
+    discrete_dims=nothing,
     kwargs...
 )
     # - - - - - - - - INITIALIZATION - - - - - - - - - - - - - - - -
@@ -198,19 +201,27 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         Logging.disable_logging(Logging.Warn)
     end
 
+    if model isa LinModel
+        # TODO implement analytical calculations for linear models
+        model = convert(NonlinModel, model)
+    end
+
+    # HYPERPARAMS - - - - - - - -
     feasibility = !isnothing(Z)
     feasibility_count = feasibility ? size(Z)[2] : 0
     init_data_size = size(X)[1]
     y_dim = size(Y)[2]
     x_dim = size(X)[2]
+    
     isnothing(gp_params_priors) && (gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:y_dim])
     isnothing(feasibility_gp_params_priors) && (feasibility_gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:feasibility_count])
-    discrete_dims = (kernel isa DiscreteKernel) ?
-        isnothing(kernel.discrete_dims) ?
-            [true for _ in 1:x_dim] :
-            kernel.discrete_dims :
-        nothing
+    
+    if !isnothing(discrete_dims)
+        kernel = DiscreteKernel(kernel, discrete_dims)
+        feasibility_kernel = DiscreteKernel(feasibility_kernel, discrete_dims)
+    end
 
+    # DATA - - - - - - - -
     Φs = (model isa LinModel) ? init_Φs(model.lift, X) : nothing
     F = [fitness(y) for y in eachrow(Y)]
     bsf = Union{Nothing, Float64}[get_best_yet(F, X, Z, domain; data_size=init_data_size)]
@@ -220,11 +231,6 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
 
     # TODO refactor model error computation
     errs = nothing  # remove
-
-    if model isa LinModel
-        # TODO implement analytical calculations for linear models
-        model = convert(NonlinModel, model)
-    end
 
     # - - - - - - - - MAIN OPTIMIZATION LOOP - - - - - - - - - - - - - - - -
     iter = 0
