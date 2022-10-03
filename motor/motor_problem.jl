@@ -3,11 +3,12 @@ using Distributions
 using PyCall
 using LatinHypercubeSampling
 using KernelFunctions
+using Optim
 
 include("../src/boss.jl")
 include("../example/data.jl")
 
-Random.seed!(5555)
+#Random.seed!(5555)
 
 
 # THE OBJECTIVE FUNCTION
@@ -26,6 +27,7 @@ include("motor_model.jl")
 # domain_bounds() = [20., 0.01, 0.297], [60., 0.03, 0.400]
 domain_bounds() = [20.1, 0.011, 0.2971], [59.9, 0.029, 0.3999]
 
+# rewritten according to the motor source code ('computational_model.py')
 function domain_constraints()
     # bounds
     lb, ub = domain_bounds()
@@ -73,7 +75,7 @@ end
 function example(max_iters; info=true, kwargs...)
     info && print("generating init data ...\n")
     X, Y = generate_init_data_LHC_(19)
-    info && print("generating test data ...\n")
+    # info && print("generating test data ...\n")
     # test_X, test_Y = generate_test_data_(20)
 
     res = run_boss_(X, Y; max_iters, info, kwargs...) # test_X, test_Y
@@ -93,44 +95,70 @@ function example_continue(max_iters, res; test_data=(nothing, nothing), info=tru
     ), test_data
 end
 
-function compare_models(; info=false, save_run_data=false, filename="rundata", make_plots=false, kwargs...)
+function compare_models(; save_run_data=false, file="motor/data/rundata", make_plots=false, make_boxplot=false, kwargs...)
     # generate data
     # test_X, test_Y = generate_test_data_(20)
 
     # experiment settings
     runs = 10
-    max_iters = 200
+    max_iters = 100
     init_data_size = 19
 
     print("Starting $runs runs.\n")
     results = [Vector{RunResult}(undef, runs) for _ in 1:3]
     for i in 1:runs
-        print("Thread $(Threads.threadid()):  Run $i in progress ...\n")
+        print("\n ### RUN $i/$runs ### \n")
+        info = true
 
         X, Y = generate_init_data_LHC_(init_data_size)
 
         param_res = run_boss_(X, Y; use_model=:param, max_iters, info, make_plots, kwargs...)
+        if save_run_data
+            try
+                save_data(param_res, "./", file*"_param_$i.jld2")
+            catch e
+                showerror(stdout, e)
+            end
+        end
+
         semiparam_res = run_boss_(X, Y; use_model=:semiparam, max_iters, info, make_plots, kwargs...)
+        if save_run_data
+            try
+                save_data(param_res, "./", file*"_semiparam_$i.jld2")
+            catch e
+                showerror(stdout, e)
+            end
+        end
+
         nonparam_res = run_boss_(X, Y; use_model=:nonparam, max_iters, info, make_plots, kwargs...)
+        if save_run_data
+            try
+                save_data(param_res, "./", file*"_nonparam_$i.jld2")
+            catch e
+                showerror(stdout, e)
+            end
+        end
 
         results[1][i] = param_res
         results[2][i] = semiparam_res
         results[3][i] = nonparam_res
 
-        if save_run_data
-            try
-                save_data((param_res, semiparam_res, nonparam_res), "motor/data/", filename*"$i.jld2")
-            catch e
-                showerror(stdout, e)
-            end
-        end
+        # if save_run_data
+        #     try
+        #         save_data((param_res, semiparam_res, nonparam_res), "./", file*"_$i.jld2")
+        #     catch e
+        #         showerror(stdout, e)
+        #     end
+        # end
     end
 
-    try
-        labels = ["param", "semiparam", "nonparam"]
-        plot_bsf_boxplots(results; labels)
-    catch e
-        showerror(stdout, e)
+    if make_boxplot
+        try
+            labels = ["param", "semiparam", "nonparam"]
+            plot_bsf_boxplots(results; labels)
+        catch e
+            showerror(stdout, e)
+        end
     end
 
     return results

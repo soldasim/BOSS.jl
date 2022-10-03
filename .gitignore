@@ -1,3 +1,5 @@
 Manifest.toml
 /example/data
 /motor/data
+/motor/logs
+slurm-*.out
