@@ -14,7 +14,6 @@ include("plotting.jl")
 
 export boss
 export LinFitness, NonlinFitness, LinModel, NonlinModel
-export DiscreteKernel
 export MCSettings
 
 # TODO remove
@@ -157,7 +156,8 @@ At least one of the termination conditions has to be provided.
 """
 function boss(f, fitness, X, Y, model::ParamModel, domain; kwargs...)
     fg(x) = f(x), Float64[]
-    return boss(fg, fitness, X, Y, nothing, model, domain; kwargs...)
+    X, Y, Z, bsf, errs, plots = boss(fg, fitness, X, Y, nothing, model, domain; kwargs...)
+    return X, Y, bsf, errs, plots
 end
 
 function boss(fg, fitness::Function, X, Y, Z, model::ParamModel, domain; kwargs...)
@@ -261,7 +261,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 par_models = [(x->model(x, par_param_samples[s]), x->par_noise_samples[s]) for s in 1:sample_count(mc_settings)]
 
                 if make_plots
-                    loglikes_ = [loglike(m, X, Y; data_size=size(X)[1]) for m in par_models]
+                    loglikes_ = [loglike(m, X, Y) for m in par_models]
                     parametric = par_models[argmax(loglikes_)]
                     samples_lable = "param samples"
                 else
@@ -421,11 +421,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         iter += 1
     end
 
-    if feasibility
-        return X, Y, Z, bsf, errs, plots
-    else
-        return X, Y, bsf, errs, plots     
-    end
+    return X, Y, Z, bsf, errs, plots
 end
 
 function init_Φs(lift, X)
@@ -494,40 +490,32 @@ function select_opt_x_and_calculate_model_error(use_model, res_param, res_semipa
 end
 
 function get_best_yet(F, X, Z, domain; data_size)
-    in_domain = get_in_domain(X, domain; data_size)
+    in_domain = get_in_domain(X, domain)
     feasible = get_feasible(Z; data_size)
     good = in_domain .& feasible
     any(good) || return nothing
     return maximum([F[i] for i in 1:data_size if good[i]])
 end
 
-function get_in_domain(X, domain; data_size)
-    return [is_in_domain(X[i,:], domain) for i in 1:data_size]
-end
+get_in_domain(X::AbstractMatrix, domain) = is_in_domain.(eachrow(X), Ref(domain))
 
-function is_in_domain(x, domain::Tuple)
+function is_in_domain(x::AbstractVector, domain::Tuple)
     lb, ub = domain
     any(x .< lb) && return false
     any(x .> ub) && return false
     return true
 end
+is_in_domain(x::AbstractVector, domain::TwiceDifferentiableConstraints) = Optim.isinterior(domain, x)
 
-function is_in_domain(x, domain::TwiceDifferentiableConstraints)
-    return Optim.isinterior(domain, x)
-end
+get_feasible(::Nothing; data_size) = fill(true, data_size)
+get_feasible(Z::AbstractMatrix; data_size=nothing) = is_feasible.(eachrow(Z))
 
-function get_feasible(Z; data_size)
-    isnothing(Z) && return [false for i in 1:data_size]
-    return [is_feasible(Z[i,:]) for i in 1:data_size]
-end
+is_feasible(z::AbstractVector) = all(z .>= 0)
 
-function is_feasible(z)
-    return all(z .>= 0)
-end
-
-function loglike(model, X, Y; data_size)
+function loglike(model, X, Y)
     pred_distr(x) = MvNormal(model[1](x), model[2](x))
-    return sum([logpdf(pred_distr(X[i,:]), Y[i,:]) for i in 1:data_size])
+    ll(x, y) = logpdf(pred_distr(x), y)
+    sum(ll.(eachrow(X), eachrow(Y)))
 end
 
 end  # module

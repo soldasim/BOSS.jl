@@ -9,7 +9,7 @@ struct CustomMean{Tf} <: AbstractGPs.MeanFunction
 end
 
 AbstractGPs._map_meanfunction(m::CustomMean, x::ColVecs) = map(m.f, eachcol(x.X))
-AbstractGPs._map_meanfunction(m::CustomMean, x::RowVecs) = map(m.f, eachcol(x.X))
+AbstractGPs._map_meanfunction(m::CustomMean, x::RowVecs) = map(m.f, eachrow(x.X))
 AbstractGPs._map_meanfunction(m::CustomMean, x::AbstractVector) = map(m.f, x)
 
 """
@@ -23,7 +23,9 @@ DiscreteKernel(kernel) = kernel ∘ FunctionTransform(discrete_round())
 DiscreteKernel(kernel, dims) = kernel ∘ FunctionTransform(discrete_round(dims))
 
 discrete_round() = x -> round.(x)
-discrete_round(dims) = x -> [dims[i] ? round(x[i]) : x[i] for i in eachindex(dims)]
+discrete_round(dims) = x -> cond_round.(x, dims)
+
+cond_round(x, b) = b ? round(x) : x
 
 function fit_gps(X, Y, params, noise; y_dim, mean=x->zeros(y_dim), kernel)
     gp_preds = [gp_pred_distr(X, Y[:,i], params[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]

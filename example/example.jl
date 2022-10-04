@@ -117,6 +117,9 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
 
     fg(x; noise=0.) = f_true(x; noise), feasibility_constraints(x; noise)
     fg_noisy(x) = fg(x; noise=noise_real())
+    # f_noisy(x) = f(x; noise=noise_real())
+    domain = domain_constraints()
+    # domain = ([0.], [20.])
     
     fitness = Boss.LinFitness([1.])
     # fitness = Boss.NonlinFitness(y -> y[1])
@@ -129,7 +132,7 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
     gp_params_priors = [Product([Gamma(2., 1.)])]
     feasibility_gp_params_priors = [Product([Gamma(2., 1.)])]
 
-    time = @elapsed X, Y, Z, bsf, errs, plots = Boss.boss(fg_noisy, fitness, init_X, init_Y, init_Z, model, domain_constraints();
+    time = @elapsed X, Y, Z, bsf, errs, plots = Boss.boss(fg_noisy, fitness, init_X, init_Y, init_Z, model, domain;
         f_true,
         noise_priors,
         feasibility_noise_priors,
