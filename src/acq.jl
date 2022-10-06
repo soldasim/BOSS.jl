@@ -46,6 +46,7 @@ function construct_acq(acq, feas_probs; feasibility, best_yet)
     else
         if isnothing(best_yet)
             # TODO better solution (May be unnecessary as this case is rare and can only happen in the zero-th iteration.)
+            print("WARNING: No feasible solution in the dataset yet! Cannot calculate EI.\n")
             return x -> 0.
         else
             return acq

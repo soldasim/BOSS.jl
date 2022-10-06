@@ -1,5 +1,6 @@
 using AbstractGPs
 using Turing
+using ForwardDiff
 
 const MIN_PARAM_VALUE = 1e-6
 
@@ -13,19 +14,37 @@ AbstractGPs._map_meanfunction(m::CustomMean, x::RowVecs) = map(m.f, eachrow(x.X)
 AbstractGPs._map_meanfunction(m::CustomMean, x::AbstractVector) = map(m.f, x)
 
 """
-An AbstractGPs.TransformedKernel used to deal with discrete variables.
+A kernel used to deal with discrete variables.
 
-!!! In typical use of BOSS, this constructor SHOULD NOT be called by the user. It is used internally.
-!!! Use the kwarg `discrete_dims` of the `Boss.boss` function to specify discrete input variables
-!!! and provide a normal kernel (e.g. Matern52Kernel) instead.
+(!) In typical use of BOSS, this kernel SHOULD NOT be instantiated by the user. It is used internally.
+    Use the kwarg `discrete_dims` of the `Boss.boss` function to specify discrete input variables
+    and provide a normal (continuous) kernel instead. (e.g. Matern52Kernel)
 """
-DiscreteKernel(kernel) = kernel ∘ FunctionTransform(discrete_round())
-DiscreteKernel(kernel, dims) = kernel ∘ FunctionTransform(discrete_round(dims))
+struct DiscreteKernel <: Kernel
+    kernel::Kernel
+    dims::Union{Nothing, AbstractVector{Bool}}
+end
+
+function (dk::DiscreteKernel)(x1, x2)
+    r = discrete_round(dk.dims)
+    return dk.kernel(r(x1), r(x2))
+end
 
 discrete_round() = x -> round.(x)
+discrete_round(::Nothing) = discrete_round()
 discrete_round(dims) = x -> cond_round.(x, dims)
 
-cond_round(x, b) = b ? round(x) : x
+cond_round(x, b) = b ? round(x) : value(x)
+
+value(x::Real) = x
+value(x::ForwardDiff.Dual) = x.value
+
+function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscale::Real)
+    return DiscreteKernel(with_lengthscale(dk.kernel, lengthscale), dk.dims)
+end
+function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscales::AbstractVector{<:Real})
+    return DiscreteKernel(with_lengthscale(dk.kernel, lengthscales), dk.dims)
+end
 
 function fit_gps(X, Y, params, noise; y_dim, mean=x->zeros(y_dim), kernel)
     gp_preds = [gp_pred_distr(X, Y[:,i], params[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]

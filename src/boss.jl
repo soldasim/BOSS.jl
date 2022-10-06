@@ -25,13 +25,14 @@ const ModelPost = Tuple{Union{Function, Nothing}, Union{Function, Nothing}}
 # TODO add param & return types
 # TODO cleanup kwargs
 # TODO input/output space normalization
+# TODO change Symbol kwargs to Traits ?
 
 
 """
 Bayesian optimization with a N->N dimensional semiparametric surrogate model.
 
 The algorithm performs most expensive computations in parallel.
-Make sure you have set the 'JULIA_NUM_THREDS' environment variable correctly.
+Make sure you have set the 'JULIA_NUM_THREADS' environment variable correctly.
 
 
 
@@ -52,11 +53,11 @@ X, Y, bsf, errs, plots = boss(f, fitness, X, Y, model, domain; kwargs...);
  
 - Y:           Matrix containing the output vectors 'y' of previous evaluations of the objective function as its rows.
  
-- model:       The parametric model used as the prior mean of the semiparametric model given as an instance of 'Boss.ParamModel'.
-               The use of 'Boss.LinModel' will allow for more efficient analytical computations in the future. (Not implemented yet.)
+- model:       The parametric model used as the prior mean of the semiparametric model given as an instance of `Boss.ParamModel`.
+               The use of `Boss.LinModel` will allow for more efficient analytical computations in the future. (Not implemented yet.)
  
 - domain:      The input domain of the objective function given as a Tuple of lower and upper bound vectors
-                or as an instance of 'Optim.TwiceDifferentiableConstraints' for more complex input constraints.
+                or as an instance of `Optim.TwiceDifferentiableConstraints` for more complex input constraints.
 
 ## Outputs:
 
@@ -107,11 +108,11 @@ At least one of the termination conditions has to be provided.
 
 - target_error:                 !!! Currently disabled.
                                 The target RMS error of the model. The algorithm stops when the model error is lower than this value.
-                                The kwargs 'test_X' and 'test_Y' containing the test data have to be provided if this termination condition is used.
+                                The kwargs `test_X` and `test_Y` containing the test data have to be provided if this termination condition is used.
 
 ## Optional kwargs:
 
-- mc_settings:                  An instance of 'Boss.MCSettings' defining the hyperparameters of the MC sampler.
+- mc_settings:                  An instance of `Boss.MCSettings` defining the hyperparameters of the MC sampler.
 
 - acq_opt_multistart:           Defines how many times is the acquisition function optimization restarted to find the global optimum.
 
@@ -134,16 +135,16 @@ At least one of the termination conditions has to be provided.
 
 - f_true:                       The objective function 'f: x -> y' without noise. (For plotting purposes only.)
 
-- kernel:                       The kernel used in the GP models. See 'AbstractGPs.jl' for more info.
+- kernel:                       The kernel used in the GP models. See AbstractGPs.jl for more info.
 
-- feasibility_kernel:           The kernel used in the GPs used to model the feasibility constraints. See 'AbstractGPs.jl' for more info.
+- feasibility_kernel:           The kernel used in the GPs used to model the feasibility constraints. See AbstractGPs.jl for more info.
 
 - use_model:                    Defines which surrogate model type is to be used by the algorithm.
-                                Possible values are ':param, :semiparam, :nonparam' for the parametric, semiparametric or nonparametric models.
+                                Possible values are `:param`, `:semiparam`, `:nonparam` for the parametric, semiparametric or nonparametric models.
 
 - param_fit_alg:                Defines which algorithm is used to fit the parameters of the surrogate model.
-                                Possible values are: ':LBFGS' for the MLE via the LBFGS optimization algorithm,
-                                                     ':NUTS' for the MC sampling of the hyperparameter posterior via the NUTS algorithm.
+                                Possible values are: `:LBFGS` for the MLE via the LBFGS optimization algorithm,
+                                                     `:NUTS` for the MC sampling of the hyperparameter posterior via the NUTS algorithm.
 
 - feasibility_param_fit_alg:    Defines which algorithm is used to fit the parameters of the the feasibility constraint models.
 
@@ -159,12 +160,10 @@ function boss(f, fitness, X, Y, model::ParamModel, domain; kwargs...)
     X, Y, Z, bsf, errs, plots = boss(fg, fitness, X, Y, nothing, model, domain; kwargs...)
     return X, Y, bsf, errs, plots
 end
-
 function boss(fg, fitness::Function, X, Y, Z, model::ParamModel, domain; kwargs...)
     fit = NonlinFitness(fitness)
     return boss(fg, fit, X, Y, Z, model, domain; kwargs...)
 end
-
 function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain;
     noise_priors,
     feasibility_noise_priors=nothing,

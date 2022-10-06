@@ -110,11 +110,11 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
 end
 
 function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
-    discrete_dims = [true]
-    mc_settings = Boss.MCSettings(20, 4, 8, 3) #Boss.MCSettings(400, 20, 8, 6)
+    mc_settings = Boss.MCSettings(50, 10, 8, 3)
     acq_opt_multistart = 16 #80
     param_opt_multistart = 16 #80
 
+    discrete_dims = [true]  #nothing
     fg(x; noise=0.) = f_true(x; noise), feasibility_constraints(x; noise)
     fg_noisy(x) = fg(x; noise=noise_real())
     # f_noisy(x) = f(x; noise=noise_real())
