@@ -1,6 +1,7 @@
 using Random
 using Distributions
 using Optim
+using AbstractGPs
 
 include("../src/boss.jl")
 include("data.jl")
@@ -110,11 +111,11 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
 end
 
 function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
-    mc_settings = Boss.MCSettings(50, 10, 8, 3)
+    mc_settings = Boss.MCSettings(0, 6, 1, 1) #Boss.MCSettings(50, 10, 8, 3)
+    vi_samples = 200
     acq_opt_multistart = 16 #80
     param_opt_multistart = 16 #80
 
-    discrete_dims = [true]  #nothing
     fg(x; noise=0.) = f_true(x; noise), feasibility_constraints(x; noise)
     fg_noisy(x) = fg(x; noise=noise_real())
     # f_noisy(x) = f(x; noise=noise_real())
@@ -124,8 +125,9 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
     fitness = Boss.LinFitness([1.])
     # fitness = Boss.NonlinFitness(y -> y[1])
     
-    param_fit_alg = :NUTS
+    param_fit_alg = :VI
     feasibility_param_fit_alg = :LBFGS
+    kernel = Boss.DiscreteKernel(Matern52Kernel()) #Matern52Kernel()
 
     noise_priors = [noise_prior()]
     feasibility_noise_priors = [noise_prior()]
@@ -137,6 +139,7 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
         noise_priors,
         feasibility_noise_priors,
         mc_settings,
+        vi_samples,
         acq_opt_multistart,
         param_opt_multistart,
         target_err=nothing,
@@ -144,7 +147,7 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
         feasibility_gp_params_priors,
         param_fit_alg,
         feasibility_param_fit_alg,
-        discrete_dims,
+        kernel,
         kwargs...
     )
 

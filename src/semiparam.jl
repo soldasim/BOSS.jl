@@ -47,20 +47,20 @@ function split_opt_params_(; x_dim, y_dim, par_model)
 end
 
 # Needed for `arraydist` to work with multivariate distributions.
-Bijectors.bijector(d::Turing.DistributionsAD.VectorOfMultivariate) = Bijectors.PDBijector()
+Bijectors.bijector(::Turing.DistributionsAD.VectorOfMultivariate) = Bijectors.PDBijector()
 
-function sample_semipar_posterior(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings::MCSettings)
-    Turing.@model function semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim)
-        noise ~ arraydist(noise_priors)
-        model_params ~ arraydist(par_model.param_priors)
-        gp_hyperparams ~ arraydist(gp_params_priors)
+Turing.@model function semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim)
+    noise ~ arraydist(noise_priors)
+    model_params ~ arraydist(par_model.param_priors)
+    gp_hyperparams ~ arraydist(gp_params_priors)
 
-        mean = x -> par_model(x, model_params)
-        gps = [construct_finite_gp(X, gp_hyperparams[:,i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
+    mean = x -> par_model(x, model_params)
+    gps = [construct_finite_gp(X, gp_hyperparams[:,i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
 
-        Y ~ arraydist(gps)
-    end
-    
+    Y ~ arraydist(gps)
+end
+
+function sample_semipar_posterior_nuts(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings::MCSettings)
     model = semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim)
     param_symbols = vcat([Symbol("noise[$i]") for i in 1:y_dim],
                          [Symbol("model_params[$i]") for i in 1:par_model.param_count],
@@ -68,6 +68,14 @@ function sample_semipar_posterior(X, Y, par_model::ParamModel, gp_params_priors,
     samples = sample_params_nuts(model, param_symbols, mc_settings)
 
     noise_samples, model_params_samples, gp_hyperparams_samples = split_sample_params_(; x_dim, y_dim, par_model, sample_count=sample_count(mc_settings))(samples)
+    return model_params_samples, gp_hyperparams_samples, noise_samples
+end
+
+function sample_semipar_posterior_vi(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, sample_count)
+    model = semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim)
+    samples = sample_params_vi(model, sample_count)
+
+    noise_samples, model_params_samples, gp_hyperparams_samples = split_sample_params_(; x_dim, y_dim, par_model, sample_count)(samples)
     return model_params_samples, gp_hyperparams_samples, noise_samples
 end
 

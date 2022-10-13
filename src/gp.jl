@@ -14,30 +14,42 @@ AbstractGPs._map_meanfunction(m::CustomMean, x::RowVecs) = map(m.f, eachrow(x.X)
 AbstractGPs._map_meanfunction(m::CustomMean, x::AbstractVector) = map(m.f, x)
 
 """
-A kernel used to deal with discrete variables.
+A kernel for dealing with discrete variables.
+It can be used as a wrapper around any other `AbstractGPs.Kernel`.
 
-(!) In typical use of BOSS, this kernel SHOULD NOT be instantiated by the user. It is used internally.
-    Use the kwarg `discrete_dims` of the `Boss.boss` function to specify discrete input variables
-    and provide a normal (continuous) kernel instead. (e.g. Matern52Kernel)
+The field `dims` can be used to specify only some dimension as discrete.
+All dimensions are considered as discrete if `dims == nothing`.
+
+## Examples:
+```julia-repl
+julia> DiscreteKernel(Matern52Kernel())
+DiscreteKernel(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), nothing)
+
+julia> DiscreteKernel(Matern52Kernel(), [true, false, false])
+DiscreteKernel(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), Bool[1, 0, 0])
+```
 """
 struct DiscreteKernel <: Kernel
     kernel::Kernel
     dims::Union{Nothing, AbstractVector{Bool}}
 end
+DiscreteKernel(kernel::Kernel) = DiscreteKernel(kernel, nothing)
 
+# TODO !!!
+# (dk::DiscreteKernel)(x1, x2) = dk.kernel(x1, x2)
 function (dk::DiscreteKernel)(x1, x2)
     r = discrete_round(dk.dims)
-    return dk.kernel(r(x1), r(x2))
+    dk.kernel(r(x1), r(x2))
 end
+(dk::DiscreteKernel)(x1::ForwardDiff.Dual, x2) = dk(x1.value, x2)
+(dk::DiscreteKernel)(x1, x2::ForwardDiff.Dual) = dk(x1, x2.value)
+(dk::DiscreteKernel)(x1::ForwardDiff.Dual, x2::ForwardDiff.Dual) = dk(x1.value, x2.value)
 
 discrete_round() = x -> round.(x)
 discrete_round(::Nothing) = discrete_round()
 discrete_round(dims) = x -> cond_round.(x, dims)
 
-cond_round(x, b) = b ? round(x) : value(x)
-
-value(x::Real) = x
-value(x::ForwardDiff.Dual) = x.value
+cond_round(x, b) = b ? round(x) : x
 
 function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscale::Real)
     return DiscreteKernel(with_lengthscale(dk.kernel, lengthscale), dk.dims)
@@ -97,25 +109,6 @@ function construct_finite_gp(X, params, noise; mean=x->0., kernel, min_param_val
     return GP(CustomMean(mean), kernel)(X', noise)
 end
 
-function sample_gp_params_nuts(X, y, params_prior, noise_prior; x_dim, mean=x->0., kernel, mc_settings::MCSettings)
-    Turing.@model function gp_model(X, y, mean, kernel, params_prior, noise_prior)
-        params ~ params_prior
-        noise ~ noise_prior
-        
-        gp = construct_finite_gp(X, params, noise; mean, kernel)
-        
-        y ~ gp
-    end
-    
-    model = gp_model(X, y, mean, kernel, params_prior, noise_prior)
-    param_symbols = vcat([Symbol("params[$i]") for i in 1:gp_param_count(x_dim)], :noise)
-    samples = sample_params_nuts(model, param_symbols, mc_settings)
-    
-    params = reduce(hcat, samples[1:gp_param_count(x_dim)])
-    noise = samples[end]
-    return params, noise
-end
-
 function gp_params_loglike(X, y, params_prior; mean=x->0., kernel)
     function logposterior(params, noise)
         gp = construct_finite_gp(X, params, noise; mean, kernel)
@@ -147,6 +140,34 @@ function fit_gp_params_lbfgs(X, y, params_prior, noise_prior; mean=x->0., kernel
     return params, noise
 end
 
+Turing.@model function gp_model(X, y, mean, kernel, params_prior, noise_prior)
+    params ~ params_prior
+    noise ~ noise_prior
+    
+    gp = construct_finite_gp(X, params, noise; mean, kernel)
+    
+    y ~ gp
+end
+
+function sample_gp_params_nuts(X, y, params_prior, noise_prior; x_dim, mean=x->0., kernel, mc_settings::MCSettings)
+    model = gp_model(X, y, mean, kernel, params_prior, noise_prior)
+    param_symbols = vcat([Symbol("params[$i]") for i in 1:gp_param_count(x_dim)], :noise)
+    samples = sample_params_nuts(model, param_symbols, mc_settings)
+    
+    params = reduce(hcat, samples[1:gp_param_count(x_dim)])
+    noise = samples[end]
+    return params, noise
+end
+
+function sample_gp_params_vi(X, y, params_prior, noise_prior; x_dim, mean=x->0., kernel, sample_count)
+    model = gp_model(X, y, mean, kernel, params_prior, noise_prior)
+    samples = sample_params_vi(model, sample_count)
+    
+    params = reduce(hcat, samples[1:gp_param_count(x_dim)])
+    noise = samples[end]
+    return params, noise
+end
+
 function opt_gp_posterior(X, Y, params_priors, noise_priors; y_dim, mean=x->zeros(y_dim), kernel, multistart, info, debug)
     P = [fit_gp_params_lbfgs(X, Y[:,i], params_priors[i], noise_priors[i]; mean=x->mean(x)[i], kernel, multistart, info, debug) for i in 1:y_dim]
     params = [p[1] for p in P]
@@ -154,9 +175,16 @@ function opt_gp_posterior(X, Y, params_priors, noise_priors; y_dim, mean=x->zero
     return params, noise
 end
 
-function sample_gp_posterior(X, Y, params_priors, noise_priors; x_dim, y_dim, mean=x->zeros(y_dim), kernel, mc_settings::MCSettings)
+function sample_gp_posterior_nuts(X, Y, params_priors, noise_priors; x_dim, y_dim, mean=x->zeros(y_dim), kernel, mc_settings::MCSettings)
     samples = [sample_gp_params_nuts(X, Y[:,i], params_priors[i], noise_priors[i]; x_dim, mean=x->mean(x)[i], kernel, mc_settings) for i in 1:y_dim]
     params = [(s->s[1][i,:]).(samples) for i in 1:sample_count(mc_settings)]
     noise = [(s->s[2][i]).(samples) for i in 1:sample_count(mc_settings)]
+    return params, noise
+end
+
+function sample_gp_posterior_vi(X, Y, params_priors, noise_priors; x_dim, y_dim, mean=x->zeros(y_dim), kernel, sample_count)
+    samples = [sample_gp_params_vi(X, Y[:,i], params_priors[i], noise_priors[i]; x_dim, mean=x->mean(x)[i], kernel, sample_count) for i in 1:y_dim]
+    params = [(s->s[1][i,:]).(samples) for i in 1:sample_count]
+    noise = [(s->s[2][i]).(samples) for i in 1:sample_count]
     return params, noise
 end

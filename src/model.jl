@@ -125,21 +125,29 @@ function generate_start_(model, noise_priors)
     return vcat([rand(d) for d in noise_priors], [rand(d) for d in model.param_priors])
 end
 
-# Sample from the posterior parameter distributions given the data 'X', 'Y'.
-function sample_param_posterior(X, Y, par_model, noise_priors; y_dim, mc_settings::MCSettings)
-    Turing.@model function prob_model(X, Y, model, noise_priors, y_dim)
-        params ~ arraydist(model.param_priors)
-        noise ~ arraydist(noise_priors)
-    
-        means = reduce(hcat, model.(eachrow(X), Ref(params)))'
-        
-        Y ~ arraydist([Distributions.MvNormal(means[:,i], noise[i]) for i in 1:y_dim])
-    end
+Turing.@model function prob_model(X, Y, model, noise_priors, y_dim)
+    params ~ arraydist(model.param_priors)
+    noise ~ arraydist(noise_priors)
 
+    means = reduce(hcat, model.(eachrow(X), Ref(params)))'
+    
+    Y ~ arraydist([Distributions.MvNormal(means[:,i], noise[i]) for i in 1:y_dim])
+end
+
+function sample_param_posterior_nuts(X, Y, par_model, noise_priors; y_dim, mc_settings::MCSettings)
     param_symbols = vcat([Symbol("params[$i]") for i in 1:par_model.param_count],
                          [Symbol("noise[$i]") for i in 1:y_dim])
     model = prob_model(X, Y, par_model, noise_priors, y_dim)
     samples = sample_params_nuts(model, param_symbols, mc_settings)
+    
+    params = collect(eachrow(reduce(hcat, samples[1:par_model.param_count])))
+    noise = collect(eachrow(reduce(hcat, samples[par_model.param_count+1:end])))
+    return params, noise
+end
+
+function sample_param_posterior_vi(X, Y, par_model, noise_priors; y_dim, sample_count)
+    model = prob_model(X, Y, par_model, noise_priors, y_dim)
+    samples = sample_params_vi(model, sample_count)
     
     params = collect(eachrow(reduce(hcat, samples[1:par_model.param_count])))
     noise = collect(eachrow(reduce(hcat, samples[par_model.param_count+1:end])))

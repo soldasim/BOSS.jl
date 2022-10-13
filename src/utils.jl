@@ -1,6 +1,7 @@
 using Distributions
 using Optim
 using Turing
+using Turing: Variational
 using FLoops
 using Zygote
 
@@ -82,7 +83,13 @@ function sample_params_nuts(model, param_symbols, mc::MCSettings; adbackend=:zyg
     samples_in_chain = mc.leap_size * mc.samples_in_chain
     chains = Turing.sample(model, NUTS(mc.warmup, 0.65), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
     samples = [vec(chains[s][mc.leap_size:mc.leap_size:end,:]) for s in param_symbols]
-    return samples
+end
+
+# Problems with using DiscreteKernel with ForwardDiff solved by turning the ForwardDiff 'nansafe-mode' on.
+# https://juliadiff.org/ForwardDiff.jl/dev/user/advanced/#Fixing-NaN/Inf-Issues
+function sample_params_vi(model, samples; alg=ADVI{Turing.AdvancedVI.ForwardDiffAD{0}}(10, 1000))
+    posterior = vi(model, alg)
+    rand(posterior, samples) |> eachrow |> collect
 end
 
 # - - - - - - DATA GENERATION - - - - - -

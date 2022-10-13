@@ -14,6 +14,7 @@ include("plotting.jl")
 
 export boss
 export LinFitness, NonlinFitness, LinModel, NonlinModel
+export DiscreteKernel
 export MCSettings
 
 # TODO remove
@@ -114,6 +115,8 @@ At least one of the termination conditions has to be provided.
 
 - mc_settings:                  An instance of `Boss.MCSettings` defining the hyperparameters of the MC sampler.
 
+- vi_samples:                   Specifies how many samples are to be drawn from the hyperparameter posterior infered with VI.
+
 - acq_opt_multistart:           Defines how many times is the acquisition function optimization restarted to find the global optimum.
 
 - param_opt_multistart:         Defines how many times is the model parameter optimization restarted to find the global optimum.
@@ -136,6 +139,7 @@ At least one of the termination conditions has to be provided.
 - f_true:                       The objective function 'f: x -> y' without noise. (For plotting purposes only.)
 
 - kernel:                       The kernel used in the GP models. See AbstractGPs.jl for more info.
+                                The `Boss.DiscreteKernel` can be used to deal with discrete variables in the input space.
 
 - feasibility_kernel:           The kernel used in the GPs used to model the feasibility constraints. See AbstractGPs.jl for more info.
 
@@ -143,12 +147,11 @@ At least one of the termination conditions has to be provided.
                                 Possible values are `:param`, `:semiparam`, `:nonparam` for the parametric, semiparametric or nonparametric models.
 
 - param_fit_alg:                Defines which algorithm is used to fit the parameters of the surrogate model.
-                                Possible values are: `:LBFGS` for the MLE via the LBFGS optimization algorithm,
-                                                     `:NUTS` for the MC sampling of the hyperparameter posterior via the NUTS algorithm.
+                                Possible values are: `:LBFGS` for the MLE via the LBFGS optimization algorithm, 
+                                                     `:NUTS` for the MC sampling of the hyperparameter posterior via the NUTS algorithm, 
+                                                     `:VI` for the variational inference of the hyperparameter posterior.
 
 - feasibility_param_fit_alg:    Defines which algorithm is used to fit the parameters of the the feasibility constraint models.
-
-- discrete_dims:                Vector of booleans specifying which input variables are to be considered as discrete.
 
 ## Other kwargs:
 
@@ -168,6 +171,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
     noise_priors,
     feasibility_noise_priors=nothing,
     mc_settings=MCSettings(400, 20, 8, 6),
+    vi_samples=200,
     acq_opt_multistart=80,
     param_opt_multistart=80,
     gp_params_priors=nothing,
@@ -185,9 +189,8 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
     kernel=Matern52Kernel(),
     feasibility_kernel=kernel,
     use_model=:semiparam,  # :param, :semiparam, :nonparam
-    param_fit_alg=:NUTS,  # :NUTS, :LBFGS
-    feasibility_param_fit_alg=:LBFGS,  # :NUTS, :LBFGS
-    discrete_dims=nothing,
+    param_fit_alg=:NUTS,  # :NUTS, :VI, :LBFGS
+    feasibility_param_fit_alg=:LBFGS,  # :NUTS, :VI, :LBFGS
     kwargs...
 )
     # - - - - - - - - INITIALIZATION - - - - - - - - - - - - - - - -
@@ -215,9 +218,13 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
     isnothing(gp_params_priors) && (gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:y_dim])
     isnothing(feasibility_gp_params_priors) && (feasibility_gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:feasibility_count])
     
-    if !isnothing(discrete_dims)
-        kernel = DiscreteKernel(kernel, discrete_dims)
-        feasibility_kernel = DiscreteKernel(feasibility_kernel, discrete_dims)
+    if kernel isa DiscreteKernel
+        discrete_dims =
+            isnothing(kernel.dims) ?
+            [true for _ in 1:x_dim] :
+            kernel.dims
+    else
+        discrete_dims = [false for _ in 1:x_dim]
     end
 
     # DATA - - - - - - - -
@@ -256,9 +263,15 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 par_models = nothing
             
             elseif param_fit_alg == :NUTS
-                par_param_samples, par_noise_samples = sample_param_posterior(X, Y, model, noise_priors; y_dim, mc_settings)
+                par_param_samples, par_noise_samples = sample_param_posterior_nuts(X, Y, model, noise_priors; y_dim, mc_settings)
                 par_models = [(x->model(x, par_param_samples[s]), x->par_noise_samples[s]) for s in 1:sample_count(mc_settings)]
 
+            elseif param_fit_alg == :VI
+                par_param_samples, par_noise_samples = sample_param_posterior_vi(X, Y, model, noise_priors; y_dim, sample_count=vi_samples)
+                par_models = [(x->model(x, par_param_samples[s]), x->par_noise_samples[s]) for s in 1:vi_samples]
+            end
+
+            if param_fit_alg == :NUTS || param_fit_alg == :VI
                 if make_plots
                     loglikes_ = [loglike(m, X, Y) for m in par_models]
                     parametric = par_models[argmax(loglikes_)]
@@ -280,10 +293,17 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 semiparametric = fit_gps(X, Y, semipar_params, semipar_noise; y_dim, mean=semipar_mean, kernel)
             
             elseif param_fit_alg == :NUTS
-                semipar_mean_param_samples, semipar_param_samples, semipar_noise_samples = sample_semipar_posterior(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings)
+                semipar_mean_param_samples, semipar_param_samples, semipar_noise_samples = sample_semipar_posterior_nuts(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings)
                 semipar_models = [fit_gps(X, Y, semipar_param_samples[s], semipar_noise_samples[s]; y_dim, mean=x->model(x, semipar_mean_param_samples[s]), kernel) for s in 1:sample_count(mc_settings)]
                 semiparametric = (nothing, nothing)
 
+            elseif param_fit_alg == :VI
+                semipar_mean_param_samples, semipar_param_samples, semipar_noise_samples = sample_semipar_posterior_vi(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, sample_count=vi_samples)
+                semipar_models = [fit_gps(X, Y, semipar_param_samples[s], semipar_noise_samples[s]; y_dim, mean=x->model(x, semipar_mean_param_samples[s]), kernel) for s in 1:vi_samples]
+                semiparametric = (nothing, nothing)
+            end
+
+            if param_fit_alg == :NUTS || param_fit_alg == :VI
                 if make_plots
                     if isnothing(par_models)
                         par_models = [(x->model(x, semipar_mean_param_samples[s]), nothing) for s in 1:sample_count(mc_settings)]
@@ -302,8 +322,13 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 nonparametric = fit_gps(X, Y, nonpar_params, nonpar_noise; y_dim, kernel)
             
             elseif param_fit_alg == :NUTS
-                nonpar_param_samples, nonpar_noise_samples = sample_gp_posterior(X, Y, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings)
+                nonpar_param_samples, nonpar_noise_samples = sample_gp_posterior_nuts(X, Y, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings)
                 nonpar_models = [fit_gps(X, Y, nonpar_param_samples[s], nonpar_noise_samples[s]; y_dim, kernel) for s in 1:sample_count(mc_settings)]
+                nonparametric = (nothing, nothing)
+            
+            elseif param_fit_alg == :VI
+                nonpar_param_samples, nonpar_noise_samples = sample_gp_posterior_vi(X, Y, gp_params_priors, noise_priors; x_dim, y_dim, kernel, sample_count=vi_samples)
+                nonpar_models = [fit_gps(X, Y, nonpar_param_samples[s], nonpar_noise_samples[s]; y_dim, kernel) for s in 1:vi_samples]
                 nonparametric = (nothing, nothing)
             end
         else
@@ -318,8 +343,13 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 feas_probs = x->feasibility_probabilities(model_)(x)
             
             elseif feasibility_param_fit_alg == :NUTS
-                feas_param_samples, feas_noise_samples = sample_gp_posterior(X, Z, feasibility_gp_params_priors, feasibility_noise_priors; x_dim, y_dim=feasibility_count, kernel=feasibility_kernel, mc_settings)
+                feas_param_samples, feas_noise_samples = sample_gp_posterior_nuts(X, Z, feasibility_gp_params_priors, feasibility_noise_priors; x_dim, y_dim=feasibility_count, kernel=feasibility_kernel, mc_settings)
                 feas_models = [fit_gps(X, Z, feas_param_samples[s], feas_noise_samples[s]; y_dim=feasibility_count, kernel=feasibility_kernel) for s in 1:sample_count(mc_settings)]
+                feas_probs = x->mean([feasibility_probabilities(m)(x) for m in feas_models])
+            
+            elseif feasibility_param_fit_alg == :VI
+                feas_param_samples, feas_noise_samples = sample_gp_posterior_vi(X, Z, feasibility_gp_params_priors, feasibility_noise_priors; x_dim, y_dim=feasibility_count, kernel=feasibility_kernel, sample_count=vi_samples)
+                feas_models = [fit_gps(X, Z, feas_param_samples[s], feas_noise_samples[s]; y_dim=feasibility_count, kernel=feasibility_kernel) for s in 1:vi_samples]
                 feas_probs = x->mean([feasibility_probabilities(m)(x) for m in feas_models])
             end
         else
@@ -335,7 +365,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         if (make_plots && plot_all_models) || (use_model == :param)
             if param_fit_alg == :LBFGS
                 ei_par_ = x->EI(x, fitness, parametric, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings))
-            elseif param_fit_alg == :NUTS
+            elseif param_fit_alg == :NUTS || param_fit_alg == :VI
                 ei_par_ = x->mean([EI(x, fitness, m, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings)) for m in par_models])
             end
             acq_par = construct_acq(ei_par_, feas_probs; feasibility, best_yet=last(bsf))
@@ -349,7 +379,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         if (make_plots && plot_all_models) || (use_model == :semiparam)
             if param_fit_alg == :LBFGS
                 ei_semipar_ = x->EI(x, fitness, semiparametric, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings))
-            elseif param_fit_alg == :NUTS
+            elseif param_fit_alg == :NUTS || param_fit_alg == :VI
                 ei_semipar_ = x->mean([EI(x, fitness, m, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings)) for m in semipar_models])
             end
             acq_semipar = construct_acq(ei_semipar_, feas_probs; feasibility, best_yet=last(bsf))
@@ -363,7 +393,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         if (make_plots && plot_all_models) || (use_model == :nonparam)
             if param_fit_alg == :LBFGS
                 ei_nonpar_ = x->EI(x, fitness, nonparametric, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings))
-            elseif param_fit_alg == :NUTS
+            elseif param_fit_alg == :NUTS || param_fit_alg == :VI
                 ei_nonpar_ = x->mean([EI(x, fitness, m, ϵ_samples; best_yet=last(bsf), sample_count=sample_count(mc_settings)) for m in nonpar_models])
             end
             acq_nonpar = construct_acq(ei_nonpar_, feas_probs; feasibility, best_yet=last(bsf))
