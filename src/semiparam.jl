@@ -14,7 +14,7 @@ function opt_semipar_posterior(X, Y, par_model, gp_params_priors, noise_priors; 
         noise, model_params, gp_hyperparams = split(p)
         gp_hyperparams = lift.(gp_hyperparams)
 
-        mean = x -> par_model.predict(x, model_params)
+        mean = x -> par_model(x, model_params)
         return noise_loglike(noise) + par_loglike(model_params, noise) + sum([gp_loglikes[i](gp_hyperparams[i], noise[i], x->mean(x)[i]) for i in 1:y_dim])
     end
 
@@ -55,22 +55,34 @@ Turing.@model function semipar_model(X, Y, par_model, gp_params_priors, noise_pr
     gp_hyperparams ~ arraydist(gp_params_priors)
 
     mean = x -> par_model(x, model_params)
-    gps = [construct_finite_gp(X, gp_hyperparams[:,i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
+    gps = [construct_finite_gp(X, gp_hyperparams[:,i], noise[i], x->mean(x)[i], kernel) for i in 1:y_dim]
 
     Y ~ arraydist(gps)
 end
+# Turing.@model function semipar_model(X, Y, par_model::NonlinModel{P,D}, gp_params_priors, noise_priors, kernel, x_dim, y_dim) where {P<:AbstractArray{<:Function}, D}
+#     noise ~ arraydist(noise_priors)
+#     model_params ~ arraydist(par_model.param_priors)
+#     gp_hyperparams ~ arraydist(gp_params_priors)
 
-function sample_semipar_posterior_nuts(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings::MCSettings)
+#     # construct_single_gp_(hyperparams, noise, mean) = construct_finite_gp(X, hyperparams, noise, x->mean(x,model_params), kernel)
+#     # gps = construct_single_gp_.(eachcol(gp_hyperparams), noise, par_model.predict)
+#     gps = construct_finite_gp.(Ref(X), eachcol(gp_hyperparams), noise, [x -> m(x, model_params) for m in par_model.predict], Ref(kernel))
+
+#     Y ~ arraydist(gps)
+# end
+
+function sample_semipar_posterior(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings::MCSettings)
     model = semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim)
     param_symbols = vcat([Symbol("noise[$i]") for i in 1:y_dim],
                          [Symbol("model_params[$i]") for i in 1:par_model.param_count],
                          reduce(vcat, [[Symbol("gp_hyperparams[$j,$i]") for j in 1:gp_param_count(x_dim)] for i in 1:y_dim]))
-    samples = sample_params_nuts(model, param_symbols, mc_settings)
+    samples = sample_params_turing(model, param_symbols, mc_settings)
 
     noise_samples, model_params_samples, gp_hyperparams_samples = split_sample_params_(; x_dim, y_dim, par_model, sample_count=sample_count(mc_settings))(samples)
     return model_params_samples, gp_hyperparams_samples, noise_samples
 end
 
+# TODO unused
 function sample_semipar_posterior_vi(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, sample_count)
     model = semipar_model(X, Y, par_model, gp_params_priors, noise_priors, kernel, x_dim, y_dim)
     samples = sample_params_vi(model, sample_count)

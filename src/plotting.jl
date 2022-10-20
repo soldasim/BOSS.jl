@@ -82,11 +82,8 @@ function plot_res_1x1(models, obj_func, x_data, y_data, domain;
     feasibility_colors=nothing,
     kwargs...
 )
-    if domain isa TwiceDifferentiableConstraints
-        domain_lb, domain_ub = get_bounds(domain)
-    else
-        domain_lb, domain_ub = domain
-    end
+    bounds = get_bounds(domain)
+    domain_lb, domain_ub = bounds[1], bounds[2]
     xs = LinRange(domain_lb, domain_ub, points)
 
     # UTIL PLOT
@@ -200,6 +197,7 @@ function plot_bsf_boxplots(results; show_plot=true, labels=["param", "semiparam"
     for i in 1:lastindex(results)
         bsf_data = getfield.(results[i], :bsf)
         bsf_data = reduce(hcat, bsf_data)
+        for i in eachindex(bsf_data) if isnothing(bsf_data[i]) bsf_data[i] = 0. end end
         label = isnothing(labels) ? nothing : labels[i]
         y_vals = median.(eachrow(bsf_data))
         y_err_l = y_vals .- quantile.(eachrow(bsf_data), 0.25)
@@ -223,7 +221,7 @@ end
 function util_vals(util, xs, domain::Tuple)
     return util.(xs)
 end
-function util_vals(util, xs, domain::TwiceDifferentiableConstraints)
-    interior = Optim.isinterior.(Ref(domain), xs)
+function util_vals(util, xs, domain)
+    interior = Boss.in_domain.(xs, Ref(domain))
     return [(interior[i] ? util(xs[i]) : 0.) for i in eachindex(xs)]
 end

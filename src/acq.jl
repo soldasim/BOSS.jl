@@ -64,7 +64,7 @@ function feasibility_probabilities(feasibility_model)
     return p
 end
 
-function EI(x, fitness::LinFitness, model, ϵ_samples; best_yet, sample_count)
+function EI(x, fitness::LinFitness, model; best_yet)
     μy, Σy = model[1](x), model[2](x)
 
     μf = fitness.coefs' * μy
@@ -73,19 +73,28 @@ function EI(x, fitness::LinFitness, model, ϵ_samples; best_yet, sample_count)
     norm_ϵ = (μf - best_yet) / σf
     return (μf - best_yet) * cdf(Distributions.Normal(), norm_ϵ) + σf * pdf(Distributions.Normal(), norm_ϵ)
 end
+EI(x, fitness::LinFitness, model, ϵ_samples; best_yet) = EI(x, fitness, model; best_yet)
 
-function EI(x, fitness::NonlinFitness, model, ϵ_samples; best_yet, sample_count)
+function EI(x, fitness::NonlinFitness, model, ϵ_samples::AbstractMatrix{<:Real}; best_yet)
     μy, Σy = model[1](x), model[2](x)
-    pred_samples = [μy .+ (Σy .* ϵ_samples[i,:]) for i in 1:sample_count]
-    return sum(max.(0, fitness.(pred_samples) .- best_yet)) / sample_count
+    pred_samples = [μy .+ (Σy .* ϵ) for ϵ in eachcol(ϵ_samples)]
+    return sum(max.(0, fitness.(pred_samples) .- best_yet)) / size(ϵ_samples)[2]
 end
 
-# 'domain' is a Tuple of lb and ub or TwiceDifferentiableConstraints
+# function opt_acq(acq, domain; x_dim, multistart=1, discrete_dims=nothing, info=true, debug=false)
+#     # starts = generate_starts_random_(domain, multistart)
+#     starts = generate_starts_LHC_(domain, multistart; x_dim)
+#     arg, val = optim_params(acq, starts, domain; info, debug)
+#    
+#     isnothing(discrete_dims) || (arg = discrete_round(discrete_dims)(arg))
+#     return arg, val
+# end
 function opt_acq(acq, domain; x_dim, multistart=1, discrete_dims=nothing, info=true, debug=false)
     # starts = generate_starts_random_(domain, multistart)
     starts = generate_starts_LHC_(domain, multistart; x_dim)
-    arg, val = optim_params(acq, starts, domain; info, debug)
-    
+
+    arg, val = optim_cmaes_multistart(acq, domain, starts)
+
     isnothing(discrete_dims) || (arg = discrete_round(discrete_dims)(arg))
     return arg, val
 end
@@ -95,12 +104,12 @@ function generate_starts_LHC_(domain::Tuple, count; x_dim)
     starts = scaleLHC(randomLHC(count, x_dim), [(lb[i], ub[i]) for i in 1:x_dim])
     return starts
 end
-function generate_starts_LHC_(domain::TwiceDifferentiableConstraints, count; x_dim)
+function generate_starts_LHC_(domain, count; x_dim)
     bounds = get_bounds(domain)
     starts = generate_starts_LHC_(bounds, count; x_dim)
     
     # replace exterior vertices with random points
-    interior = Optim.isinterior.(Ref(domain), collect(eachrow(starts)))
+    interior = in_domain.(eachrow(starts), Ref(domain))
     for i in 1:count
         interior[i] && continue
         starts[i,:] = generate_start_(domain)
@@ -119,20 +128,11 @@ function generate_start_(domain::Tuple)
     start = rand(dim) .* (ub .- lb) .+ lb
     return start
 end
-function generate_start_(domain::TwiceDifferentiableConstraints)
+function generate_start_(domain)
     bounds = get_bounds(domain)
     start = nothing
-    while isnothing(start) || (!Optim.isinterior(domain, start))
+    while isnothing(start) || (!in_domain(start, domain))
         start = generate_start_(bounds)
     end
     return start
-end
-
-function get_bounds(constraints::TwiceDifferentiableConstraints)
-    domain_lb = constraints.bounds.bx[1:2:end]
-    domain_ub = constraints.bounds.bx[2:2:end]
-    return domain_lb, domain_ub
-end
-function get_bounds(domain::Tuple)
-    return domain
 end

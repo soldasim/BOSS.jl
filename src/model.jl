@@ -4,9 +4,7 @@ using Turing
 
 abstract type ParamModel end
 
-function (model::ParamModel)(params)
-    return x -> model(x, params)
-end
+(model::ParamModel)(params) = x -> model(x, params)
 
 """
 Used to define a linear parametric model for the BOSS algorithm.
@@ -45,6 +43,8 @@ function (model::LinModel)(x, params)
     return y
 end
 
+#       Testing broadcastable NonlinModel
+# TODO cleanup when done
 """
 Used to define a parametric model for the BOSS algorithm.
 
@@ -53,15 +53,23 @@ Used to define a parametric model for the BOSS algorithm.
   - param_priors:   A vector of priors for each model parameter.
   - param_count:    The number of model parameters. (The length of 'params'.)
 """
-struct NonlinModel{D} <: ParamModel
-    predict::Function
-    param_priors::Vector{D}
+struct NonlinModel{P,D} <: ParamModel where {
+    P<:Union{<:Function,<:AbstractArray{<:Function}},
+    D<:AbstractArray{<:Any}
+}
+    predict::P
+    param_priors::D
     param_count::Int
 end
 
-function (m::NonlinModel)(x, params)
-    return m.predict(x, params)
+function (m::NonlinModel{P,D})(x, params) where {P<:Function, D}
+    m.predict(x, params)
 end
+function (m::NonlinModel{P,D})(x, params) where {P<:AbstractArray{<:Function}, D}
+    apply.(m.predict, Ref(x), Ref(params))
+end
+
+apply(f::Function, ps...) = f(ps...)
 
 function convert(::Type{NonlinModel}, model::LinModel)
     return NonlinModel(
@@ -134,17 +142,18 @@ Turing.@model function prob_model(X, Y, model, noise_priors, y_dim)
     Y ~ arraydist([Distributions.MvNormal(means[:,i], noise[i]) for i in 1:y_dim])
 end
 
-function sample_param_posterior_nuts(X, Y, par_model, noise_priors; y_dim, mc_settings::MCSettings)
+function sample_param_posterior(X, Y, par_model, noise_priors; y_dim, mc_settings::MCSettings)
     param_symbols = vcat([Symbol("params[$i]") for i in 1:par_model.param_count],
                          [Symbol("noise[$i]") for i in 1:y_dim])
     model = prob_model(X, Y, par_model, noise_priors, y_dim)
-    samples = sample_params_nuts(model, param_symbols, mc_settings)
+    samples = sample_params_turing(model, param_symbols, mc_settings)
     
     params = collect(eachrow(reduce(hcat, samples[1:par_model.param_count])))
     noise = collect(eachrow(reduce(hcat, samples[par_model.param_count+1:end])))
     return params, noise
 end
 
+# TODO unused
 function sample_param_posterior_vi(X, Y, par_model, noise_priors; y_dim, sample_count)
     model = prob_model(X, Y, par_model, noise_priors, y_dim)
     samples = sample_params_vi(model, sample_count)

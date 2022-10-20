@@ -4,8 +4,9 @@ using Turing
 using Turing: Variational
 using FLoops
 using Zygote
+using Evolutionary
 
-# - - - - - - LBFGS OPTIMIZATION - - - - - -
+# - - - - - - OPTIMIZATION - - - - - -
 
 # Find ̂x that maximizes f(x) using parallel multistart LBFGS.
 function optim_params(f, starts; kwargs...)
@@ -46,6 +47,35 @@ function optim_(f, start, constraints::TwiceDifferentiableConstraints)
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
 
+# - - - - - - CMA-ES - - - - - -
+
+# maximize f(x)
+optim_cmaes(f, start) = optim_cmaes(f, Evolutionary.NoConstraints(), start)
+optim_cmaes(f, bounds::Tuple, start) = optim_cmaes(f, Evolutionary.BoxConstraints(bounds...), start)
+function optim_cmaes(f, constraints::Evolutionary.AbstractConstraints, start)
+    res = Evolutionary.optimize(x->-f(x), constraints, start, CMAES(), Evolutionary.Options(parallelization=:thread))
+    return res.minimizer, -res.minimum
+end
+function optim_cmaes(f, cons::Optim.TwiceDifferentiableConstraints, start)
+    throw(ArgumentError("`Optim.TwiceDifferentiableConstraints` are not supported with 'CMAES'. Use `Evolutionary.WorstFitnessConstraints` or any other constraints from the `Evolutionary` package instead."))
+end
+
+function optim_cmaes_multistart(f, constraints, starts)
+    best_arg = nothing
+    best_val = -Inf
+
+    for s in eachrow(starts)
+        arg, val = optim_cmaes(f, constraints, s)
+
+        if val > best_val
+            best_arg = arg
+            best_val = val
+        end
+    end
+
+    return best_arg, best_val
+end
+
 # - - - - - - NUTS SAMPLING - - - - - -
 
 """
@@ -77,16 +107,26 @@ sample_count(mc::MCSettings) = mc.chain_count * mc.samples_in_chain
 
 # Sample parameters of the given probabilistic model (defined with Turing.jl) using parallel NUTS MC sampling.
 # Other AD backends than Zygote cause issues: https://discourse.julialang.org/t/gaussian-process-regression-with-turing-gets-stuck/86892
-function sample_params_nuts(model, param_symbols, mc::MCSettings; adbackend=:zygote)
+function sample_params_turing(model, param_symbols, mc::MCSettings; adbackend=:zygote)
     Turing.setadbackend(adbackend)
 
-    samples_in_chain = mc.leap_size * mc.samples_in_chain
-    chains = Turing.sample(model, NUTS(mc.warmup, 0.65), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
-    samples = [vec(chains[s][mc.leap_size:mc.leap_size:end,:]) for s in param_symbols]
+    # TODO: !!! parallel sampling rarely causes access to undefined reference !!!
+    # TODO: redo the parallel sampling with floops
+
+    # samples_in_chain = mc.leap_size * mc.samples_in_chain
+    samples_in_chain = mc.warmup + (mc.leap_size * mc.samples_in_chain)
+
+    # chains = Turing.sample(model, NUTS(mc.warmup, 0.65), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
+    # chains = Turing.sample(model, HMC(0.05, 10), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
+    chains = Turing.sample(model, PG(20), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
+    # chains = Turing.sample(model, SMC(), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
+
+    # samples = [vec(chains[s][mc.leap_size:mc.leap_size:end,:]) for s in param_symbols]
+    samples = [vec(chains[s][(mc.warmup+mc.leap_size):mc.leap_size:end,:]) for s in param_symbols]
+    return samples
 end
 
-# Problems with using DiscreteKernel with ForwardDiff solved by turning the ForwardDiff 'nansafe-mode' on.
-# https://juliadiff.org/ForwardDiff.jl/dev/user/advanced/#Fixing-NaN/Inf-Issues
+# TODO unused
 function sample_params_vi(model, samples; alg=ADVI{Turing.AdvancedVI.ForwardDiffAD{0}}(10, 1000))
     posterior = vi(model, alg)
     rand(posterior, samples) |> eachrow |> collect
@@ -143,3 +183,27 @@ function partial_sums(array)
     sums = [(s += val) for val in array]
     return sums
 end
+
+# - - - - - - OTHER - - - - - -
+
+get_bounds(bounds::Tuple) = bounds
+get_bounds(constraints::TwiceDifferentiableConstraints) = get_bounds_std_format_(constraints)
+get_bounds(constraints::Evolutionary.AbstractConstraints) = get_bounds_std_format_(constraints)
+get_bounds(constraints::MixedTypePenaltyConstraints) = get_bounds(constraints.penalty)
+
+function get_bounds_std_format_(constraints)
+    domain_lb = constraints.bounds.bx[1:2:end]
+    domain_ub = constraints.bounds.bx[2:2:end]
+    return domain_lb, domain_ub
+end
+
+function in_domain(x::AbstractVector, domain::Tuple)
+    lb, ub = domain
+    any(x .< lb) && return false
+    any(x .> ub) && return false
+    return true
+end
+in_domain(x::AbstractVector, domain::TwiceDifferentiableConstraints) = Optim.isinterior(domain, x)
+in_domain(x::AbstractVector, domain::Evolutionary.AbstractConstraints) = Evolutionary.isfeasible(domain, x)
+
+Evolutionary.isfeasible(c::MixedTypePenaltyConstraints, x) = Evolutionary.isfeasible(c.penalty, x)

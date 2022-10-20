@@ -35,8 +35,6 @@ struct DiscreteKernel <: Kernel
 end
 DiscreteKernel(kernel::Kernel) = DiscreteKernel(kernel, nothing)
 
-# TODO !!!
-# (dk::DiscreteKernel)(x1, x2) = dk.kernel(x1, x2)
 function (dk::DiscreteKernel)(x1, x2)
     r = discrete_round(dk.dims)
     dk.kernel(r(x1), r(x2))
@@ -82,7 +80,7 @@ function gp_pred_distr(posterior_gp)
 end
 
 function gp_posterior(X, y, params, noise; mean=x->0., kernel)
-    gp = construct_finite_gp(X, params, noise; mean, kernel)
+    gp = construct_finite_gp(X, params, noise, mean, kernel)
     return gp_posterior(gp, y)
 end
 function gp_posterior(finite_gp, y)
@@ -93,14 +91,11 @@ function gp_param_count(x_dim)
     return x_dim
 end
 
-function construct_finite_gps(X, params, noise; y_dim, mean=x->zeros(y_dim), kernel, min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
-    return [construct_finite_gp(X, params[i], noise[i]; mean=x->mean(x)[i], kernel, min_param_val, min_noise) for i in 1:y_dim]
+function construct_finite_gps(X, params, noise, mean, kernel; y_dim, min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
+    return [construct_finite_gp(X, params[i], noise[i], x->mean(x)[i], kernel; min_param_val, min_noise) for i in 1:y_dim]
 end
 
-function construct_finite_gp(X, params, noise; mean=x->0., kernel, min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
-    any(params .< 0.) && throw(ArgumentError("Params must be positive. Got '$params'."))
-    (noise < 0.) && throw(ArgumentError("Noise must be positive. Got '$noise'."))
-
+function construct_finite_gp(X, params, noise, mean, kernel; min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
     # for numerical stability
     params = params .+ min_param_val
     noise = noise + min_noise
@@ -111,7 +106,7 @@ end
 
 function gp_params_loglike(X, y, params_prior; mean=x->0., kernel)
     function logposterior(params, noise)
-        gp = construct_finite_gp(X, params, noise; mean, kernel)
+        gp = construct_finite_gp(X, params, noise, mean, kernel)
         return logpdf(gp, y)
     end
 
@@ -144,21 +139,22 @@ Turing.@model function gp_model(X, y, mean, kernel, params_prior, noise_prior)
     params ~ params_prior
     noise ~ noise_prior
     
-    gp = construct_finite_gp(X, params, noise; mean, kernel)
+    gp = construct_finite_gp(X, params, noise, mean, kernel)
     
     y ~ gp
 end
 
-function sample_gp_params_nuts(X, y, params_prior, noise_prior; x_dim, mean=x->0., kernel, mc_settings::MCSettings)
+function sample_gp_params(X, y, params_prior, noise_prior; x_dim, mean=x->0., kernel, mc_settings::MCSettings)
     model = gp_model(X, y, mean, kernel, params_prior, noise_prior)
     param_symbols = vcat([Symbol("params[$i]") for i in 1:gp_param_count(x_dim)], :noise)
-    samples = sample_params_nuts(model, param_symbols, mc_settings)
+    samples = sample_params_turing(model, param_symbols, mc_settings)
     
     params = reduce(hcat, samples[1:gp_param_count(x_dim)])
     noise = samples[end]
     return params, noise
 end
 
+# TODO unused
 function sample_gp_params_vi(X, y, params_prior, noise_prior; x_dim, mean=x->0., kernel, sample_count)
     model = gp_model(X, y, mean, kernel, params_prior, noise_prior)
     samples = sample_params_vi(model, sample_count)
@@ -175,8 +171,8 @@ function opt_gp_posterior(X, Y, params_priors, noise_priors; y_dim, mean=x->zero
     return params, noise
 end
 
-function sample_gp_posterior_nuts(X, Y, params_priors, noise_priors; x_dim, y_dim, mean=x->zeros(y_dim), kernel, mc_settings::MCSettings)
-    samples = [sample_gp_params_nuts(X, Y[:,i], params_priors[i], noise_priors[i]; x_dim, mean=x->mean(x)[i], kernel, mc_settings) for i in 1:y_dim]
+function sample_gp_posterior(X, Y, params_priors, noise_priors; x_dim, y_dim, mean=x->zeros(y_dim), kernel, mc_settings::MCSettings)
+    samples = [sample_gp_params(X, Y[:,i], params_priors[i], noise_priors[i]; x_dim, mean=x->mean(x)[i], kernel, mc_settings) for i in 1:y_dim]
     params = [(s->s[1][i,:]).(samples) for i in 1:sample_count(mc_settings)]
     noise = [(s->s[2][i]).(samples) for i in 1:sample_count(mc_settings)]
     return params, noise
