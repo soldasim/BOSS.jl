@@ -4,6 +4,7 @@ using PyCall
 using LatinHypercubeSampling
 using KernelFunctions
 using Optim
+using Evolutionary
 
 include("../src/boss.jl")
 include("../example/data.jl")
@@ -59,14 +60,19 @@ function domain_constraints()
     lc = [-Inf, -Inf, -Inf]
     uc = [0., 0., 0.]
 
-    function cons_c!(c, x)
-        c_ = constraints(x)
-        for i in eachindex(c_)
-            c[i] = c_[i]
-        end
-    end
+    return MixedTypePenaltyConstraints(
+        WorstFitnessConstraints(lb, ub, lc, uc, constraints),
+        [Int, Float64, Float64],
+    )
 
-    return TwiceDifferentiableConstraints(cons_c!, lb, ub, lc, uc, :forward)
+    # function cons_c!(c, x)
+    #     c_ = constraints(x)
+    #     for i in eachindex(c_)
+    #         c[i] = c_[i]
+    #     end
+    # end
+
+    # return TwiceDifferentiableConstraints(cons_c!, lb, ub, lc, uc, :forward)
 end
 
 # RUN BOSS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -166,11 +172,9 @@ end
 
 # wrapper function
 function run_boss_(init_X, init_Y; kwargs...)
-    mc_settings = Boss.MCSettings(50, 10, 12, 3)
-    vi_samples = 200
-    param_fit_alg = :VI
-    param_opt_multistart = 24
-    acq_opt_multistart = 24
+    mc_settings = Boss.MCSettings(50, 8, 6, 3)
+    param_fit_alg = :BI
+    acq_opt_multistart = 12
 
     noise_priors = [LogNormal(-2.3, 1.) for _ in 1:3]
 
@@ -183,10 +187,8 @@ function run_boss_(init_X, init_Y; kwargs...)
         noise_priors,
         mc_settings,
         acq_opt_multistart,
-        param_opt_multistart,
         target_err=nothing,
         param_fit_alg,
-        vi_samples,
         kernel,
         kwargs...
     )
