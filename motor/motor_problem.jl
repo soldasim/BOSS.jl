@@ -9,8 +9,6 @@ using Evolutionary
 include("../src/boss.jl")
 include("../example/data.jl")
 
-#Random.seed!(5555)
-
 
 # THE OBJECTIVE FUNCTION
 @pyinclude("motor/computational_model.py")
@@ -79,6 +77,8 @@ end
 
 # main function
 function example(max_iters; info=true, kwargs...)
+    #Random.seed!(5555)
+
     info && print("generating init data ...\n")
     X, Y = generate_init_data_LHC_(19)
     # info && print("generating test data ...\n")
@@ -198,27 +198,27 @@ end
 
 function generate_init_data_random_(size)
     lb, ub = domain_lb(), domain_ub()
-    X = hcat(rand(Product(Distributions.Uniform.(lb, ub)), size))'
+    X = hcat(rand(Product(Distributions.Uniform.(lb, ub)), size))
     return generate_init_data_(X, size)
 end
 
 function generate_init_data_LHC_(size)
     lb, ub = domain_bounds()
-    X = scaleLHC(randomLHC(size, 3), [(lb[i], ub[i]) for i in 1:3])
+    X = scaleLHC(randomLHC(size, 3), [(lb[i], ub[i]) for i in 1:3])'
     return generate_init_data_(X, size)
 end
 
 function generate_init_data_(X, size)
-    Y = zeros(size, 3)
+    Y = zeros(3, size)
     for i in 1:size
-        y = obj_func(X[i,:])
-        Y[i,:] .= y
+        y = obj_func(X[:,i])
+        Y[:,i] .= y
     end
     return X, Y
 end
 
 function generate_test_data_(size_per_dim)
-    test_X = reduce(hcat, [[x...] for x in collect(Iterators.product([collect(LinRange(domain_lb()[i], domain_ub()[i], size_per_dim)) for i in 1:length(domain_lb())]...))])'
-    test_Y = reduce(hcat, [obj_func(x)[1] for x in eachrow(test_X)])'
+    test_X = reduce(hcat, [[x...] for x in collect(Iterators.product([collect(LinRange(domain_lb()[i], domain_ub()[i], size_per_dim)) for i in 1:length(domain_lb())]...))])
+    test_Y = reduce(hcat, [obj_func(x)[1] for x in eachrow(test_X)])
     return test_X, test_Y
 end
