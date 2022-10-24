@@ -13,23 +13,27 @@ function optim_params(f, starts; kwargs...)
     return optim_params(f, starts, nothing; kwargs...)
 end
 function optim_params(f, starts, constraints; info=true, debug=false)
-    multistart = size(starts)[1]
+    multistart = size(starts)[2]
 
-    results = Vector{Tuple{Vector{Float64}, Float64}}(undef, multistart)
+    args = Vector{Vector{Float64}}(undef, multistart)
+    vals = Vector{Float64}(undef, multistart)
     convergence_errors = 0
     @floop for i in 1:multistart
         try
-            results[i] = optim_(f, starts[i,:], constraints)
+            a, v = optim_(f, starts[:,i], constraints)
+            args[i] = a
+            vals[i] = v
         catch e
             debug && throw(e)
             @reduce convergence_errors += 1
-            results[i] = ([], -Inf)
+            args[i] = Float64[]
+            vals[i] = -Inf
         end
     end
     info && (convergence_errors > 0) && print("      $(convergence_errors)/$(multistart) optimization runs failed to converge!\n")
     
-    opt_i = argmax([res[2] for res in results])
-    return results[opt_i]
+    opt_i = argmax(vals)
+    return args[opt_i], vals[opt_i]
 end
 
 # TODO try changing optimization algorithms
@@ -46,6 +50,9 @@ function optim_(f, start, constraints::TwiceDifferentiableConstraints)
     opt_res = Optim.optimize(p -> -f(p), constraints, start, IPNewton())
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
+function optim_(f, start, constraints::Evolutionary.AbstractConstraints)
+    throw(ArgumentError("`$(typeof(constraints))` are not supported with Optim. Use `Optim.TwiceDifferentiableConstraints` instead."))
+end
 
 # - - - - - - CMA-ES - - - - - -
 
@@ -53,27 +60,26 @@ end
 optim_cmaes(f, start) = optim_cmaes(f, Evolutionary.NoConstraints(), start)
 optim_cmaes(f, bounds::Tuple, start) = optim_cmaes(f, Evolutionary.BoxConstraints(bounds...), start)
 function optim_cmaes(f, constraints::Evolutionary.AbstractConstraints, start)
-    res = Evolutionary.optimize(x->-f(x), constraints, start, CMAES(), Evolutionary.Options(parallelization=:thread))
+    res = Evolutionary.optimize(x->-f(x), constraints, start, CMAES())  # Evolutionary.Options(parallelization=:thread)
     return res.minimizer, -res.minimum
 end
 function optim_cmaes(f, cons::Optim.TwiceDifferentiableConstraints, start)
-    throw(ArgumentError("`Optim.TwiceDifferentiableConstraints` are not supported with 'CMAES'. Use `Evolutionary.WorstFitnessConstraints` or any other constraints from the `Evolutionary` package instead."))
+    throw(ArgumentError("`Optim.TwiceDifferentiableConstraints` are not supported with CMAES. Use `Evolutionary.WorstFitnessConstraints` or any other constraints from the `Evolutionary` package instead."))
 end
 
 function optim_cmaes_multistart(f, constraints, starts)
-    best_arg = nothing
-    best_val = -Inf
+    multistart = size(starts)[2]
 
-    for s in eachrow(starts)
-        arg, val = optim_cmaes(f, constraints, s)
-
-        if val > best_val
-            best_arg = arg
-            best_val = val
-        end
+    args = Vector{Vector{Float64}}(undef, multistart)
+    vals = Vector{Float64}(undef, multistart)
+    @floop for i in 1:multistart
+        a, v = optim_cmaes(f, constraints, starts[:,i])
+        args[i] = a
+        vals[i] = v
     end
-
-    return best_arg, best_val
+    
+    opt_i = argmax(vals)
+    return args[opt_i], vals[opt_i]
 end
 
 # - - - - - - NUTS SAMPLING - - - - - -
@@ -110,19 +116,20 @@ sample_count(mc::MCSettings) = mc.chain_count * mc.samples_in_chain
 function sample_params_turing(model, param_symbols, mc::MCSettings; adbackend=:zygote)
     Turing.setadbackend(adbackend)
 
-    # TODO: !!! parallel sampling rarely causes access to undefined reference !!!
-    # TODO: redo the parallel sampling with floops
-
+    # # NUTS
     # samples_in_chain = mc.leap_size * mc.samples_in_chain
-    samples_in_chain = mc.warmup + (mc.leap_size * mc.samples_in_chain)
-
     # chains = Turing.sample(model, NUTS(mc.warmup, 0.65), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
-    # chains = Turing.sample(model, HMC(0.05, 10), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
-    chains = Turing.sample(model, PG(20), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
-    # chains = Turing.sample(model, SMC(), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
-
     # samples = [vec(chains[s][mc.leap_size:mc.leap_size:end,:]) for s in param_symbols]
-    samples = [vec(chains[s][(mc.warmup+mc.leap_size):mc.leap_size:end,:]) for s in param_symbols]
+
+    # PG
+    # (The built-in parallelization in Turing occasionally causes 'access to undefined reference' errors.)
+    samples_in_chain = mc.warmup + (mc.leap_size * mc.samples_in_chain)
+    chains = Vector{Turing.Chains}(undef, mc.chain_count)
+    @floop for i in 1:mc.chain_count
+        chains[i] = Turing.sample(model, PG(20), samples_in_chain; progress=false)
+    end
+    samples = [reduce(vcat, [ch[s][(mc.warmup+mc.leap_size):mc.leap_size:end,:] for ch in chains]) for s in param_symbols]
+
     return samples
 end
 

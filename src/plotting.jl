@@ -30,7 +30,7 @@ function create_plots(f_true, utils, util_opts, models, model_samples, feas_prob
     plots = Plots.Plot[]
     for d in 1:y_dim
         title = (y_dim > 1) ? "ITER $iter, DIM $d" : "ITER $iter"
-        models = model_dim_slice.(models, d)
+        models = model_dim_slice.(models, Ref(d))
         
         p = plot_res_1x1(models, x -> f_true(x)[d], X, Y, domain;
             utils,
@@ -139,7 +139,7 @@ function plot_res_1x1(models, obj_func, x_data, y_data, domain;
     if !isnothing(model_samples)
         for i in 1:lastindex(model_samples)
             x_range = (xaxis == :log) ? log_range(domain_lb[1],domain_ub[1],points) : collect(LinRange([domain_lb[1]],[domain_ub[1]],points))
-            y_range = reduce(vcat, model_samples[i][1].(x_range))
+            y_range = reduce(vcat, (x->model_samples[i](x)[1]).(x_range))
             var_range = nothing  # isnothing(model_samples[i][2]) ? nothing : getindex.(model_samples[i][2].(x_range), 1)
             label = isnothing(model_sample_labels) ? "sample_$i" : model_sample_labels[i]
             color = isnothing(model_sample_colors) ? :red : model_sample_colors[i]
@@ -149,10 +149,10 @@ function plot_res_1x1(models, obj_func, x_data, y_data, domain;
 
     # models
     for i in 1:lastindex(models)
-        isnothing(models[i][1]) && continue
+        isnothing(models[i]) && continue
         x_range = (xaxis == :log) ? log_range(domain_lb[1],domain_ub[1],points) : collect(LinRange([domain_lb[1]],[domain_ub[1]],points))
-        y_range = reduce(vcat, models[i][1].(x_range))
-        var_range = isnothing(models[i][2]) ? nothing : getindex.(models[i][2].(x_range), 1)
+        y_range = reduce(vcat, (x->models[i](x)[1]).(x_range))
+        var_range = reduce(vcat, (x->models[i](x)[2]).(x_range))
         label = isnothing(model_labels) ? (length(models) > 1 ? "model_$i" : "model") : model_labels[i]
         color = isnothing(model_colors) ? :red : model_colors[i]
         plot!(data_plot, reduce(vcat, x_range), reduce(vcat, y_range); label, ribbon=var_range, points, color)
@@ -178,10 +178,12 @@ function plot_res_1x1(models, obj_func, x_data, y_data, domain;
 end
 
 function model_dim_slice(model, dim)
-    μ = isnothing(model[1]) ? nothing : x -> model[1](x)[dim]
-    σ = isnothing(model[2]) ? nothing : x -> model[2](x)[dim]
-    return μ, σ
+    function model_slice(x)
+        mean, var = model(x)
+        mean[dim], var[dim]
+    end
 end
+model_dim_slice(model::Nothing, dim) = nothing
 
 function plot_res_2x1(model, obj_func; points=200)
     x_range = range(A[1], B[1]; length=points)

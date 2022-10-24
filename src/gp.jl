@@ -56,71 +56,71 @@ function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscales::Abst
     return DiscreteKernel(with_lengthscale(dk.kernel, lengthscales), dk.dims)
 end
 
-function fit_gps(X, Y, params, noise; y_dim, mean=x->zeros(y_dim), kernel)
-    gp_preds = [gp_pred_distr(X, Y[:,i], params[i], noise[i]; mean=x->mean(x)[i], kernel) for i in 1:y_dim]
-    return fit_gps(gp_preds)
+gp_param_count(x_dim) = x_dim
+
+function gp_model(X, Y, params, noise, mean::Nothing, kernel)
+    finite_gps = construct_finite_gp.(Ref(X), params, noise, Ref(nothing), Ref(kernel))
+    gp_model(finite_gps, Y)
 end
-function fit_gps(finite_gps, Y)
-    gp_preds = gp_pred_distr.(gp_posterior.(finite_gps, collect(eachcol(Y))))
-    return fit_gps(gp_preds)
+function gp_model(X, Y, params, noise, mean::Base.Callable, kernel)
+    means = [x -> mean(x)[i] for i in 1:length(params)]
+    gp_model(X, Y, params, noise, means, kernel)
 end
-function fit_gps(gp_preds)
-    return (x -> [pred[1](x) for pred in gp_preds],
-            x -> [pred[2](x) for pred in gp_preds])
+function gp_model(X, Y, params, noise, means::AbstractArray{<:Base.Callable}, kernel)
+    finite_gps = construct_finite_gp.(Ref(X), params, noise, means, Ref(kernel))
+    gp_model(finite_gps, Y)
+end
+function gp_model(finite_gps, Y)
+    posts = posterior.(finite_gps, eachrow(Y))
+
+    function model(x)
+        in = [x]
+        mean = Vector{Float64}(undef, length(posts))
+        var = Vector{Float64}(undef, length(posts))
+        
+        for i in eachindex(posts)
+            m, v = mean_and_var(posts[i](in))
+            mean[i] = m[1]
+            var[i] = v[1]
+        end
+
+        return mean, var
+    end
 end
 
-function gp_pred_distr(X, y, params, noise; mean=x->0., kernel)
-    post_gp = gp_posterior(X, y, params, noise; mean, kernel)
-    return gp_pred_distr(post_gp)
-end
-function gp_pred_distr(posterior_gp)
-    μ(x) = mean(posterior_gp([x]))[1]
-    σ(x) = var(posterior_gp([x]))[1]
-    return μ, σ
-end
+function construct_finite_gp(X, params, noise, mean::Nothing, kernel; min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
+    # for numerical stability
+    params = params .+ min_param_val
+    noise = noise + min_noise
 
-function gp_posterior(X, y, params, noise; mean=x->0., kernel)
-    gp = construct_finite_gp(X, params, noise, mean, kernel)
-    return gp_posterior(gp, y)
+    kernel = with_lengthscale(kernel, params)
+    GP(kernel)(X, noise)
 end
-function gp_posterior(finite_gp, y)
-    return posterior(finite_gp, y)
-end
-
-function gp_param_count(x_dim)
-    return x_dim
-end
-
-function construct_finite_gps(X, params, noise, mean, kernel; y_dim, min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
-    return [construct_finite_gp(X, params[i], noise[i], x->mean(x)[i], kernel; min_param_val, min_noise) for i in 1:y_dim]
-end
-
 function construct_finite_gp(X, params, noise, mean, kernel; min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
     # for numerical stability
     params = params .+ min_param_val
     noise = noise + min_noise
 
     kernel = with_lengthscale(kernel, params)
-    return GP(CustomMean(mean), kernel)(X', noise)
+    GP(CustomMean(mean), kernel)(X, noise)
 end
 
-function gp_params_loglike(X, y, params_prior; mean=x->0., kernel)
-    function logposterior(params, noise)
+function gp_params_loglike(X, y, params_prior, mean, kernel)
+    function ll_data(params, noise)
         gp = construct_finite_gp(X, params, noise, mean, kernel)
-        return logpdf(gp, y)
+        logpdf(gp, y)
     end
 
     function loglike(params, noise)
-        return logposterior(params, noise) + logpdf(params_prior, params)
+        ll_data(params, noise) + logpdf(params_prior, params)
     end
-    return loglike
 end
 
-function fit_gp_params_lbfgs(X, y, params_prior, noise_prior; mean=x->0., kernel, multistart, info=true, debug=false, min_param_value=MIN_PARAM_VALUE)
+function opt_gp_params(X, y, params_prior, noise_prior, mean, kernel; multistart, info=true, debug=false, min_param_value=MIN_PARAM_VALUE)
     softplus(x) = log(1. + exp(x))
     lift(p) = softplus.(p) .+ min_param_value  # 'min_param_value' for numerical stability
     
-    params_loglike = gp_params_loglike(X, y, params_prior; mean, kernel)
+    params_loglike = gp_params_loglike(X, y, params_prior, mean, kernel)
     noise_loglike = noise -> logpdf(noise_prior, noise)
 
     function loglike(p)
@@ -128,14 +128,21 @@ function fit_gp_params_lbfgs(X, y, params_prior, noise_prior; mean=x->0., kernel
         return params_loglike(params, noise) + noise_loglike(noise)
     end
 
-    starts = hcat(rand(noise_prior, multistart), rand(params_prior, multistart)')
+    starts = vcat(rand(noise_prior, multistart)', rand(params_prior, multistart))
     
     p, _ = optim_params(p -> loglike(lift(p)), starts; info, debug)
     noise, params... = lift(p)
     return params, noise
 end
 
-Turing.@model function gp_model(X, y, mean, kernel, params_prior, noise_prior)
+function opt_gps_params(X, Y, params_priors, noise_priors, means, kernel; y_dim, multistart, info, debug)
+    P = opt_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); multistart, info, debug)
+    params = [p[1] for p in P]
+    noise = [p[2] for p in P]
+    return params, noise
+end
+
+Turing.@model function gp_turing_model(X, y, mean, kernel, params_prior, noise_prior)
     params ~ params_prior
     noise ~ noise_prior
     
@@ -144,8 +151,8 @@ Turing.@model function gp_model(X, y, mean, kernel, params_prior, noise_prior)
     y ~ gp
 end
 
-function sample_gp_params(X, y, params_prior, noise_prior; x_dim, mean=x->0., kernel, mc_settings::MCSettings)
-    model = gp_model(X, y, mean, kernel, params_prior, noise_prior)
+function sample_gp_params(X, y, params_prior, noise_prior, mean, kernel; x_dim, mc_settings::MCSettings)
+    model = gp_turing_model(X, y, mean, kernel, params_prior, noise_prior)
     param_symbols = vcat([Symbol("params[$i]") for i in 1:gp_param_count(x_dim)], :noise)
     samples = sample_params_turing(model, param_symbols, mc_settings)
     
@@ -154,33 +161,9 @@ function sample_gp_params(X, y, params_prior, noise_prior; x_dim, mean=x->0., ke
     return params, noise
 end
 
-# TODO unused
-function sample_gp_params_vi(X, y, params_prior, noise_prior; x_dim, mean=x->0., kernel, sample_count)
-    model = gp_model(X, y, mean, kernel, params_prior, noise_prior)
-    samples = sample_params_vi(model, sample_count)
-    
-    params = reduce(hcat, samples[1:gp_param_count(x_dim)])
-    noise = samples[end]
-    return params, noise
-end
-
-function opt_gp_posterior(X, Y, params_priors, noise_priors; y_dim, mean=x->zeros(y_dim), kernel, multistart, info, debug)
-    P = [fit_gp_params_lbfgs(X, Y[:,i], params_priors[i], noise_priors[i]; mean=x->mean(x)[i], kernel, multistart, info, debug) for i in 1:y_dim]
-    params = [p[1] for p in P]
-    noise = [p[2] for p in P]
-    return params, noise
-end
-
-function sample_gp_posterior(X, Y, params_priors, noise_priors; x_dim, y_dim, mean=x->zeros(y_dim), kernel, mc_settings::MCSettings)
-    samples = [sample_gp_params(X, Y[:,i], params_priors[i], noise_priors[i]; x_dim, mean=x->mean(x)[i], kernel, mc_settings) for i in 1:y_dim]
+function sample_gps_params(X, Y, params_priors, noise_priors, means, kernel; x_dim, mc_settings::MCSettings)
+    samples = sample_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); x_dim, mc_settings)
     params = [(s->s[1][i,:]).(samples) for i in 1:sample_count(mc_settings)]
     noise = [(s->s[2][i]).(samples) for i in 1:sample_count(mc_settings)]
-    return params, noise
-end
-
-function sample_gp_posterior_vi(X, Y, params_priors, noise_priors; x_dim, y_dim, mean=x->zeros(y_dim), kernel, sample_count)
-    samples = [sample_gp_params_vi(X, Y[:,i], params_priors[i], noise_priors[i]; x_dim, mean=x->mean(x)[i], kernel, sample_count) for i in 1:y_dim]
-    params = [(s->s[1][i,:]).(samples) for i in 1:sample_count]
-    noise = [(s->s[2][i]).(samples) for i in 1:sample_count]
     return params, noise
 end

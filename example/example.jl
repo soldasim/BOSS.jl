@@ -15,8 +15,6 @@ include("models/model-expcos.jl")
 include("models/model-lincos.jl")
 include("models/model-poly.jl")
 
-Random.seed!(5555)
-
 # The objective function.
 function f_true(x; noise=0.)
     y = exp(x[1]/10) * cos(2*x[1]) #+ x[2]
@@ -75,10 +73,12 @@ noise_prior() = LogNormal(-2.3, 0.5)
 # EXAMPLES - - - - - - - -
 
 function example(max_iters; init_data_size=2, info=true, make_plots=true, plot_all_models=true, kwargs...)
-    # X, Y, Z = generate_init_data_(init_data_size; noise=noise_real(), feasibility=true)
-    X, Y, Z = generate_init_data_(init_data_size; noise=noise_real(), feasibility=false)..., nothing
-    # X = [5.;8.;;]; Y = reduce(hcat, [f_true(x; noise=noise_real()) for x in eachrow(X)])'; Z = nothing;
+    # Random.seed!(5555)
     
+    X, Y, Z = generate_init_data_(init_data_size; noise=noise_real(), feasibility=true)
+    # X, Y, Z = generate_init_data_(init_data_size; noise=noise_real(), feasibility=false)..., nothing
+    # X = [5.;8.;;]; Y = reduce(hcat, [f_true(x; noise=noise_real()) for x in eachrow(X)])'; Z = nothing;
+
     # test_X, test_Y = generate_test_data_(2000)
     test_X, test_Y = nothing, nothing
 
@@ -136,8 +136,8 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
     fg(x; noise=0.) = f_true(x; noise), Float64[]
     fg_noisy(x) = fg(x; noise=noise_real())
     
-    # domain = domain_constraints()
     # domain = ([0.], [20.])
+    # domain = domain_constraints()
     domain = evolutionary_constraints()
     
     fitness = Boss.LinFitness([1.])
@@ -145,6 +145,7 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
     
     param_fit_alg = :BI
     feasibility_param_fit_alg = :MLE
+    acq_opt_alg = :CMAES
     kernel = Matern52Kernel()
     # kernel = Boss.DiscreteKernel(Matern52Kernel())
 
@@ -165,6 +166,7 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
         feasibility_gp_params_priors,
         param_fit_alg,
         feasibility_param_fit_alg,
+        acq_opt_alg,
         kernel,
         kwargs...
     )
@@ -173,10 +175,10 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
 end
 
 function generate_init_data_(size; noise=0., feasibility)
-    X = hcat(rand(Product(Distributions.Uniform.(domain_bounds()...)), size))'
-    Y = reduce(hcat, [f_true(x; noise) for x in eachrow(X)])'
+    X = rand(Product(Distributions.Uniform.(domain_bounds()...)), size)
+    Y = reduce(hcat, f_true.(eachcol(X); noise))
     if feasibility
-        Z = reduce(hcat, [feasibility_constraints(x; noise) for x in eachrow(X)])'
+        Z = reduce(hcat, [feasibility_constraints(x; noise) for x in eachrow(X)])
         return X, Y, Z
     else
         return X, Y
@@ -184,7 +186,7 @@ function generate_init_data_(size; noise=0., feasibility)
 end
 
 function generate_test_data_(size)
-    test_X = reduce(hcat, (LinRange(domain_bounds()..., size)))'
-    test_Y = reduce(hcat, [f_true(x) for x in eachrow(test_X)])'
+    test_X = reduce(hcat, (LinRange(domain_bounds()..., size)))
+    test_Y = reduce(hcat, [f_true(x) for x in eachrow(test_X)])
     return test_X, test_Y
 end

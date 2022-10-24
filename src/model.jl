@@ -43,8 +43,6 @@ function (model::LinModel)(x, params)
     return y
 end
 
-#       Testing broadcastable NonlinModel
-# TODO cleanup when done
 """
 Used to define a parametric model for the BOSS algorithm.
 
@@ -54,7 +52,7 @@ Used to define a parametric model for the BOSS algorithm.
   - param_count:    The number of model parameters. (The length of 'params'.)
 """
 struct NonlinModel{P,D} <: ParamModel where {
-    P<:Union{<:Function,<:AbstractArray{<:Function}},
+    P<:Base.Callable,
     D<:AbstractArray{<:Any}
 }
     predict::P
@@ -62,12 +60,7 @@ struct NonlinModel{P,D} <: ParamModel where {
     param_count::Int
 end
 
-function (m::NonlinModel{P,D})(x, params) where {P<:Function, D}
-    m.predict(x, params)
-end
-function (m::NonlinModel{P,D})(x, params) where {P<:AbstractArray{<:Function}, D}
-    apply.(m.predict, Ref(x), Ref(params))
-end
+(m::NonlinModel)(x, params) = m.predict(x, params)
 
 apply(f::Function, ps...) = f(ps...)
 
@@ -100,29 +93,27 @@ function θ_posterior_(Φ, y, θ_prior, noise)
 end
 
 function model_params_loglike(X, Y, model::ParamModel)
-    xs = collect(eachrow(X))
-    data_size = length(xs)
-
     function loglike(params, noise)
-        μs = model(params).(xs)
-        L_data = sum([logpdf(MvNormal(μs[i], noise), Y[i,:]) for i in 1:data_size])
-        L_params = sum([logpdf(model.param_priors[i], params[i]) for i in 1:model.param_count])
-        return L_data + L_params
+        pred = model(params)
+        ll_datum(x, y) = logpdf(MvNormal(pred(x), noise), y)
+        
+        ll_data = mapreduce(d -> ll_datum(d...), +, zip(eachcol(X), eachcol(Y)))
+        ll_params = mapreduce(p -> logpdf(p...), +, zip(model.param_priors, params))
+        
+        ll_data + ll_params
     end
-
-    return loglike
 end
 
-function fit_model_params_lbfgs(X, Y, model::ParamModel, noise_priors; y_dim, multistart, info=true, debug=false, min_param_value=1e-6)
+function opt_model_params(X, Y, model::ParamModel, noise_priors; y_dim, multistart, info=true, debug=false)
     params_loglike = model_params_loglike(X, Y, model::ParamModel)
-    noise_loglike = noise -> sum([logpdf(noise_priors[i], noise[i]) for i in 1:y_dim])
+    noise_loglike = noise -> mapreduce(n -> logpdf(n...), +, zip(noise_priors, noise))
     
     function loglike(p)
         noise, params = p[1:y_dim], p[y_dim+1:end]
-        return params_loglike(params, noise) + noise_loglike(noise)
+        params_loglike(params, noise) + noise_loglike(noise)
     end
 
-    starts = reduce(hcat, [generate_start_(model, noise_priors) for _ in 1:multistart])'
+    starts = reduce(hcat, [generate_start_(model, noise_priors) for _ in 1:multistart])
     
     p, _ = optim_params(loglike, starts; info, debug)
     noise, params = p[1:y_dim], p[y_dim+1:end]
@@ -133,32 +124,22 @@ function generate_start_(model, noise_priors)
     return vcat([rand(d) for d in noise_priors], [rand(d) for d in model.param_priors])
 end
 
-Turing.@model function prob_model(X, Y, model, noise_priors, y_dim)
+Turing.@model function param_turing_model(X, Y, model, noise_priors, y_dim)
     params ~ arraydist(model.param_priors)
     noise ~ arraydist(noise_priors)
 
-    means = reduce(hcat, model.(eachrow(X), Ref(params)))'
+    means = model.(eachcol(X), Ref(params))
     
-    Y ~ arraydist([Distributions.MvNormal(means[:,i], noise[i]) for i in 1:y_dim])
+    Y ~ arraydist(Distributions.MvNormal.(means, Ref(noise)))
 end
 
-function sample_param_posterior(X, Y, par_model, noise_priors; y_dim, mc_settings::MCSettings)
+function sample_model_params(X, Y, par_model, noise_priors; y_dim, mc_settings::MCSettings)
     param_symbols = vcat([Symbol("params[$i]") for i in 1:par_model.param_count],
                          [Symbol("noise[$i]") for i in 1:y_dim])
-    model = prob_model(X, Y, par_model, noise_priors, y_dim)
+    model = param_turing_model(X, Y, par_model, noise_priors, y_dim)
     samples = sample_params_turing(model, param_symbols, mc_settings)
     
-    params = collect(eachrow(reduce(hcat, samples[1:par_model.param_count])))
-    noise = collect(eachrow(reduce(hcat, samples[par_model.param_count+1:end])))
-    return params, noise
-end
-
-# TODO unused
-function sample_param_posterior_vi(X, Y, par_model, noise_priors; y_dim, sample_count)
-    model = prob_model(X, Y, par_model, noise_priors, y_dim)
-    samples = sample_params_vi(model, sample_count)
-    
-    params = collect(eachrow(reduce(hcat, samples[1:par_model.param_count])))
-    noise = collect(eachrow(reduce(hcat, samples[par_model.param_count+1:end])))
+    params = reduce(hcat, samples[1:par_model.param_count])'
+    noise = reduce(hcat, samples[par_model.param_count+1:end])'
     return params, noise
 end
