@@ -58,26 +58,26 @@ function domain_constraints()
     lc = [-Inf, -Inf, -Inf]
     uc = [0., 0., 0.]
 
-    return MixedTypePenaltyConstraints(
-        WorstFitnessConstraints(lb, ub, lc, uc, constraints),
-        [Int, Float64, Float64],
-    )
+    # return MixedTypePenaltyConstraints(
+    #     WorstFitnessConstraints(lb, ub, lc, uc, constraints),
+    #     [Int, Float64, Float64],
+    # )
 
-    # function cons_c!(c, x)
-    #     c_ = constraints(x)
-    #     for i in eachindex(c_)
-    #         c[i] = c_[i]
-    #     end
-    # end
+    function cons_c!(c, x)
+        c_ = constraints(x)
+        for i in eachindex(c_)
+            c[i] = c_[i]
+        end
+    end
 
-    # return TwiceDifferentiableConstraints(cons_c!, lb, ub, lc, uc, :forward)
+    return TwiceDifferentiableConstraints(cons_c!, lb, ub, lc, uc, :forward)
 end
 
 # RUN BOSS - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 # main function
 function example(max_iters; info=true, kwargs...)
-    #Random.seed!(5555)
+    Random.seed!(5555)
 
     info && print("generating init data ...\n")
     X, Y = generate_init_data_LHC_(19)
@@ -182,6 +182,10 @@ function run_boss_(init_X, init_Y; kwargs...)
     model = motor_model()
     domain = domain_constraints()
     kernel = Boss.DiscreteKernel(Matern52Kernel(), [true, false, false])
+    
+    acq_opt_alg = :Optim
+    optim_options = Optim.Options(; x_abstol=1e-2, iterations=200)
+    cmaes_options = Evolutionary.Options(; abstol=1e-0, iterations=200)
 
     time = @elapsed X, Y, bsf, errs, _ = Boss.boss(obj_func, fit, init_X, init_Y, model, domain;
         noise_priors,
@@ -190,6 +194,9 @@ function run_boss_(init_X, init_Y; kwargs...)
         target_err=nothing,
         param_fit_alg,
         kernel,
+        acq_opt_alg,
+        optim_options,
+        cmaes_options,
         kwargs...
     )
 
