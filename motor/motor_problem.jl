@@ -184,8 +184,8 @@ function run_boss_(init_X, init_Y; kwargs...)
     kernel = Boss.DiscreteKernel(Matern52Kernel(), [true, false, false])
     
     acq_opt_alg = :Optim
-    optim_options = Optim.Options(; x_abstol=1e-2, iterations=200)
-    cmaes_options = Evolutionary.Options(; abstol=1e-0, iterations=200)
+    optim_options = Optim.Options(; x_abstol=1e-2, iterations=800)
+    cmaes_options = Evolutionary.Options(; abstol=1e-0, iterations=800)
 
     time = @elapsed X, Y, bsf, errs, _ = Boss.boss(obj_func, fit, init_X, init_Y, model, domain;
         noise_priors,
