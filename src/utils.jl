@@ -12,7 +12,7 @@ using Evolutionary
 function optim_params(f, starts; kwargs...)
     return optim_params(f, starts, nothing; kwargs...)
 end
-function optim_params(f, starts, constraints; info=true, debug=false)
+function optim_params(f, starts, constraints; options=Optim.Options(; x_abstol=1e-2, iterations=200), info=true, debug=false)
     multistart = size(starts)[2]
 
     args = Vector{Vector{Float64}}(undef, multistart)
@@ -20,7 +20,7 @@ function optim_params(f, starts, constraints; info=true, debug=false)
     convergence_errors = 0
     @floop for i in 1:multistart
         try
-            a, v = optim_(f, starts[:,i], constraints)
+            a, v = optim_(f, starts[:,i], constraints; options, info)
             args[i] = a
             vals[i] = v
         catch e
@@ -37,43 +37,47 @@ function optim_params(f, starts, constraints; info=true, debug=false)
 end
 
 # TODO try changing optimization algorithms
-function optim_(f, start, constraints::Nothing)
-    opt_res = Optim.optimize(p -> -f(p), start, NelderMead())
+function optim_(f, start, constraints::Nothing; options=Optim.Options(; x_abstol=1e-2, iterations=200), info=false)
+    opt_res = Optim.optimize(p -> -f(p), start, NelderMead(), options)
+    info && (Optim.iterations(opt_res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing the acquisition function!")
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
-function optim_(f, start, constraints::Tuple)
+function optim_(f, start, constraints::Tuple; options=Optim.Options(; x_abstol=1e-2, iterations=200), info=false)
     lb, ub = constraints
-    opt_res = Optim.optimize(p -> -f(p), lb, ub, start, Fminbox(LBFGS()))
+    opt_res = Optim.optimize(p -> -f(p), lb, ub, start, Fminbox(LBFGS()), options)
+    info && (Optim.iterations(opt_res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing the acquisition function!")
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
-function optim_(f, start, constraints::TwiceDifferentiableConstraints)
-    opt_res = Optim.optimize(p -> -f(p), constraints, start, IPNewton())
+function optim_(f, start, constraints::TwiceDifferentiableConstraints; options=Optim.Options(; x_abstol=1e-2, iterations=200), info=false)
+    opt_res = Optim.optimize(p -> -f(p), constraints, start, IPNewton(), options)
+    info && (Optim.iterations(opt_res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing the acquisition function!")
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
-function optim_(f, start, constraints::Evolutionary.AbstractConstraints)
+function optim_(f, start, constraints::Evolutionary.AbstractConstraints; kwargs...)
     throw(ArgumentError("`$(typeof(constraints))` are not supported with Optim. Use `Optim.TwiceDifferentiableConstraints` instead."))
 end
 
 # - - - - - - CMA-ES - - - - - -
 
 # maximize f(x)
-optim_cmaes(f, start) = optim_cmaes(f, Evolutionary.NoConstraints(), start)
-optim_cmaes(f, bounds::Tuple, start) = optim_cmaes(f, Evolutionary.BoxConstraints(bounds...), start)
-function optim_cmaes(f, constraints::Evolutionary.AbstractConstraints, start)
-    res = Evolutionary.optimize(x->-f(x), constraints, start, CMAES())  # Evolutionary.Options(parallelization=:thread)
+optim_cmaes(f, start; kwargs...) = optim_cmaes(f, Evolutionary.NoConstraints(), start; kwargs...)
+optim_cmaes(f, bounds::Tuple, start; kwargs...) = optim_cmaes(f, Evolutionary.BoxConstraints(bounds...), start; kwargs...)
+function optim_cmaes(f, constraints::Evolutionary.AbstractConstraints, start; options=Evolutionary.Options(; abstol=1e-5, iterations=800), info=false)
+    res = Evolutionary.optimize(x->-f(x), constraints, start, CMAES(), options)
+    info && (Evolutionary.iterations(res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing the acquisition function!")
     return res.minimizer, -res.minimum
 end
-function optim_cmaes(f, cons::Optim.TwiceDifferentiableConstraints, start)
+function optim_cmaes(f, cons::Optim.TwiceDifferentiableConstraints, start; kwargs...)
     throw(ArgumentError("`Optim.TwiceDifferentiableConstraints` are not supported with CMAES. Use `Evolutionary.WorstFitnessConstraints` or any other constraints from the `Evolutionary` package instead."))
 end
 
-function optim_cmaes_multistart(f, constraints, starts)
+function optim_cmaes_multistart(f, constraints, starts; options=Evolutionary.Options(; abstol=1e-5, iterations=800), info=false)
     multistart = size(starts)[2]
 
     args = Vector{Vector{Float64}}(undef, multistart)
     vals = Vector{Float64}(undef, multistart)
     @floop for i in 1:multistart
-        a, v = optim_cmaes(f, constraints, starts[:,i])
+        a, v = optim_cmaes(f, constraints, starts[:,i]; options, info)
         args[i] = a
         vals[i] = v
     end

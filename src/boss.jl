@@ -154,6 +154,10 @@ At least one of the termination conditions has to be provided.
 - acq_opt_alg:                  Defines which package is used to optimize the acquisition function.
                                 Possible values are `:CMAES`, `:Optim`.
 
+- optim_options:                Options for the Optim package used to optimize the acquisition function.
+
+- cmaes_options:                Options for the CMAES algorithm used to optimize the acquisition function.
+
 ## Other kwargs:
 
 - kwargs...:        Additional kwargs are forwarded to plotting.
@@ -193,6 +197,8 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
     feasibility_param_fit_alg=:MLE,  # :BI, :MLE
     acq_opt_alg=:CMAES,  # :CMAES, :Optim
     ϵ_sample_count=200,  # TODO refactor
+    optim_options=Optim.Options(; x_abstol=1e-2, iterations=200),
+    cmaes_options=Evolutionary.Options(; abstol=1e-5, iterations=800),
     kwargs...
 )
     # - - - - - - - - INITIALIZATION - - - - - - - - - - - - - - - -
@@ -354,9 +360,9 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             end
             acq_par = construct_acq(ei_par_, feas_probs; feasibility, best_yet=last(bsf))
             if acq_opt_alg == :CMAES
-                res_par = opt_acq_CMAES(acq_par, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, info, debug)
+                res_par = opt_acq_CMAES(acq_par, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, info, debug)
             elseif acq_opt_alg == :Optim
-                res_par = opt_acq_Optim(acq_par, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, info, debug)
+                res_par = opt_acq_Optim(acq_par, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, info, debug)
             end
         else
             acq_par, res_par = nothing, nothing
@@ -372,9 +378,9 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             end
             acq_semipar = construct_acq(ei_semipar_, feas_probs; feasibility, best_yet=last(bsf))
             if acq_opt_alg == :CMAES
-                res_semipar = opt_acq_CMAES(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, info, debug)
+                res_semipar = opt_acq_CMAES(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, info, debug)
             elseif acq_opt_alg == :Optim
-                res_semipar = opt_acq_Optim(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, info, debug)
+                res_semipar = opt_acq_Optim(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, info, debug)
             end
         else
             acq_semipar, res_semipar = nothing, nothing
@@ -390,9 +396,9 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             end
             acq_nonpar = construct_acq(ei_nonpar_, feas_probs; feasibility, best_yet=last(bsf))
             if acq_opt_alg == :CMAES
-                res_nonpar = opt_acq_CMAES(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, info, debug)
+                res_nonpar = opt_acq_CMAES(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, info, debug)
             elseif acq_opt_alg == :Optim
-                res_nonpar = opt_acq_Optim(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, info, debug)
+                res_nonpar = opt_acq_Optim(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, info, debug)
             end
         else
             acq_nonpar, res_nonpar = nothing, nothing
