@@ -10,17 +10,39 @@ include("../src/boss.jl")
 include("../example/data.jl")
 
 
+### OPT VERSION
+
+# # THE OBJECTIVE FUNCTION
+# @pyinclude("motor/computational_model.py")
+# function obj_func(x)
+#     ys = py"calc"(x...)
+#     return ys
+# end
+
+# fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
+
+# # MODEL
+# include("motor_model.jl")
+
+
+### COEFF VERSION
+
 # THE OBJECTIVE FUNCTION
-@pyinclude("motor/computational_model.py")
-function obj_func(x)
-    ys = py"calc"(x...)
+@pyinclude("motor/main_coeff.py")
+function obj_func(x, coef=0.8)
+    ys = py"calc"(x..., coef)
     return ys
 end
 
 fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
 
 # MODEL
-include("motor_model.jl")
+motor_model() = Boss.NonlinModel(
+    (x, params) -> obj_func(x, params[1]),
+    [Distributions.Uniform(0., 1.)],
+    1,
+)
+
 
 # DOMAIN CONSTRAINTS
 # domain_bounds() = [20., 0.01, 0.297], [60., 0.03, 0.400]
