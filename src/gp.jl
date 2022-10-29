@@ -116,7 +116,7 @@ function gp_params_loglike(X, y, params_prior, mean, kernel)
     end
 end
 
-function opt_gp_params(X, y, params_prior, noise_prior, mean, kernel; multistart, info=true, debug=false, min_param_value=MIN_PARAM_VALUE)
+function opt_gp_params(X, y, params_prior, noise_prior, mean, kernel; multistart, parallel, info=true, debug=false, min_param_value=MIN_PARAM_VALUE)
     softplus(x) = log(1. + exp(x))
     lift(p) = softplus.(p) .+ min_param_value  # 'min_param_value' for numerical stability
     
@@ -130,13 +130,13 @@ function opt_gp_params(X, y, params_prior, noise_prior, mean, kernel; multistart
 
     starts = vcat(rand(noise_prior, multistart)', rand(params_prior, multistart))
     
-    p, _ = optim_params(p -> loglike(lift(p)), starts; info, debug)
+    p, _ = optim_params(p -> loglike(lift(p)), starts; parallel, info, debug)
     noise, params... = lift(p)
     return params, noise
 end
 
-function opt_gps_params(X, Y, params_priors, noise_priors, means, kernel; y_dim, multistart, info, debug)
-    P = opt_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); multistart, info, debug)
+function opt_gps_params(X, Y, params_priors, noise_priors, means, kernel; y_dim, multistart, parallel, info, debug)
+    P = opt_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); multistart, parallel, info, debug)
     params = [p[1] for p in P]
     noise = [p[2] for p in P]
     return params, noise
@@ -151,18 +151,18 @@ Turing.@model function gp_turing_model(X, y, mean, kernel, params_prior, noise_p
     y ~ gp
 end
 
-function sample_gp_params(X, y, params_prior, noise_prior, mean, kernel; x_dim, mc_settings::MCSettings)
+function sample_gp_params(X, y, params_prior, noise_prior, mean, kernel; x_dim, mc_settings::MCSettings, parallel)
     model = gp_turing_model(X, y, mean, kernel, params_prior, noise_prior)
     param_symbols = vcat([Symbol("params[$i]") for i in 1:gp_param_count(x_dim)], :noise)
-    samples = sample_params_turing(model, param_symbols, mc_settings)
+    samples = sample_params_turing(model, param_symbols, mc_settings; parallel)
     
     params = reduce(hcat, samples[1:gp_param_count(x_dim)])
     noise = samples[end]
     return params, noise
 end
 
-function sample_gps_params(X, Y, params_priors, noise_priors, means, kernel; x_dim, mc_settings::MCSettings)
-    samples = sample_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); x_dim, mc_settings)
+function sample_gps_params(X, Y, params_priors, noise_priors, means, kernel; x_dim, mc_settings::MCSettings, parallel)
+    samples = sample_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); x_dim, mc_settings, parallel)
     params = [(s->s[1][i,:]).(samples) for i in 1:sample_count(mc_settings)]
     noise = [(s->s[2][i]).(samples) for i in 1:sample_count(mc_settings)]
     return params, noise

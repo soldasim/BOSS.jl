@@ -158,6 +158,9 @@ At least one of the termination conditions has to be provided.
 
 - cmaes_options:                Options for the CMAES algorithm used to optimize the acquisition function.
 
+- parallel:                     Determines whether the algorithm should use multiple threads
+                                for model inference and acquisition function optimization parallelization.
+
 ## Other kwargs:
 
 - kwargs...:        Additional kwargs are forwarded to plotting.
@@ -199,6 +202,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
     ϵ_sample_count=200,  # TODO refactor
     optim_options=Optim.Options(; x_abstol=1e-2, iterations=200),
     cmaes_options=Evolutionary.Options(; abstol=1e-5, iterations=800),
+    parallel=true,
     kwargs...
 )
     # - - - - - - - - INITIALIZATION - - - - - - - - - - - - - - - -
@@ -265,12 +269,12 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         # PARAMETRIC MODEL
         if (make_plots && plot_all_models) || (use_model == :param)
             if param_fit_alg == :MLE
-                par_params, par_noise = opt_model_params(X, Y, model, noise_priors; y_dim, multistart=param_opt_multistart, info, debug)
+                par_params, par_noise = opt_model_params(X, Y, model, noise_priors; y_dim, multistart=param_opt_multistart, parallel, info, debug)
                 parametric = x -> (model(x, par_params), par_noise)
                 par_models = nothing
             
             elseif param_fit_alg == :BI
-                par_param_samples, par_noise_samples = sample_model_params(X, Y, model, noise_priors; y_dim, mc_settings)
+                par_param_samples, par_noise_samples = sample_model_params(X, Y, model, noise_priors; y_dim, mc_settings, parallel)
                 par_models = [x -> (model(x, par_param_samples[:,s]), par_noise_samples[:,s]) for s in 1:sample_count(mc_settings)]
             
                 if make_plots
@@ -289,11 +293,11 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         # SEMIPARAMETRIC MODEL (param + GP)
         if (make_plots && plot_all_models) || (use_model == :semiparam)
             if param_fit_alg == :MLE
-                semipar_mean_params, semipar_params, semipar_noise = opt_semipar_params(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, multistart=param_opt_multistart, info, debug)
+                semipar_mean_params, semipar_params, semipar_noise = opt_semipar_params(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, multistart=param_opt_multistart, parallel, info, debug)
                 semiparametric = gp_model(X, Y, semipar_params, semipar_noise, model(semipar_mean_params), kernel)
 
             elseif param_fit_alg == :BI
-                semipar_mean_param_samples, semipar_param_samples, semipar_noise_samples = sample_semipar_params(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings)
+                semipar_mean_param_samples, semipar_param_samples, semipar_noise_samples = sample_semipar_params(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings, parallel)
                 semipar_models = gp_model.(Ref(X), Ref(Y), semipar_param_samples, semipar_noise_samples, model.(semipar_mean_param_samples), Ref(kernel))
                 semiparametric = nothing
             end
@@ -313,11 +317,11 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         # NONPARAMETRIC MODEL (GP)
         if (make_plots && plot_all_models) || (use_model == :nonparam)
             if param_fit_alg == :MLE
-                nonpar_params, nonpar_noise = opt_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; y_dim, multistart=param_opt_multistart, info, debug)
+                nonpar_params, nonpar_noise = opt_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; y_dim, multistart=param_opt_multistart, parallel, info, debug)
                 nonparametric = gp_model(X, Y, nonpar_params, nonpar_noise, nothing, kernel)
             
             elseif param_fit_alg == :BI
-                nonpar_param_samples, nonpar_noise_samples = sample_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; x_dim, mc_settings)
+                nonpar_param_samples, nonpar_noise_samples = sample_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; x_dim, mc_settings, parallel)
                 nonpar_models = gp_model.(Ref(X), Ref(Y), nonpar_param_samples, nonpar_noise_samples, Ref(nothing), Ref(kernel))
                 nonparametric = nothing
             end
@@ -328,12 +332,12 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         # feasibility models (GPs)
         if feasibility
             if feasibility_param_fit_alg == :MLE
-                feas_params, feas_noise = opt_gps_params(X, Z, feasibility_gp_params_priors, feasibility_noise_priors, nothing, feasibility_kernel; y_dim=feasibility_count, multistart=param_opt_multistart, info, debug)
+                feas_params, feas_noise = opt_gps_params(X, Z, feasibility_gp_params_priors, feasibility_noise_priors, nothing, feasibility_kernel; y_dim=feasibility_count, multistart=param_opt_multistart, parallel, info, debug)
                 feas_model_ = gp_model(X, Z, feas_params, feas_noise, nothing, feasibility_kernel)
                 feas_probs = feasibility_probabilities(feas_model_)
             
             elseif feasibility_param_fit_alg == :BI
-                feas_param_samples, feas_noise_samples = sample_gps_params(X, Z, feasibility_gp_params_priors, feasibility_noise_priors, nothing, feasibility_kernel; x_dim, mc_settings)
+                feas_param_samples, feas_noise_samples = sample_gps_params(X, Z, feasibility_gp_params_priors, feasibility_noise_priors, nothing, feasibility_kernel; x_dim, mc_settings, parallel)
                 feas_models = gp_model.(Ref(X), Ref(Z), feas_param_samples, feas_noise_samples, Ref(nothing), Ref(feasibility_kernel))
                 feas_probs_ = feasibility_probabilities.(feas_models)
                 feas_probs = x -> mapreduce(p->p(x), +, feas_probs_) / length(feas_probs_)
@@ -360,9 +364,9 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             end
             acq_par = construct_acq(ei_par_, feas_probs; feasibility, best_yet=last(bsf))
             if acq_opt_alg == :CMAES
-                res_par = opt_acq_CMAES(acq_par, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, info, debug)
+                res_par = opt_acq_CMAES(acq_par, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, parallel, info, debug)
             elseif acq_opt_alg == :Optim
-                res_par = opt_acq_Optim(acq_par, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, info, debug)
+                res_par = opt_acq_Optim(acq_par, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, parallel, info, debug)
             end
         else
             acq_par, res_par = nothing, nothing
@@ -378,9 +382,9 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             end
             acq_semipar = construct_acq(ei_semipar_, feas_probs; feasibility, best_yet=last(bsf))
             if acq_opt_alg == :CMAES
-                res_semipar = opt_acq_CMAES(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, info, debug)
+                res_semipar = opt_acq_CMAES(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, parallel, info, debug)
             elseif acq_opt_alg == :Optim
-                res_semipar = opt_acq_Optim(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, info, debug)
+                res_semipar = opt_acq_Optim(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, parallel, info, debug)
             end
         else
             acq_semipar, res_semipar = nothing, nothing
@@ -396,9 +400,9 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             end
             acq_nonpar = construct_acq(ei_nonpar_, feas_probs; feasibility, best_yet=last(bsf))
             if acq_opt_alg == :CMAES
-                res_nonpar = opt_acq_CMAES(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, info, debug)
+                res_nonpar = opt_acq_CMAES(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, parallel, info, debug)
             elseif acq_opt_alg == :Optim
-                res_nonpar = opt_acq_Optim(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, info, debug)
+                res_nonpar = opt_acq_Optim(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, parallel, info, debug)
             end
         else
             acq_nonpar, res_nonpar = nothing, nothing

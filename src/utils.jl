@@ -12,24 +12,41 @@ using Evolutionary
 function optim_params(f, starts; kwargs...)
     return optim_params(f, starts, nothing; kwargs...)
 end
-function optim_params(f, starts, constraints; options=Optim.Options(; x_abstol=1e-2, iterations=200), info=true, debug=false)
+function optim_params(f, starts, constraints; options=Optim.Options(; x_abstol=1e-2, iterations=200), parallel=true, info=true, debug=false)
     multistart = size(starts)[2]
 
     args = Vector{Vector{Float64}}(undef, multistart)
     vals = Vector{Float64}(undef, multistart)
     convergence_errors = 0
-    @floop for i in 1:multistart
-        try
-            a, v = optim_(f, starts[:,i], constraints; options, info)
-            args[i] = a
-            vals[i] = v
-        catch e
-            debug && throw(e)
-            @reduce convergence_errors += 1
-            args[i] = Float64[]
-            vals[i] = -Inf
+    
+    if parallel
+        @floop for i in 1:multistart
+            try
+                a, v = optim_(f, starts[:,i], constraints; options, info)
+                args[i] = a
+                vals[i] = v
+            catch e
+                debug && throw(e)
+                @reduce convergence_errors += 1
+                args[i] = Float64[]
+                vals[i] = -Inf
+            end
+        end
+    else
+        for i in 1:multistart
+            try
+                a, v = optim_(f, starts[:,i], constraints; options, info)
+                args[i] = a
+                vals[i] = v
+            catch e
+                debug && throw(e)
+                @reduce convergence_errors += 1
+                args[i] = Float64[]
+                vals[i] = -Inf
+            end
         end
     end
+
     info && (convergence_errors > 0) && print("      $(convergence_errors)/$(multistart) optimization runs failed to converge!\n")
     
     opt_i = argmax(vals)
@@ -71,15 +88,24 @@ function optim_cmaes(f, cons::Optim.TwiceDifferentiableConstraints, start; kwarg
     throw(ArgumentError("`Optim.TwiceDifferentiableConstraints` are not supported with CMAES. Use `Evolutionary.WorstFitnessConstraints` or any other constraints from the `Evolutionary` package instead."))
 end
 
-function optim_cmaes_multistart(f, constraints, starts; options=Evolutionary.Options(; abstol=1e-5, iterations=800), info=false)
+function optim_cmaes_multistart(f, constraints, starts; options=Evolutionary.Options(; abstol=1e-5, iterations=800), parallel=true, info=false)
     multistart = size(starts)[2]
 
     args = Vector{Vector{Float64}}(undef, multistart)
     vals = Vector{Float64}(undef, multistart)
-    @floop for i in 1:multistart
-        a, v = optim_cmaes(f, constraints, starts[:,i]; options, info)
-        args[i] = a
-        vals[i] = v
+
+    if parallel
+        @floop for i in 1:multistart
+            a, v = optim_cmaes(f, constraints, starts[:,i]; options, info)
+            args[i] = a
+            vals[i] = v
+        end
+    else
+        for i in 1:multistart
+            a, v = optim_cmaes(f, constraints, starts[:,i]; options, info)
+            args[i] = a
+            vals[i] = v
+        end
     end
     
     opt_i = argmax(vals)
@@ -117,7 +143,7 @@ sample_count(mc::MCSettings) = mc.chain_count * mc.samples_in_chain
 
 # Sample parameters of the given probabilistic model (defined with Turing.jl) using parallel NUTS MC sampling.
 # Other AD backends than Zygote cause issues: https://discourse.julialang.org/t/gaussian-process-regression-with-turing-gets-stuck/86892
-function sample_params_turing(model, param_symbols, mc::MCSettings; adbackend=:zygote)
+function sample_params_turing(model, param_symbols, mc::MCSettings; adbackend=:zygote, parallel=true)
     Turing.setadbackend(adbackend)
 
     # # NUTS
@@ -129,9 +155,17 @@ function sample_params_turing(model, param_symbols, mc::MCSettings; adbackend=:z
     # (The built-in parallelization in Turing occasionally causes 'access to undefined reference' errors.)
     samples_in_chain = mc.warmup + (mc.leap_size * mc.samples_in_chain)
     chains = Vector{Turing.Chains}(undef, mc.chain_count)
-    @floop for i in 1:mc.chain_count
-        chains[i] = Turing.sample(model, PG(20), samples_in_chain; progress=false)
+    
+    if parallel
+        @floop for i in 1:mc.chain_count
+            chains[i] = Turing.sample(model, PG(20), samples_in_chain; progress=false)
+        end
+    else
+        for i in 1:mc.chain_count
+            chains[i] = Turing.sample(model, PG(20), samples_in_chain; progress=false)
+        end
     end
+
     samples = [reduce(vcat, [ch[s][(mc.warmup+mc.leap_size):mc.leap_size:end,:] for ch in chains]) for s in param_symbols]
 
     return samples

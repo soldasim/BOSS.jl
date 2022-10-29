@@ -104,7 +104,7 @@ function model_params_loglike(X, Y, model::ParamModel)
     end
 end
 
-function opt_model_params(X, Y, model::ParamModel, noise_priors; y_dim, multistart, info=true, debug=false)
+function opt_model_params(X, Y, model::ParamModel, noise_priors; y_dim, multistart, parallel, info=true, debug=false)
     params_loglike = model_params_loglike(X, Y, model::ParamModel)
     noise_loglike = noise -> mapreduce(n -> logpdf(n...), +, zip(noise_priors, noise))
     
@@ -115,7 +115,7 @@ function opt_model_params(X, Y, model::ParamModel, noise_priors; y_dim, multista
 
     starts = reduce(hcat, [generate_start_(model, noise_priors) for _ in 1:multistart])
     
-    p, _ = optim_params(loglike, starts; info, debug)
+    p, _ = optim_params(loglike, starts; parallel, info, debug)
     noise, params = p[1:y_dim], p[y_dim+1:end]
     return params, noise
 end
@@ -133,11 +133,11 @@ Turing.@model function param_turing_model(X, Y, model, noise_priors, y_dim)
     Y ~ arraydist(Distributions.MvNormal.(means, Ref(noise)))
 end
 
-function sample_model_params(X, Y, par_model, noise_priors; y_dim, mc_settings::MCSettings)
+function sample_model_params(X, Y, par_model, noise_priors; y_dim, mc_settings::MCSettings, parallel)
     param_symbols = vcat([Symbol("params[$i]") for i in 1:par_model.param_count],
                          [Symbol("noise[$i]") for i in 1:y_dim])
     model = param_turing_model(X, Y, par_model, noise_priors, y_dim)
-    samples = sample_params_turing(model, param_symbols, mc_settings)
+    samples = sample_params_turing(model, param_symbols, mc_settings; parallel)
     
     params = reduce(hcat, samples[1:par_model.param_count])'
     noise = reduce(hcat, samples[par_model.param_count+1:end])'

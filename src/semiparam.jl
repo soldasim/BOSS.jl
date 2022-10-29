@@ -1,6 +1,6 @@
 using Turing
 
-function opt_semipar_params(X, Y, par_model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, multistart, min_gp_hyperparam_value=1e-6, info=true, debug=false)
+function opt_semipar_params(X, Y, par_model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, multistart, min_gp_hyperparam_value=1e-6, parallel, info=true, debug=false)
     softplus(x) = log(1. + exp(x))
     lift(p) = softplus.(p) .+ min_gp_hyperparam_value  # 'min_gp_hyperparam_value' for numerical stability
     
@@ -31,7 +31,7 @@ function opt_semipar_params(X, Y, par_model, gp_params_priors, noise_priors; x_d
         [rand(pp, multistart)' for pp in gp_params_priors]
     ))
 
-    p, _ = optim_params(loglike, starts; info, debug)
+    p, _ = optim_params(loglike, starts; parallel, info, debug)
     noise, model_params, gp_hyperparams = split(p)
     gp_hyperparams = lift.(gp_hyperparams)
     return model_params, gp_hyperparams, noise
@@ -66,12 +66,12 @@ Turing.@model function semipar_turing_model(X, Y_inv, par_model, gp_params_prior
     Y_inv ~ arraydist(gps)
 end
 
-function sample_semipar_params(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings::MCSettings)
+function sample_semipar_params(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings::MCSettings, parallel)
     model = semipar_turing_model(X, Y', par_model, gp_params_priors, noise_priors, kernel, y_dim)
     param_symbols = vcat([Symbol("noise[$i]") for i in 1:y_dim],
                          [Symbol("model_params[$i]") for i in 1:par_model.param_count],
                          reduce(vcat, [[Symbol("gp_hyperparams[$j,$i]") for j in 1:gp_param_count(x_dim)] for i in 1:y_dim]))
-    samples = sample_params_turing(model, param_symbols, mc_settings)
+    samples = sample_params_turing(model, param_symbols, mc_settings; parallel)
 
     noise_samples, model_params_samples, gp_hyperparams_samples = split_sample_params_(; x_dim, y_dim, par_model, sample_count=sample_count(mc_settings))(samples)
     return model_params_samples, gp_hyperparams_samples, noise_samples

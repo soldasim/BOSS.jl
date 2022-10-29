@@ -86,19 +86,19 @@ end
 
 EI_sampled(x, fitness, model_samples, ϵ_samples; best_yet) = mapreduce(mϵ -> EI(x, fitness, mϵ...; best_yet), +, zip(model_samples, ϵ_samples))
 
-function opt_acq_Optim(acq, domain; x_dim, multistart=1, discrete_dims=nothing, options, info=true, debug=false)
+function opt_acq_Optim(acq, domain; x_dim, multistart=1, discrete_dims=nothing, options, parallel, info=true, debug=false)
     # starts = generate_starts_random_(domain, multistart)
     starts = generate_starts_LHC_(domain, multistart; x_dim)
-    arg, val = optim_params(acq, starts, domain; options, info, debug)
+    arg, val = optim_params(acq, starts, domain; options, parallel, info, debug)
    
     isnothing(discrete_dims) || (arg = discrete_round(discrete_dims)(arg))
     return arg, val
 end
-function opt_acq_CMAES(acq, domain; x_dim, multistart=1, discrete_dims=nothing, options, info=true, debug=false)
+function opt_acq_CMAES(acq, domain; x_dim, multistart=1, discrete_dims=nothing, options, parallel, info=true, debug=false)
     # starts = generate_starts_random_(domain, multistart)
     starts = generate_starts_LHC_(domain, multistart; x_dim)
 
-    arg, val = optim_cmaes_multistart(acq, domain, starts; options, info)
+    arg, val = optim_cmaes_multistart(acq, domain, starts; options, parallel, info)
 
     isnothing(discrete_dims) || (arg = discrete_round(discrete_dims)(arg))
     return arg, val
