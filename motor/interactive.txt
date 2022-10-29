@@ -1,0 +1,14 @@
+
+srun -p cpufast --pty bash -i
+
+ml Julia/1.8.0-linux-x86_64
+ml Python/3.9.6-GCCcore-11.2.0
+ml SciPy-bundle/2021.10-foss-2021b
+ml matplotlib/3.4.3-foss-2021b
+
+julia
+
+using Pkg
+Pkg.activate(".")
+Pkg.resolve()
+Pkg.instantiate()
