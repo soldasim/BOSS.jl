@@ -2,7 +2,6 @@ using Distributions
 using Optim
 using Turing
 using Turing: Variational
-using FLoops
 using Zygote
 using Evolutionary
 
@@ -17,17 +16,17 @@ function optim_params(f, starts, constraints; options=Optim.Options(; x_abstol=1
 
     args = Vector{Vector{Float64}}(undef, multistart)
     vals = Vector{Float64}(undef, multistart)
-    convergence_errors = 0
+    convergence_errors = [0 for _ in 1:multistart]
     
     if parallel
-        @floop for i in 1:multistart
+        Threads.@threads for i in 1:multistart  # TODO
             try
                 a, v = optim_(f, starts[:,i], constraints; options, info)
                 args[i] = a
                 vals[i] = v
             catch e
                 debug && throw(e)
-                @reduce convergence_errors += 1
+                convergence_errors[i] += 1
                 args[i] = Float64[]
                 vals[i] = -Inf
             end
@@ -40,14 +39,14 @@ function optim_params(f, starts, constraints; options=Optim.Options(; x_abstol=1
                 vals[i] = v
             catch e
                 debug && throw(e)
-                @reduce convergence_errors += 1
+                convergence_errors[i] += 1
                 args[i] = Float64[]
                 vals[i] = -Inf
             end
         end
     end
 
-    info && (convergence_errors > 0) && print("      $(convergence_errors)/$(multistart) optimization runs failed to converge!\n")
+    info && (sum(convergence_errors) > 0) && print("      $(sum(convergence_errors))/$(multistart) optimization runs failed to converge!\n")
     
     opt_i = argmax(vals)
     return args[opt_i], vals[opt_i]
@@ -95,7 +94,7 @@ function optim_cmaes_multistart(f, constraints, starts; options=Evolutionary.Opt
     vals = Vector{Float64}(undef, multistart)
 
     if parallel
-        @floop for i in 1:multistart
+        Threads.@threads for i in 1:multistart
             a, v = optim_cmaes(f, constraints, starts[:,i]; options, info)
             args[i] = a
             vals[i] = v
@@ -157,7 +156,7 @@ function sample_params_turing(model, param_symbols, mc::MCSettings; adbackend=:z
     chains = Vector{Turing.Chains}(undef, mc.chain_count)
     
     if parallel
-        @floop for i in 1:mc.chain_count
+        Threads.@threads for i in 1:mc.chain_count  # TODO
             chains[i] = Turing.sample(model, PG(20), samples_in_chain; progress=false)
         end
     else
