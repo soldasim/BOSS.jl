@@ -5,10 +5,14 @@ searchdir(path, key) = filter_regexp(readdir(path), key)
 filter_regexp(strings, key) = filter(x -> occursin(key, x), strings)
 
 function results()
-    files = searchdir("./motor/data/", r"data-2022-10-27-")
-    param_files = filter_regexp(files, r"_param_")
-    semiparam_files = filter_regexp(files, r"_semiparam_")
-    nonparam_files = filter_regexp(files, r"_nonparam_")
+    files = searchdir("./motor/data/01/", r"data")
+    param_files = reduce(vcat, filter_regexp(files, r"_param_"))
+    semiparam_files = reduce(vcat, filter_regexp(files, r"_semiparam_"))
+    nonparam_files = reduce(vcat, filter_regexp(files, r"_nonparam_"))
+
+    @show length(param_files)
+    @show length(semiparam_files)
+    @show length(nonparam_files)
 
     results = [
         [load_data("./motor/data/", f) for f in param_files],

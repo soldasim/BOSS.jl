@@ -4,7 +4,7 @@ Pkg.resolve()
 Pkg.instantiate()
 
 ID = ARGS[1]
-data_file = "./motor/data/data-" * ID
+data_file = "./motor/data/01/data-" * ID
 
 @show Threads.nthreads()
 include("motor_problem.jl")
