@@ -73,25 +73,21 @@ function sample_semipar_params(X, Y, par_model::ParamModel, gp_params_priors, no
                          reduce(vcat, [[Symbol("gp_hyperparams[$j,$i]") for j in 1:gp_param_count(x_dim)] for i in 1:y_dim]))
     samples = sample_params_turing(model, param_symbols, mc_settings; parallel)
 
-    noise_samples, model_params_samples, gp_hyperparams_samples = split_sample_params_(; x_dim, y_dim, par_model, sample_count=sample_count(mc_settings))(samples)
+    noise_samples, model_params_samples, gp_hyperparams_samples = split_sample_params_(x_dim, y_dim, par_model.param_count, sample_count(mc_settings))(samples)
     return model_params_samples, gp_hyperparams_samples, noise_samples
 end
 
-function split_sample_params_(; x_dim, y_dim, par_model, sample_count)
+function split_sample_params_(x_dim, y_dim, model_param_count, sample_count)
     n_i = 1
     mp_i = n_i + y_dim
-    gphp_i = mp_i + par_model.param_count
+    gphp_i = mp_i + model_param_count
     gphp_count = gp_param_count(x_dim)
 
     function split(samples)
-        noise = reduce(hcat, samples[n_i:mp_i-1])
-        model_params = reduce(hcat, samples[mp_i:gphp_i-1])
-        gp_hyperparams = [reduce(hcat, samples[gphp_i+((i-1)*gphp_count):gphp_i+(i*gphp_count)-1]) for i in 1:y_dim]
-
-        noise_samples = collect(eachrow(noise))
-        model_params_samples = collect(eachrow(model_params))
-        gp_hyperparams_samples = [[gp_hyperparams[i][s,:] for i in 1:y_dim] for s in 1:sample_count]
-
+        noise_samples = samples[n_i:mp_i-1]
+        model_params_samples = reduce(vcat, transpose.(samples[mp_i:gphp_i-1]))
+        gp_hyperparams_samples = [reduce(vcat, transpose.(samples[gphp_i+((i-1)*gphp_count):gphp_i+(i*gphp_count)-1])) for i in 1:y_dim]
+        
         return noise_samples, model_params_samples, gp_hyperparams_samples
     end
 end

@@ -139,7 +139,7 @@ function sample_model_params(X, Y, par_model, noise_priors; y_dim, mc_settings::
     model = param_turing_model(X, Y, par_model, noise_priors, y_dim)
     samples = sample_params_turing(model, param_symbols, mc_settings; parallel)
     
-    params = reduce(hcat, samples[1:par_model.param_count])'
-    noise = reduce(hcat, samples[par_model.param_count+1:end])'
+    params = reduce(vcat, transpose.(samples[1:par_model.param_count]))
+    noise = reduce(vcat, transpose.(samples[par_model.param_count+1:end]))
     return params, noise
 end

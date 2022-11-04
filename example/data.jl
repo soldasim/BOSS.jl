@@ -8,8 +8,19 @@ struct RunResult
     Y
     Z
     bsf
+    parameters
     errs
 end
+
+# ## OLD (needed for loading old run-data)
+# struct RunResult
+#     time
+#     X
+#     Y
+#     Z
+#     bsf
+#     errs
+# end
 
 # LOAD/SAVE FUNCTIONS
 

@@ -154,7 +154,7 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
     gp_params_priors = [Product([Gamma(2., 1.)])]
     feasibility_gp_params_priors = [Product([Gamma(2., 1.)])]
 
-    time = @elapsed X, Y, Z, bsf, errs, plots = Boss.boss(fg_noisy, fitness, init_X, init_Y, nothing, model, domain;
+    time = @elapsed X, Y, Z, bsf, parameters, errs, plots = Boss.boss(fg_noisy, fitness, init_X, init_Y, nothing, model, domain;
         f_true,
         noise_priors,
         feasibility_noise_priors,
@@ -171,7 +171,7 @@ function run_boss_(model, init_X, init_Y, init_Z; kwargs...)
         kwargs...
     )
 
-    return RunResult(time, X, Y, Z, bsf, errs), plots
+    return RunResult(time, X, Y, Z, bsf, parameters, errs), plots
 end
 
 function generate_init_data_(size; noise=0., feasibility)

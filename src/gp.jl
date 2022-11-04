@@ -156,14 +156,14 @@ function sample_gp_params(X, y, params_prior, noise_prior, mean, kernel; x_dim, 
     param_symbols = vcat([Symbol("params[$i]") for i in 1:gp_param_count(x_dim)], :noise)
     samples = sample_params_turing(model, param_symbols, mc_settings; parallel)
     
-    params = reduce(hcat, samples[1:gp_param_count(x_dim)])
+    params = reduce(vcat, transpose.(samples[1:gp_param_count(x_dim)]))
     noise = samples[end]
     return params, noise
 end
 
 function sample_gps_params(X, Y, params_priors, noise_priors, means, kernel; x_dim, mc_settings::MCSettings, parallel)
     samples = sample_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); x_dim, mc_settings, parallel)
-    params = [(s->s[1][i,:]).(samples) for i in 1:sample_count(mc_settings)]
-    noise = [(s->s[2][i]).(samples) for i in 1:sample_count(mc_settings)]
+    params = [s[1] for s in samples]
+    noise = [s[2] for s in samples]
     return params, noise
 end

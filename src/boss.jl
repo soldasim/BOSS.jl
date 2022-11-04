@@ -168,8 +168,8 @@ At least one of the termination conditions has to be provided.
 """
 function boss(f, fitness, X, Y, model::ParamModel, domain; kwargs...)
     fg(x) = f(x), Float64[]
-    X, Y, Z, bsf, errs, plots = boss(fg, fitness, X, Y, nothing, model, domain; kwargs...)
-    return X, Y, bsf, errs, plots
+    X, Y, Z, bsf, parameters, errs, plots = boss(fg, fitness, X, Y, nothing, model, domain; kwargs...)
+    return X, Y, bsf, parameters, errs, plots
 end
 function boss(fg, fitness::Function, X, Y, Z, model::ParamModel, domain; kwargs...)
     fit = NonlinFitness(fitness)
@@ -243,6 +243,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
     Φs = (model isa LinModel) ? init_Φs(model.lift, X) : nothing
     F = fitness.(eachcol(Y))
     bsf = Union{Nothing, Float64}[get_best_yet(F, X, Z, domain; data_size=init_data_size)]
+    model_params_history = (use_model == :nonparam) ? nothing : Vector{Float64}[]
 
     plots = make_plots ? Plots.Plot[] : nothing
     errs = (isnothing(test_X) || isnothing(test_Y)) ? nothing : Vector{Float64}[]
@@ -265,6 +266,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         # - - - - - - - - MODEL INFERENCE - - - - - - - - - - - - - - - -
         info && print("  model inference ...\n")
         samples_lable = nothing
+        parameters = nothing  # For `model_params_history` only.  TODO: refactor
 
         # PARAMETRIC MODEL
         if (make_plots && plot_all_models) || (use_model == :param)
@@ -272,11 +274,13 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
                 par_params, par_noise = opt_model_params(X, Y, model, noise_priors; y_dim, multistart=param_opt_multistart, parallel, info, debug)
                 parametric = x -> (model(x, par_params), par_noise)
                 par_models = nothing
+                (use_model == :param) && (parameters = par_params)
             
             elseif param_fit_alg == :BI
                 par_param_samples, par_noise_samples = sample_model_params(X, Y, model, noise_priors; y_dim, mc_settings, parallel)
                 par_models = [x -> (model(x, par_param_samples[:,s]), par_noise_samples[:,s]) for s in 1:sample_count(mc_settings)]
-            
+                (use_model == :param) && (parameters = mean(eachcol(par_param_samples)))
+
                 if make_plots
                     loglikes_ = [loglike(m, X, Y) for m in par_models]
                     parametric = par_models[argmax(loglikes_)]
@@ -295,17 +299,19 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             if param_fit_alg == :MLE
                 semipar_mean_params, semipar_params, semipar_noise = opt_semipar_params(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, multistart=param_opt_multistart, parallel, info, debug)
                 semiparametric = gp_model(X, Y, semipar_params, semipar_noise, model(semipar_mean_params), kernel)
+                (use_model == :semiparam) && (parameters = semipar_mean_params)
 
             elseif param_fit_alg == :BI
                 semipar_mean_param_samples, semipar_param_samples, semipar_noise_samples = sample_semipar_params(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings, parallel)
-                semipar_models = gp_model.(Ref(X), Ref(Y), semipar_param_samples, semipar_noise_samples, model.(semipar_mean_param_samples), Ref(kernel))
+                semipar_models = [gp_model(X, Y, [s[:,i] for s in semipar_param_samples], [s[i] for s in semipar_noise_samples], model(semipar_mean_param_samples[:,i]), kernel) for i in 1:sample_count(mc_settings)]
                 semiparametric = nothing
+                (use_model == :semiparam) && (parameters = mean(eachcol(semipar_mean_param_samples)))
             end
 
             if param_fit_alg == :BI
                 if make_plots
                     if isnothing(par_models)
-                        par_models = [x->(model(x, semipar_mean_param_samples[s]), nothing) for s in 1:sample_count(mc_settings)]
+                        par_models = [x->(model(x, semipar_mean_param_samples[:,s]), nothing) for s in 1:sample_count(mc_settings)]
                         samples_lable = "mean samples"
                     end
                 end
@@ -322,7 +328,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             
             elseif param_fit_alg == :BI
                 nonpar_param_samples, nonpar_noise_samples = sample_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; x_dim, mc_settings, parallel)
-                nonpar_models = gp_model.(Ref(X), Ref(Y), nonpar_param_samples, nonpar_noise_samples, Ref(nothing), Ref(kernel))
+                nonpar_models = [gp_model(X, Y, [s[:,i] for s in nonpar_param_samples], [s[i] for s in nonpar_noise_samples], nothing, kernel) for i in sample_count(mc_settings)]
                 nonparametric = nothing
             end
         else
@@ -338,12 +344,17 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
             
             elseif feasibility_param_fit_alg == :BI
                 feas_param_samples, feas_noise_samples = sample_gps_params(X, Z, feasibility_gp_params_priors, feasibility_noise_priors, nothing, feasibility_kernel; x_dim, mc_settings, parallel)
-                feas_models = gp_model.(Ref(X), Ref(Z), feas_param_samples, feas_noise_samples, Ref(nothing), Ref(feasibility_kernel))
+                feas_models = [gp_model(X, Z, [s[:,i] for s in feas_param_samples], [s[i] for s in feas_noise_samples], nothing, feasibility_kernel) for i in sample_count(mc_settings)]
                 feas_probs_ = feasibility_probabilities.(feas_models)
                 feas_probs = x -> mapreduce(p->p(x), +, feas_probs_) / length(feas_probs_)
             end
         else
             feas_probs = nothing
+        end
+
+        if !isnothing(parameters)
+            info && print("  infered params: $parameters\n")
+            push!(model_params_history, parameters)
         end
 
         # - - - - - - - - UTILITY MAXIMIZATION - - - - - - - - - - - - - - - -
@@ -456,7 +467,7 @@ function boss(fg::Function, fitness::Fitness, X, Y, Z, model::ParamModel, domain
         iter += 1
     end
 
-    return X, Y, Z, bsf, errs, plots
+    return X, Y, Z, bsf, model_params_history, errs, plots
 end
 
 function init_Φs(lift, X)

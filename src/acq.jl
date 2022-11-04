@@ -124,7 +124,7 @@ function generate_starts_LHC_(domain, count; x_dim)
 end
 
 function generate_starts_random_(domain, count)
-    return reduce(hcat, [generate_starting_point_(domain) for _ in 1:count])'
+    return reduce(vcat, transpose.([generate_starting_point_(domain) for _ in 1:count]))
 end
 
 function generate_start_(domain::Tuple)

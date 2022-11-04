@@ -166,7 +166,6 @@ function sample_params_turing(model, param_symbols, mc::MCSettings; adbackend=:z
     end
 
     samples = [reduce(vcat, [ch[s][(mc.warmup+mc.leap_size):mc.leap_size:end,:] for ch in chains]) for s in param_symbols]
-
     return samples
 end
 
