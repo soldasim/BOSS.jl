@@ -10,40 +10,40 @@ include("../src/boss.jl")
 include("../example/data.jl")
 
 
-## OPT VERSION
-
-# THE OBJECTIVE FUNCTION
-@pyinclude("motor/computational_model.py")
-function obj_func(x)
-    ys = py"calc"(x...)
-    return ys
-end
-
-fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
-
-# MODEL
-include("motor_model.jl")
-
-
-# ### COEFF VERSION
-# # For some reason crashes with parallelization.
-# # Add `parallel=false` kwarg to boss.
+# ### OPT VERSION
 
 # # THE OBJECTIVE FUNCTION
-# @pyinclude("motor/main_coeff.py")
-# function obj_func(x, coef=0.8)
-#     ys = py"calc"(x..., coef)
+# @pyinclude("motor/computational_model.py")
+# function obj_func(x)
+#     ys = py"calc"(x...)
 #     return ys
 # end
 
 # fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
 
 # # MODEL
-# motor_model() = Boss.NonlinModel(
-#     (x, params) -> obj_func(x, params[1]),
-#     [Distributions.Uniform(0., 1.)],
-#     1,
-# )
+# include("motor_model.jl")
+
+
+### COEFF VERSION
+# For some reason crashes with parallelization.
+# Add `parallel=false` kwarg to boss.
+
+# THE OBJECTIVE FUNCTION
+@pyinclude("motor/main_coeff.py")
+function obj_func(x, coef=0.8)
+    ys = py"calc"(x..., coef)
+    return ys
+end
+
+fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
+
+# MODEL
+motor_model() = Boss.NonlinModel(
+    (x, params) -> obj_func(x, params[1]),
+    [Distributions.Uniform(0., 1.)],
+    1,
+)
 
 
 # DOMAIN CONSTRAINTS
@@ -121,6 +121,7 @@ function example_continue(max_iters, res; test_data=(nothing, nothing), info=tru
         res_new.Y,
         res_new.Z,
         vcat(res.bsf, res_new.bsf[2:end]),
+        vcat(res.parameters, res_new.parameters[2:end]),
         (isnothing(res.errs) || isnothing(res_new.errs)) ? nothing : vcat(res.errs, res_new.errs[2:end]),
     ), test_data
 end
@@ -211,7 +212,7 @@ function run_boss_(init_X, init_Y; kwargs...)
     optim_options = Optim.Options(; x_abstol=1e-2, iterations=800)
     cmaes_options = Evolutionary.Options(; abstol=1e-0, iterations=800)
 
-    time = @elapsed X, Y, bsf, errs, _ = Boss.boss(obj_func, fit, init_X, init_Y, model, domain;
+    time = @elapsed X, Y, bsf, parameters, errs, _ = Boss.boss(obj_func, fit, init_X, init_Y, model, domain;
         noise_priors,
         mc_settings,
         acq_opt_multistart,
@@ -221,11 +222,11 @@ function run_boss_(init_X, init_Y; kwargs...)
         acq_opt_alg,
         optim_options,
         cmaes_options,
-        # parallel=false,
+        parallel=false,  # TODO
         kwargs...
     )
 
-    return RunResult(time, X, Y, nothing, bsf, errs)
+    return RunResult(time, X, Y, nothing, bsf, parameters, errs)
 end
 
 function generate_init_data_random_(size)
