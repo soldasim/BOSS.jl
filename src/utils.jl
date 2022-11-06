@@ -151,21 +151,17 @@ function sample_params_turing(model, param_symbols, mc::MCSettings; adbackend=:z
     # samples = [vec(chains[s][mc.leap_size:mc.leap_size:end,:]) for s in param_symbols]
 
     # PG
-    # (The built-in parallelization in Turing occasionally causes 'access to undefined reference' errors.)
     samples_in_chain = mc.warmup + (mc.leap_size * mc.samples_in_chain)
-    chains = Vector{Turing.Chains}(undef, mc.chain_count)
     
     if parallel
-        Threads.@threads for i in 1:mc.chain_count  # TODO
-            chains[i] = Turing.sample(model, PG(20), samples_in_chain; progress=false)
-        end
+        chains = Turing.sample(model, PG(20), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
     else
-        for i in 1:mc.chain_count
-            chains[i] = Turing.sample(model, PG(20), samples_in_chain; progress=false)
-        end
+        chains = mapreduce(_ -> Turing.sample(model, PG(20), samples_in_chain; progress=false), chainscat, 1:mc.chain_count)
     end
 
-    samples = [reduce(vcat, [ch[s][(mc.warmup+mc.leap_size):mc.leap_size:end,:] for ch in chains]) for s in param_symbols]
+    # samples = [reduce(vcat, [ch[s][(mc.warmup+mc.leap_size):mc.leap_size:end,:] for ch in chains]) for s in param_symbols]
+    samples = [reduce(vcat, eachrow(chains[s][(mc.warmup+mc.leap_size):mc.leap_size:end,:])) for s in param_symbols]
+    
     return samples
 end
 

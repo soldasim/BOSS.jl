@@ -26,9 +26,12 @@ where
   - param_priors:   A vector of priors for all params θᵢⱼ.
   - param_count:    The number of model parameters. Equal to 'm * p'.
 """
-struct LinModel <: ParamModel
-    lift::Function
-    param_priors::Vector{Normal}
+struct LinModel{L,D} <: ParamModel where {
+    L<:Base.Callable,
+    D<:AbstractArray{<:Any}
+}
+    lift::L
+    param_priors::D
     param_count::Int
 end
 
