@@ -1,3 +1,5 @@
-#!/bin/sh
+
+eval $(ssh-agent -s)
+kill -9 <pid>
 eval $(ssh-agent -s)
 ssh-add ~/.ssh/id_ed25519
