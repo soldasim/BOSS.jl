@@ -10,40 +10,40 @@ include("../src/boss.jl")
 include("../example/data.jl")
 
 
-### OPT VERSION
-
-# THE OBJECTIVE FUNCTION
-@pyinclude("motor/computational_model.py")
-function obj_func(x)
-    ys = py"calc"(x...)
-    return ys
-end
-
-fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
-
-# MODEL
-include("motor_model.jl")
-
-
-# ### COEFF VERSION
-# # For some reason crashes with parallelization.
-# # Add `parallel=false` kwarg to boss.
+# ### OPT VERSION
 
 # # THE OBJECTIVE FUNCTION
-# @pyinclude("motor/main_coeff.py")
-# function obj_func(x, coef=0.8)
-#     ys = py"calc"(x..., coef)
-#     return ys
+# @pyinclude("motor/computational_model.py")
+# function obj_func(x)
+#     py"calc"(x...)
 # end
 
 # fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
 
 # # MODEL
-# motor_model() = Boss.NonlinModel(
-#     (x, params) -> obj_func(x, params[1]),
-#     [Distributions.Uniform(0., 1.)],
-#     1,
-# )
+# include("motor_model.jl")
+
+
+### COEFF VERSION
+# For some reason crashes with parallelization.
+# Add `parallel=false` kwarg to boss.
+
+# THE OBJECTIVE FUNCTION
+# @pyinclude("motor/main_coeff.py")
+include("./main_coeff.jl")
+function obj_func(x, coef=0.8)
+    # py"calc"(x..., coef)
+    MainCoeff.calc(x..., coef)
+end
+
+fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
+
+# MODEL
+motor_model() = Boss.NonlinModel(
+    (x, params) -> obj_func(x, params[1]),
+    [Distributions.Uniform(0., 1.)],
+    1,
+)
 
 
 # DOMAIN CONSTRAINTS
@@ -101,7 +101,7 @@ end
 
 # main function
 function example(max_iters; info=true, init_data_size=19, kwargs...)
-    Random.seed!(5555)
+    # Random.seed!(5555)
 
     info && print("generating init data ...\n")
     X, Y = generate_init_data_LHC_(init_data_size)
