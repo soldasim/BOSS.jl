@@ -496,7 +496,7 @@ function augment_data!(opt_new_x, fg, model::ParamModel, fitness::Fitness, domai
     #     end
     # end
 
-    in_domain_ = in_domain(x_, domain)
+    # in_domain_ = in_domain(x_, domain)
     
     if feasibility
         feasible_ = is_feasible(z_)
@@ -506,7 +506,7 @@ function augment_data!(opt_new_x, fg, model::ParamModel, fitness::Fitness, domai
         feasible_ = true
     end
 
-    if in_domain_ && feasible_ && (isnothing(last(bsf)) || (f_ > last(bsf)))
+    if feasible_ && (isnothing(last(bsf)) || (f_ > last(bsf)))  # in_domain_ &&
         push!(bsf, f_)
     else
         push!(bsf, last(bsf))
