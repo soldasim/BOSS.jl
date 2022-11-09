@@ -194,7 +194,7 @@ function plot_res_2x1(model, obj_func; points=200)
 end
 
 function plot_bsf_boxplots(results; show_plot=true, labels=["param", "semiparam", "nonparam"])
-    p = plot(; title="Best-so-far solutions found\n(medians with 1st and 3rd quartiles)", legend=:topleft)
+    p = plot(; title="Best-so-far solutions found\n(min,median,max)", legend=:topleft)
 
     for i in 1:lastindex(results)
         bsf_data = getfield.(results[i], :bsf)
@@ -202,9 +202,28 @@ function plot_bsf_boxplots(results; show_plot=true, labels=["param", "semiparam"
         for i in eachindex(bsf_data) if isnothing(bsf_data[i]) bsf_data[i] = 0. end end
         label = isnothing(labels) ? nothing : labels[i]
         y_vals = median.(eachrow(bsf_data))
-        y_err_l = y_vals .- quantile.(eachrow(bsf_data), 0.25)
-        y_err_u = quantile.(eachrow(bsf_data), 0.75) .- y_vals
-        plot!(p, y_vals; yerror=(y_err_l, y_err_u), label, markerstrokecolor=:auto)
+        y_err_l = y_vals .- quantile.(eachrow(bsf_data), 0.)  # 0.25
+        y_err_u = quantile.(eachrow(bsf_data), 1.) .- y_vals  # 0.75
+        plot!(p, y_vals; yerror=(y_err_l, y_err_u), label, markerstrokecolor=:auto, legend=:best)
+    end
+
+    show_plot && display(p)
+    return p
+end
+
+function plot_paramdiff_boxplots(true_val, param_idx, results; show_plot=true, labels=["param", "semiparam", "nonparam"])
+    p = plot(; title="Param-diff\n(min,median,max)", legend=:topleft)
+
+    for i in 1:2  # exclude nonparam
+        data = getfield.(results[i], :parameters)
+        data = reduce(hcat, data)
+        data = getindex.(data, param_idx)
+        data = abs.(data .- true_val)
+        label = isnothing(labels) ? nothing : labels[i]
+        y_vals = median.(eachrow(data))
+        y_err_l = y_vals .- quantile.(eachrow(data), 0.)  # 0.25
+        y_err_u = quantile.(eachrow(data), 1.) .- y_vals  # 0.75
+        plot!(p, y_vals; yerror=(y_err_l, y_err_u), label, markerstrokecolor=:auto, legend=:best)
     end
 
     show_plot && display(p)
