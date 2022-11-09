@@ -10,5 +10,5 @@ julia
 
 using Pkg
 Pkg.activate(".")
-Pkg.resolve()
-Pkg.instantiate()
+# Pkg.resolve()
+# Pkg.instantiate()

@@ -130,7 +130,7 @@ function heat_tranfer(dk, l, v, fl, fe, Kalf, coeff = 0.8)
     return alfa_duct
 end
 
-function calc(nk, dk, Ds, coeff)
+function calc(nk, dk, Ds; coeff=0.8)
     par = Param(nk, dk, 0.297, 0.4, 0.23, 0.3, 30, 325, 16, 29)
     Pl = 5000  # Power loss
     # init Values

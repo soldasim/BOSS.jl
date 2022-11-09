@@ -5,9 +5,11 @@ searchdir(path, key) = filter_regexp(readdir(path), key)
 filter_regexp(strings, key) = filter(x -> occursin(key, x), strings)
 
 function results()
-    dir = "./motor/data/01/"
+    dir = "06/"
+    datadir = "./motor/data/" * dir
+    plotdir = "./motor/plots/" * dir
 
-    files = searchdir(dir, r"data")
+    files = searchdir(datadir, r"data")
     param_files = reduce(vcat, filter_regexp(files, r"_param_"))
     semiparam_files = reduce(vcat, filter_regexp(files, r"_semiparam_"))
     nonparam_files = reduce(vcat, filter_regexp(files, r"_nonparam_"))
@@ -16,12 +18,22 @@ function results()
     @show length(semiparam_files)
     @show length(nonparam_files)
 
+    L = minimum([length(param_files), length(semiparam_files), length(nonparam_files)])
+    println("Taking $L first runs from each.")
+
     results = [
-        [load_data(dir, f) for f in param_files],
-        [load_data(dir, f) for f in semiparam_files],
-        [load_data(dir, f) for f in nonparam_files],
+        [load_data(datadir, param_files[i]) for i in 1:L],
+        [load_data(datadir, semiparam_files[i]) for i in 1:L],
+        [load_data(datadir, nonparam_files[i]) for i in 1:L],
     ]
 
+    # BSF
     p = plot_bsf_boxplots(results; show_plot=false)
-    savefig(p, "./motor/plots/plot_3.png")
+    savefig(p, plotdir * "bsf.png")
+
+    # # PARAM
+    # param_idx = 1
+    # true_val = 0.8
+    # p = plot_paramdiff_boxplots(true_val, param_idx, results; show_plot=false)
+    # savefig(p, plotdir * "paramdiff.png")
 end

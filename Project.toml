@@ -1,5 +1,6 @@
 [deps]
 AbstractGPs = "99985d1d-32ba-4be9-9821-2ec096f28918"
+Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Evolutionary = "86b6b26d-c046-49b6-aa0b-5f0f74682bd6"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"

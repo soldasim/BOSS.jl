@@ -9,42 +9,26 @@ using Evolutionary
 include("../src/boss.jl")
 include("../example/data.jl")
 
-
-# ### OPT VERSION
-
-# # THE OBJECTIVE FUNCTION
-# @pyinclude("motor/computational_model.py")
-# function obj_func(x)
-#     py"calc"(x...)
-# end
-
-# fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
-
-# # MODEL
-# include("motor_model.jl")
-
-
-### COEFF VERSION
-# For some reason crashes with parallelization.
-# Add `parallel=false` kwarg to boss.
-
 # THE OBJECTIVE FUNCTION
 # @pyinclude("motor/main_coeff.py")
 include("./main_coeff.jl")
 function obj_func(x, coef=0.8)
     # py"calc"(x..., coef)
-    MainCoeff.calc(x..., coef)
+    MainCoeff.calc(x...; coef)
 end
 
+# FITNESS
 fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
 
 # MODEL
+# poly-model
+# include("motor_model.jl")
+# coeff-model
 motor_model() = Boss.NonlinModel(
     (x, params) -> obj_func(x, params[1]),
     [Distributions.Uniform(0., 1.)],
     1,
 )
-
 
 # DOMAIN CONSTRAINTS
 # domain_bounds() = [20., 0.01, 0.297], [60., 0.03, 0.400]
@@ -126,70 +110,30 @@ function example_continue(max_iters, res; test_data=(nothing, nothing), info=tru
     ), test_data
 end
 
-function compare_models(; save_run_data=false, file="motor/data/rundata", make_plots=false, make_boxplot=false, kwargs...)
-    # generate data
-    # test_X, test_Y = generate_test_data_(20)
-
+function compare_models(use_model; save_run_data=false, file="motor/data/rundata", make_plots=false, make_boxplot=false, kwargs...)
     # experiment settings
     runs = 10
     max_iters = 100
     init_data_size = 19
 
     print("Starting $runs runs.\n")
-    results = [Vector{RunResult}(undef, runs) for _ in 1:3]
+    results = Vector{RunResult}(undef, runs)
     for i in 1:runs
         print("\n ### RUN $i/$runs ### \n")
         info = true
 
         X, Y = generate_init_data_LHC_(init_data_size)
 
-        param_res = run_boss_(X, Y; use_model=:param, max_iters, info, make_plots, kwargs...)
+        res = run_boss_(X, Y; use_model, max_iters, info, make_plots, kwargs...)
         if save_run_data
             try
-                save_data(param_res, "./", file*"_param_$i.jld2")
+                save_data(res, "./", file*"_"*String(use_model)*"_$i.jld2")
             catch e
                 showerror(stdout, e)
             end
         end
 
-        semiparam_res = run_boss_(X, Y; use_model=:semiparam, max_iters, info, make_plots, kwargs...)
-        if save_run_data
-            try
-                save_data(param_res, "./", file*"_semiparam_$i.jld2")
-            catch e
-                showerror(stdout, e)
-            end
-        end
-
-        nonparam_res = run_boss_(X, Y; use_model=:nonparam, max_iters, info, make_plots, kwargs...)
-        if save_run_data
-            try
-                save_data(param_res, "./", file*"_nonparam_$i.jld2")
-            catch e
-                showerror(stdout, e)
-            end
-        end
-
-        results[1][i] = param_res
-        results[2][i] = semiparam_res
-        results[3][i] = nonparam_res
-
-        # if save_run_data
-        #     try
-        #         save_data((param_res, semiparam_res, nonparam_res), "./", file*"_$i.jld2")
-        #     catch e
-        #         showerror(stdout, e)
-        #     end
-        # end
-    end
-
-    if make_boxplot
-        try
-            labels = ["param", "semiparam", "nonparam"]
-            plot_bsf_boxplots(results; labels)
-        catch e
-            showerror(stdout, e)
-        end
+        results[i] = res
     end
 
     return results
