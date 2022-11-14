@@ -3,11 +3,8 @@ using LaTeXStrings
 using Statistics
 using Optim
 
-function create_plots(f_true, utils, util_opts, models, model_samples, feas_probs, X, Y;
+function create_plots(f_true, utils, util_opts, models, model_samples, constraints, X, Y;
     iter,
-    y_dim,
-    feasibility,
-    feasibility_count,
     domain,
     init_data_size,
     show_plots,
@@ -15,51 +12,43 @@ function create_plots(f_true, utils, util_opts, models, model_samples, feas_prob
     samples_lable,
     kwargs...
 )
+    y_dim = size(Y)[1]
+    x_dim = size(X)[1]
+    (x_dim != 1) && throw(ArgumentError("Input dimension must be equal to 1!"))
+
     colors = [:red, :purple, :blue]
-    model_labels = (param_fit_alg == :LBFGS) ?
-        ["param\n(MLE fit)", "semiparam\n(MLE fit)", "nonparam\n(MLE fit)"] :
-        ["param\n(best sample)", "semiparam\n(best sample)", "nonparam\n(best sample)"]
-    u_label = feasibility ? "cwEI" : "EI"
-    util_labels = (param_fit_alg == :LBFGS) ?
-        ["param\n(LBFGS)", "semiparam\n(LBFGS)", "nonparam\n(LBFGS)"] :
-        ["param\n(NUTS)", "semiparam\n(NUTS)", "nonparam\n(NUTS)"]
-    feasibility_funcs = feasibility ? [x->feas_probs(x)[i] for i in 1:feasibility_count] : nothing
+    model_labels = ["param", "semiparam", "nonparam"]
+    u_label = isnothing(constraints) ? "EI" : "cwEI"
+    util_labels = ["param", "semiparam", "nonparam"]
     model_sample_labels = isnothing(model_samples) ? nothing : [samples_lable, [nothing for _ in 1:length(model_samples)]...]
     model_sample_colors = isnothing(model_samples) ? nothing : [:black for _ in 1:length(model_samples)]
 
-    plots = Plots.Plot[]
-    for d in 1:y_dim
-        title = (y_dim > 1) ? "ITER $iter, DIM $d" : "ITER $iter"
-        models = model_dim_slice.(models, Ref(d))
-        
-        p = plot_res_1x1(models, x -> f_true(x)[d], X, Y, domain;
-            utils,
-            util_opts,
-            feasibility_funcs,
-            yaxis_feasibility_label="feasibility constraint\nsatisfaction prob.",
-            title,
-            init_data=init_data_size,
-            model_colors=colors,
-            util_colors=colors,
-            model_labels,
-            util_labels,
-            show_plot=show_plots,
-            yaxis_util_label=u_label,
-            model_samples=model_samples,
-            model_sample_labels,
-            model_sample_colors,
-            kwargs...
-        )
-        push!(plots, p)
-    end
-    return plots
+    sliced_models = [model_dim_slice.(models, Ref(d)) for d in 1:y_dim]
+    sliced_obj = [x -> f_true(x)[d] for d in 1:y_dim]
+    p = plot_res_1x1(sliced_models, sliced_obj, X, Y, domain, constraints;
+        utils,
+        util_opts,
+        title="ITER $iter",
+        xaxis_label="x",
+        init_data=init_data_size,
+        model_colors=colors,
+        util_colors=colors,
+        model_labels,
+        util_labels,
+        show_plot=show_plots,
+        yaxis_util_label=u_label,
+        model_samples,
+        model_sample_labels,
+        model_sample_colors,
+        kwargs...
+    )
+    return p
 end
 
-function plot_res_1x1(models, obj_func, x_data, y_data, domain;
+function plot_res_1x1(sliced_models, sliced_obj, x_data, y_data, domain, constraints;
     model_samples=nothing,
     utils=nothing,
     util_opts=nothing,
-    feasibility_funcs=nothing,
     points=200,
     title="",
     show_plot=true,
@@ -69,17 +58,13 @@ function plot_res_1x1(models, obj_func, x_data, y_data, domain;
     model_labels=nothing,
     model_sample_labels=nothing,
     util_labels=nothing,
-    feasibility_labels=nothing,
     xaxis_label=nothing,
     yaxis_util_label="normalized utility",
-    yaxis_data_label=nothing,
-    yaxis_feasibility_label="feasibility",
     init_data=0,
     obj_color=nothing,
     model_colors=nothing,
     model_sample_colors=nothing,
     util_colors=nothing,
-    feasibility_colors=nothing,
     kwargs...
 )
     bounds = get_bounds(domain)
@@ -113,66 +98,58 @@ function plot_res_1x1(models, obj_func, x_data, y_data, domain;
         end
     end
 
-    # FEASIBILITY PLOT
-    feasibility_plot = nothing
+    # DATA PLOT
+    data_plots = Plots.Plot[]
+    for d in eachindex(sliced_obj)
+        dp = Plots.plot(; xaxis, yaxis, ylabel="y$d", kwargs...)
 
-    if !isnothing(feasibility_funcs)
-        feasibility_plot = Plots.plot(; xaxis, ylims=(-0.1, 1.1), ylabel=yaxis_feasibility_label, kwargs...)
-
-        for fi in 1:lastindex(feasibility_funcs)
-            isnothing(feasibility_funcs[fi]) && continue
-            f_vals = feasibility_funcs[fi].(xs)
-            label = isnothing(feasibility_labels) ? "feasibility_$fi" : feasibility_labels[fi]
-            if isnothing(feasibility_colors)
-                plot!(feasibility_plot, reduce(vcat, xs), reduce(vcat, f_vals); label)
-            else
-                plot!(feasibility_plot, reduce(vcat, xs), reduce(vcat, f_vals); label, color=feasibility_colors[fi])
+        # model samples
+        if !isnothing(model_samples)
+            for i in 1:lastindex(model_samples)
+                x_range = (xaxis == :log) ? log_range(domain_lb[1],domain_ub[1],points) : collect(LinRange([domain_lb[1]],[domain_ub[1]],points))
+                y_range = reduce(vcat, (x->model_samples[i](x)[1][d]).(x_range))
+                var_range = nothing
+                label = isnothing(model_sample_labels) ? "sample_$i" : model_sample_labels[i]
+                color = isnothing(model_sample_colors) ? :red : model_sample_colors[i]
+                plot!(dp, reduce(vcat, x_range), reduce(vcat, y_range); label, linestyle=:dash, linealpha=0.2, ribbon=var_range, points, color)
             end
         end
-    end
 
-
-    # DATA PLOT
-    data_plot = Plots.plot(; xaxis, yaxis, title, ylabel=yaxis_data_label, kwargs...)
-
-    # model samples
-    if !isnothing(model_samples)
-        for i in 1:lastindex(model_samples)
-            x_range = (xaxis == :log) ? log_range(domain_lb[1],domain_ub[1],points) : collect(LinRange([domain_lb[1]],[domain_ub[1]],points))
-            y_range = reduce(vcat, (x->model_samples[i](x)[1]).(x_range))
-            var_range = nothing  # isnothing(model_samples[i][2]) ? nothing : getindex.(model_samples[i][2].(x_range), 1)
-            label = isnothing(model_sample_labels) ? "sample_$i" : model_sample_labels[i]
-            color = isnothing(model_sample_colors) ? :red : model_sample_colors[i]
-            plot!(data_plot, reduce(vcat, x_range), reduce(vcat, y_range); label, linestyle=:dash, linealpha=0.2, ribbon=var_range, points, color)
+        # models
+        models = sliced_models[d]
+        for i in 1:lastindex(models)
+            isnothing(models[i]) && continue
+            x_range = (xaxis == :log) ? log_range(domain_lb[1],domain_ub[1],points) : collect(LinRange(domain_lb[1],domain_ub[1],points))
+            y_range = (x->models[i]([x])[1]).(x_range)
+            var_range = (x->models[i]([x])[2]).(x_range)
+            label = isnothing(model_labels) ? (length(models) > 1 ? "model_$i" : "model") : model_labels[i]
+            color = isnothing(model_colors) ? :red : model_colors[i]
+            plot!(dp, x_range, y_range; label, ribbon=var_range, points, color)
         end
-    end
 
-    # models
-    for i in 1:lastindex(models)
-        isnothing(models[i]) && continue
-        x_range = (xaxis == :log) ? log_range(domain_lb[1],domain_ub[1],points) : collect(LinRange([domain_lb[1]],[domain_ub[1]],points))
-        y_range = reduce(vcat, (x->models[i](x)[1]).(x_range))
-        var_range = reduce(vcat, (x->models[i](x)[2]).(x_range))
-        label = isnothing(model_labels) ? (length(models) > 1 ? "model_$i" : "model") : model_labels[i]
-        color = isnothing(model_colors) ? :red : model_colors[i]
-        plot!(data_plot, reduce(vcat, x_range), reduce(vcat, y_range); label, ribbon=var_range, points, color)
-    end
+        # obj func and data
+        label = isnothing(obj_func_label) ? "obj_func" : obj_func_label
+        if (!isnothing(constraints) && !isinf(constraints[d]))
+            plot!(dp, x->constraints[d], domain_lb[1], domain_ub[1]; label="constraint", color=:black, linestyle=:dot, thickness_scaling=2)
+        end
+        plot!(dp, x->sliced_obj[d]([x]), domain_lb[1], domain_ub[1]; label, color=(isnothing(obj_color) ? :green : obj_color))
+        if init_data > 0
+            scatter!(dp, x_data[1:init_data], y_data[d,1:init_data]; label="initial data", color=:yellow)
+            scatter!(dp, x_data[init_data+1:end], y_data[d,init_data+1:end]; label="requested data", color=:brown)
+        else
+            scatter!(dp, x_data, y_data[d,:]; label="data", color=:orange)
+        end
 
-    # obj func and data
-    label = isnothing(obj_func_label) ? "obj_func" : obj_func_label
-    plot!(data_plot, x->obj_func([x]), domain_lb[1], domain_ub[1]; label, color=(isnothing(obj_color) ? :green : obj_color))
-    if init_data > 0
-        scatter!(data_plot, x_data[1:init_data], y_data[1:init_data]; label="initial data", color=:yellow)
-        scatter!(data_plot, x_data[init_data+1:end], y_data[init_data+1:end]; label="requested data", color=:brown)
-    else
-        scatter!(data_plot, x_data, y_data; label="data", color=:orange)
+        push!(data_plots, dp)
     end
     
     # COMBINED PLOT
-    plots = [data_plot]
-    isnothing(feasibility_plot) || push!(plots, feasibility_plot)
+    plots = data_plots
     isnothing(util_plot) || push!(plots, util_plot)
-    p = Plots.plot(plots...; layout=(length(plots),1), legend=:outerright, minorgrid=true, xlabel=xaxis_label, kwargs...)
+    plot!(first(plots); title)
+    plot!(last(plots); xlabel=xaxis_label)
+
+    p = Plots.plot(plots...; layout=(length(plots),1), legend=:outerright, minorgrid=true, kwargs...)
     show_plot && display(p)
     return p
 end

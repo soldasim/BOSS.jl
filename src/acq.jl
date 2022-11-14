@@ -35,56 +35,50 @@ function (f::NonlinFitness)(y)
     return f.fitness(y)
 end
 
-function construct_acq(acq, feas_probs; feasibility, best_yet)
-    if feasibility
-        if isnothing(best_yet)
-            return x -> prod(feas_probs(x))
-        else
-            return x -> prod(feas_probs(x)) * acq(x)
-        end
-
-    else
-        if isnothing(best_yet)
-            # TODO better solution (May be unnecessary as this case is rare and can only happen in the zero-th iteration.)
-            print("WARNING: No feasible solution in the dataset yet! Cannot calculate EI.\n")
-            return x -> 0.
-        else
-            return acq
-        end
+function construct_acq(fitness::Fitness, model, constraints::Nothing, ϵ_samples, best_yet::Nothing)
+    # TODO better solution (May be unnecessary as this case is rare and can only happen in the zero-th iteration.)
+    print("WARNING: No feasible solution in the dataset yet! Cannot calculate EI.\n")
+    
+    acq(x) = 0.
+end
+function construct_acq(fitness::Fitness, model, constraints::Nothing, ϵ_samples, best_yet)
+    acq(x) = EI(x, fitness, model, ϵ_samples; best_yet)
+end
+function construct_acq(fitness::Fitness, model, constraints::AbstractVector{<:Real}, ϵ_samples, best_yet::Nothing)    
+    acq(x) = feas_prob(x, model, constraints)
+end
+function construct_acq(fitness::Fitness, model, constraints::AbstractVector{<:Real}, ϵ_samples, best_yet)    
+    function acq(x)
+        mean, var = model(x)
+        ei = EI(mean, var, fitness, ϵ_samples; best_yet)
+        fp = feas_prob(mean, var, constraints)
+        ei * fp
     end
 end
 
-function feasibility_probabilities(feasibility_model)
-    function p(x)
-        μ, σ = feasibility_model(x)
-        N = length(μ)
-        [(1. - cdf(Distributions.Normal(μ[i], σ[i]), 0.)) for i in 1:N]
-    end
-end
+feas_prob(x::AbstractVector{<:Real}, model, constraints) = feas_prob(model(x)..., constraints)
+feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::Nothing) = 1.
+feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::AbstractVector{<:Real}) = prod(cdf.(Distributions.Normal.(mean, var), constraints))
 
-function EI(x, fitness::LinFitness, model; best_yet)
-    mean, var = model(x)
+EI(x::AbstractVector{<:Real}, fitness::Fitness, model, ϵ_samples; best_yet) = EI(model(x)..., fitness, ϵ_samples; best_yet)
 
+EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::LinFitness, ϵ_samples; best_yet) = EI(mean, var, fitness; best_yet)
+function EI(mean, var, fitness::LinFitness; best_yet)
     μf = fitness.coefs' * mean
     σf = sqrt((fitness.coefs .^ 2)' * var)
     
     norm_ϵ = (μf - best_yet) / σf
     return (μf - best_yet) * cdf(Distributions.Normal(), norm_ϵ) + σf * pdf(Distributions.Normal(), norm_ϵ)
 end
-EI(x, fitness::LinFitness, model, ϵ_samples; best_yet) = EI(x, fitness, model; best_yet)
 
-function EI(x, fitness::NonlinFitness, model, ϵ_samples::AbstractMatrix{<:Real}; best_yet)
-    mean, var = model(x)
+function EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::NonlinFitness, ϵ_samples::AbstractMatrix{<:Real}; best_yet)
     pred_samples = [mean .+ (var .* ϵ) for ϵ in eachcol(ϵ_samples)]
     return sum(max.(0, fitness.(pred_samples) .- best_yet)) / size(ϵ_samples)[2]
 end
-function EI(x, fitness::NonlinFitness, model, ϵ_sample::AbstractArray{<:Real}; best_yet)
-    mean, var = model(x)
-    pred_sample = mean .+ (var .* ϵ_sample)
+function EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::NonlinFitness, ϵ::AbstractArray{<:Real}; best_yet)
+    pred_sample = mean .+ (var .* ϵ)
     return max(0, fitness(pred_sample) - best_yet)
 end
-
-EI_sampled(x, fitness, model_samples, ϵ_samples; best_yet) = mapreduce(mϵ -> EI(x, fitness, mϵ...; best_yet), +, zip(model_samples, ϵ_samples))
 
 function opt_acq_Optim(acq, domain; x_dim, multistart=1, discrete_dims=nothing, options, parallel, info=true, debug=false)
     # starts = generate_starts_random_(domain, multistart)

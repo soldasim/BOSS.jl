@@ -25,10 +25,10 @@ function opt_semipar_params(X, Y, par_model, gp_params_priors, noise_priors; x_d
         noise_loglike(noise) + param_loglike(model_params, noise) + gps_ll(gp_hyperparams, noise, par_model(model_params))
     end
 
-    starts = reduce(hcat, vcat(
-        [rand(np, multistart) for np in noise_priors],
-        [rand(pp, multistart) for pp in par_model.param_priors],
-        [rand(pp, multistart)' for pp in gp_params_priors]
+    starts = reduce(vcat, vcat(
+        [rand(np, multistart)' for np in noise_priors],
+        [rand(pp, multistart)' for pp in par_model.param_priors],
+        [rand(pp, multistart) for pp in gp_params_priors],
     ))
 
     p, _ = optim_params(loglike, starts; parallel, info, debug)
