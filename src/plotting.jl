@@ -75,7 +75,7 @@ function plot_res_1x1(sliced_models, sliced_obj, x_data, y_data, domain, constra
     util_plot = nothing
 
     if !isnothing(utils)
-        util_plot = Plots.plot(; xaxis, yaxis=(:log, [0.09, 1.1]), ylabel=yaxis_util_label, kwargs...)
+        util_plot = Plots.plot(; xaxis, yaxis=(:log, [0.09, 1.1]), ylabel=yaxis_util_label, xlabel="x", kwargs...)
 
         for ui in 1:lastindex(utils)
             isnothing(utils[ui]) && continue
