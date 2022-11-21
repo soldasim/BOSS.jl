@@ -107,7 +107,8 @@ function model_params_loglike(X, Y, model::ParamModel)
     end
 end
 
-function opt_model_params(X, Y, model::ParamModel, noise_priors; y_dim, multistart, parallel, info=true, debug=false)
+function opt_model_params(X, Y, model::ParamModel, noise_priors; multistart, optim_options=Optim.Options(), parallel, info=true, debug=false)
+    y_dim = size(Y)[1]
     params_loglike = model_params_loglike(X, Y, model::ParamModel)
     noise_loglike = noise -> mapreduce(n -> logpdf(n...), +, zip(noise_priors, noise))
     
@@ -118,7 +119,7 @@ function opt_model_params(X, Y, model::ParamModel, noise_priors; y_dim, multista
 
     starts = reduce(hcat, [generate_start_(model, noise_priors) for _ in 1:multistart])
     
-    p, _ = optim_params(loglike, starts; parallel, info, debug)
+    p, _ = optim_params(loglike, starts; parallel, options=optim_options, info, debug)
     noise, params = p[1:y_dim], p[y_dim+1:end]
     return params, noise
 end
@@ -136,7 +137,9 @@ Turing.@model function param_turing_model(X, Y, model, noise_priors, y_dim)
     Y ~ arraydist(Distributions.MvNormal.(means, Ref(noise)))
 end
 
-function sample_model_params(X, Y, par_model, noise_priors; y_dim, mc_settings::MCSettings, parallel)
+function sample_model_params(X, Y, par_model, noise_priors; mc_settings::MCSettings, parallel)
+    y_dim = size(Y)[1]
+    
     param_symbols = vcat([Symbol("params[$i]") for i in 1:par_model.param_count],
                          [Symbol("noise[$i]") for i in 1:y_dim])
     model = param_turing_model(X, Y, par_model, noise_priors, y_dim)
@@ -145,4 +148,21 @@ function sample_model_params(X, Y, par_model, noise_priors; y_dim, mc_settings::
     params = reduce(vcat, transpose.(samples[1:par_model.param_count]))
     noise = reduce(vcat, transpose.(samples[par_model.param_count+1:end]))
     return params, noise
+end
+
+function fit_parametric_model(X, Y, model::ParamModel, noise_priors; param_fit_alg, multistart=80, optim_options=Optim.Options(), mc_settings=MCSettings(400, 20, 8, 6), parallel=true, info=false, debug=false)
+    if param_fit_alg == :MLE
+        params, noise = opt_model_params(X, Y, model, noise_priors; multistart, optim_options, parallel, info, debug)
+        model_samples = nothing
+        parametric = x -> (model(x, params), noise)
+    
+    elseif param_fit_alg == :BI
+        param_samples, noise_samples = sample_model_params(X, Y, model, noise_priors; mc_settings, parallel)
+        noise = mean(noise_samples; dims=2)
+        params = mean(eachcol(param_samples))  # for param history only
+        model_samples = [x -> (model(x, param_samples[:,s]), noise_samples[:,s]) for s in 1:sample_count(mc_settings)]
+        parametric = x -> (mapreduce(m -> m(x), .+, model_samples) ./ length(model_samples))  # for plotting only
+    end
+
+    return parametric, model_samples, params, noise
 end

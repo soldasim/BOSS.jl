@@ -1,6 +1,9 @@
 using Turing
 
-function opt_semipar_params(X, Y, par_model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, multistart, min_gp_hyperparam_value=1e-6, parallel, info=true, debug=false)
+function opt_semipar_params(X, Y, par_model, gp_params_priors, noise_priors; kernel, multistart, optim_options=Optim.Options(), min_gp_hyperparam_value=1e-6, parallel, info=true, debug=false)
+    x_dim = size(X)[1]
+    y_dim = size(Y)[1]
+    
     softplus(x) = log(1. + exp(x))
     lift(p) = softplus.(p) .+ min_gp_hyperparam_value  # 'min_gp_hyperparam_value' for numerical stability
     
@@ -31,7 +34,7 @@ function opt_semipar_params(X, Y, par_model, gp_params_priors, noise_priors; x_d
         [rand(pp, multistart) for pp in gp_params_priors],
     ))
 
-    p, _ = optim_params(loglike, starts; parallel, info, debug)
+    p, _ = optim_params(loglike, starts; parallel, options=optim_options, info, debug)
     noise, model_params, gp_hyperparams = split(p)
     gp_hyperparams = lift.(gp_hyperparams)
     return model_params, gp_hyperparams, noise
@@ -66,7 +69,10 @@ Turing.@model function semipar_turing_model(X, Y_inv, par_model, gp_params_prior
     Y_inv ~ arraydist(gps)
 end
 
-function sample_semipar_params(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings::MCSettings, parallel)
+function sample_semipar_params(X, Y, par_model::ParamModel, gp_params_priors, noise_priors; kernel, mc_settings::MCSettings, parallel)
+    x_dim = size(X)[1]
+    y_dim = size(Y)[1]
+    
     model = semipar_turing_model(X, Y', par_model, gp_params_priors, noise_priors, kernel, y_dim)
     param_symbols = vcat([Symbol("noise[$i]") for i in 1:y_dim],
                          [Symbol("model_params[$i]") for i in 1:par_model.param_count],
@@ -90,4 +96,22 @@ function split_sample_params_(x_dim, y_dim, model_param_count, sample_count)
         
         return noise_samples, model_params_samples, gp_hyperparams_samples
     end
+end
+
+function fit_semiparametric_model(X, Y, model::ParamModel, kernel, gp_params_priors, noise_priors; param_fit_alg, multistart=80, optim_options=Optim.Options(), mc_settings=MCSettings(400, 20, 8, 6), parallel=true, info=false, debug=false)
+    if param_fit_alg == :MLE
+        mean_params, gp_params, noise = opt_semipar_params(X, Y, model, gp_params_priors, noise_priors; kernel, multistart, optim_options, parallel, info, debug)
+        model_samples = nothing
+        semiparametric = gp_model(X, Y, gp_params, noise, model(mean_params), kernel)
+
+    elseif param_fit_alg == :BI
+        mean_param_samples, gp_param_samples, noise_samples = sample_semipar_params(X, Y, model, gp_params_priors, noise_priors; kernel, mc_settings, parallel)
+        noise = mean.(noise_samples)
+        gp_params = mean.(gp_param_samples; dims=2)
+        mean_params = mean(eachcol(mean_param_samples))  # for param history only
+        model_samples = [gp_model(X, Y, [s[:,i] for s in gp_param_samples], [s[i] for s in noise_samples], model(mean_param_samples[:,i]), kernel) for i in 1:sample_count(mc_settings)]
+        semiparametric = x -> (mapreduce(m -> m(x), .+, model_samples) ./ length(model_samples))  # for plotting only
+    end
+
+    return semiparametric, model_samples, mean_params, gp_params, noise
 end

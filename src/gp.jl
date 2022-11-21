@@ -116,7 +116,7 @@ function gp_params_loglike(X, y, params_prior, mean, kernel)
     end
 end
 
-function opt_gp_params(X, y, params_prior, noise_prior, mean, kernel; multistart, parallel, info=true, debug=false, min_param_value=MIN_PARAM_VALUE)
+function opt_gp_params(X, y, params_prior, noise_prior, mean, kernel; multistart, optim_options=Optim.Options(), parallel, info=true, debug=false, min_param_value=MIN_PARAM_VALUE)
     softplus(x) = log(1. + exp(x))
     lift(p) = softplus.(p) .+ min_param_value  # 'min_param_value' for numerical stability
     
@@ -130,13 +130,13 @@ function opt_gp_params(X, y, params_prior, noise_prior, mean, kernel; multistart
 
     starts = vcat(rand(noise_prior, multistart)', rand(params_prior, multistart))
     
-    p, _ = optim_params(p -> loglike(lift(p)), starts; parallel, info, debug)
+    p, _ = optim_params(p -> loglike(lift(p)), starts; parallel, options=optim_options, info, debug)
     noise, params... = lift(p)
     return params, noise
 end
 
-function opt_gps_params(X, Y, params_priors, noise_priors, means, kernel; y_dim, multistart, parallel, info, debug)
-    P = opt_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); multistart, parallel, info, debug)
+function opt_gps_params(X, Y, params_priors, noise_priors, means, kernel; multistart, optim_options=Optim.Options(), parallel, info, debug)
+    P = opt_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); multistart, optim_options, parallel, info, debug)
     params = [p[1] for p in P]
     noise = [p[2] for p in P]
     return params, noise
@@ -161,9 +161,28 @@ function sample_gp_params(X, y, params_prior, noise_prior, mean, kernel; x_dim, 
     return params, noise
 end
 
-function sample_gps_params(X, Y, params_priors, noise_priors, means, kernel; x_dim, mc_settings::MCSettings, parallel)
+function sample_gps_params(X, Y, params_priors, noise_priors, means, kernel; mc_settings::MCSettings, parallel)
+    x_dim = size(X)[1]
+
     samples = sample_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); x_dim, mc_settings, parallel)
     params = [s[1] for s in samples]
     noise = [s[2] for s in samples]
     return params, noise
+end
+
+function fit_nonparametric_model(X, Y, kernel, gp_params_priors, noise_priors; param_fit_alg, multistart=80, optim_options=Optim.Options(), mc_settings=MCSettings(400, 20, 8, 6), parallel=true, info=false, debug=false)
+    if param_fit_alg == :MLE
+        gp_params, noise = opt_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; multistart, optim_options, parallel, info, debug)
+        model_samples = nothing
+        nonparametric = gp_model(X, Y, gp_params, noise, nothing, kernel)
+    
+    elseif param_fit_alg == :BI
+        gp_param_samples, noise_samples = sample_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; mc_settings, parallel)
+        noise = mean.(noise_samples)
+        gp_params = mean.(gp_param_samples; dims=2)
+        model_samples = [gp_model(X, Y, [s[:,i] for s in gp_param_samples], [s[i] for s in noise_samples], nothing, kernel) for i in 1:sample_count(mc_settings)]
+        nonparametric = x -> (mapreduce(m -> m(x), .+, model_samples) ./ length(model_samples))  # for plotting only
+    end
+
+    return nonparametric, model_samples, gp_params, noise
 end

@@ -145,7 +145,7 @@ function boss(fg::Function, fitness::Fitness, X::AbstractMatrix{<:Real}, Y::Abst
     noise_priors,
     constraints=nothing,
     mc_settings=MCSettings(400, 20, 8, 6),
-    acq_opt_multistart=12,
+    acq_opt_multistart=16,
     param_opt_multistart=80,
     gp_params_priors=nothing,
     info=true,
@@ -230,18 +230,8 @@ function boss(fg::Function, fitness::Fitness, X::AbstractMatrix{<:Real}, Y::Abst
 
         # PARAMETRIC MODEL
         if (make_plots && plot_all_models) || (use_model == :param)
-            if param_fit_alg == :MLE
-                par_params, par_noise = opt_model_params(X, Y, model, noise_priors; y_dim, multistart=param_opt_multistart, parallel, info, debug)
-                parametric = x -> (model(x, par_params), par_noise)
-                par_models = nothing
-                (use_model == :param) && (parameters = par_params)
-            
-            elseif param_fit_alg == :BI
-                par_param_samples, par_noise_samples = sample_model_params(X, Y, model, noise_priors; y_dim, mc_settings, parallel)
-                par_models = [x -> (model(x, par_param_samples[:,s]), par_noise_samples[:,s]) for s in 1:sample_count(mc_settings)]
-                (use_model == :param) && (parameters = mean(eachcol(par_param_samples)))
-                parametric = x -> (mapreduce(m -> m(x), .+, par_models) ./ length(par_models))  # for plotting only
-            end
+            parametric, par_models, _par_params, _ = fit_parametric_model(X, Y, model, noise_priors; param_fit_alg, multistart=param_opt_multistart, mc_settings, parallel, info, debug)
+            (use_model == :param) && (parameters = _par_params)
         else
             parametric = nothing
             par_models = nothing
@@ -249,34 +239,19 @@ function boss(fg::Function, fitness::Fitness, X::AbstractMatrix{<:Real}, Y::Abst
 
         # SEMIPARAMETRIC MODEL (param + GP)
         if (make_plots && plot_all_models) || (use_model == :semiparam)
-            if param_fit_alg == :MLE
-                semipar_mean_params, semipar_params, semipar_noise = opt_semipar_params(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, multistart=param_opt_multistart, parallel, info, debug)
-                semiparametric = gp_model(X, Y, semipar_params, semipar_noise, model(semipar_mean_params), kernel)
-                (use_model == :semiparam) && (parameters = semipar_mean_params)
-
-            elseif param_fit_alg == :BI
-                semipar_mean_param_samples, semipar_param_samples, semipar_noise_samples = sample_semipar_params(X, Y, model, gp_params_priors, noise_priors; x_dim, y_dim, kernel, mc_settings, parallel)
-                semipar_models = [gp_model(X, Y, [s[:,i] for s in semipar_param_samples], [s[i] for s in semipar_noise_samples], model(semipar_mean_param_samples[:,i]), kernel) for i in 1:sample_count(mc_settings)]
-                semiparametric = x -> (mapreduce(m -> m(x), .+, semipar_models) ./ length(semipar_models))  # for plotting only
-                (use_model == :semiparam) && (parameters = mean(eachcol(semipar_mean_param_samples)))
-            end
+            semiparametric, semipar_models, _semipar_mean_params, _, _ = fit_semiparametric_model(X, Y, model, kernel, gp_params_priors, noise_priors; param_fit_alg, multistart=param_opt_multistart, mc_settings, parallel, info, debug)
+            (use_model == :semiparam) && (parameters = _semipar_mean_params)
         else
             semiparametric = nothing
+            semipar_models = nothing
         end
 
         # NONPARAMETRIC MODEL (GP)
         if (make_plots && plot_all_models) || (use_model == :nonparam)
-            if param_fit_alg == :MLE
-                nonpar_params, nonpar_noise = opt_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; y_dim, multistart=param_opt_multistart, parallel, info, debug)
-                nonparametric = gp_model(X, Y, nonpar_params, nonpar_noise, nothing, kernel)
-            
-            elseif param_fit_alg == :BI
-                nonpar_param_samples, nonpar_noise_samples = sample_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; x_dim, mc_settings, parallel)
-                nonpar_models = [gp_model(X, Y, [s[:,i] for s in nonpar_param_samples], [s[i] for s in nonpar_noise_samples], nothing, kernel) for i in 1:sample_count(mc_settings)]
-                nonparametric = x -> (mapreduce(m -> m(x), .+, nonpar_models) ./ length(nonpar_models))  # for plotting only
-            end
+            nonparametric, nonpar_models, _, _ = fit_nonparametric_model(X, Y, kernel, gp_params_priors, noise_priors; param_fit_alg, multistart=param_opt_multistart, mc_settings, parallel, info, debug)
         else
             nonparametric = nothing
+            nonpar_models = nothing
         end
 
         if !isnothing(parameters)
