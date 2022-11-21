@@ -22,7 +22,7 @@ function obj_func(x; noise=0.)
     return [y]
 end
 
-# Domain constraints on input. (x < 15.)
+# Domain constraints on input. (x > 5.)
 domain_bounds() = [0.], [20.]
 
 function domain_constraints()
@@ -33,11 +33,11 @@ function domain_constraints()
     lc = [0.]
     uc = [Inf]
     function cons_c!(c, x)
-        c[1] = -x[1] + 15.
+        c[1] = x[1] - 5.
         return c
     end
     function cons_jac!(J, x)
-        J[1,1] = -1. 
+        J[1,1] = 1. 
         return J
     end
     function cons_hes!(h, x, λ)
@@ -55,15 +55,15 @@ function evolutionary_constraints()
     # constraints
     lc = [0.]
     uc = [Inf]
-    c(x) = [-x[1] + 15.]
+    c(x) = [x[1] - 5.]
 
     return Boss.Evolutionary.WorstFitnessConstraints(lb, ub, lc, uc, c)
 end
 
-# Feasibility constraints on output. (x > 5.)
+# Feasibility constraints on output. (x < 15.)
 function feasibility_constraints(x; noise=0.)
     distr = Distributions.Normal(0., noise)
-    g1 = 5. - x[1] + rand(distr)
+    g1 = x[1] - 15. + rand(distr)
     return [g1]
 end
 
@@ -73,7 +73,7 @@ noise_prior() = LogNormal(-2.3, 0.5)
 # EXAMPLES - - - - - - - -
 
 function example(max_iters; init_data_size=2, info=true, make_plots=true, plot_all_models=true, kwargs...)
-    # Random.seed!(5555)
+    Random.seed!(5555)
     
     X, Y = generate_init_data_(init_data_size; noise=noise_real(), feasibility=true)
     # X, Y = generate_init_data_(init_data_size; noise=noise_real(), feasibility=false)
