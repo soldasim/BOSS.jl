@@ -129,8 +129,12 @@ function opt_gp_params(X, y, params_prior, noise_prior, mean, kernel; multistart
     end
 
     starts = vcat(rand(noise_prior, multistart)', rand(params_prior, multistart))
-    
-    p, _ = optim_params(p -> loglike(lift(p)), starts; parallel, options=optim_options, info, debug)
+    constraints = (
+        vcat(minimum(noise_prior), minimum(params_prior)),
+        vcat(maximum(noise_prior), maximum(params_prior))
+    )
+
+    p, _ = optim_params(p -> loglike(lift(p)), starts, constraints; parallel, options=optim_options, info, debug)
     noise, params... = lift(p)
     return params, noise
 end

@@ -117,15 +117,15 @@ function opt_model_params(X, Y, model::ParamModel, noise_priors; multistart, opt
         params_loglike(params, noise) + noise_loglike(noise)
     end
 
-    starts = reduce(hcat, [generate_start_(model, noise_priors) for _ in 1:multistart])
-    
-    p, _ = optim_params(loglike, starts; parallel, options=optim_options, info, debug)
+    starts = reduce(hcat, [vcat(rand.(noise_priors), rand.(model.param_priors)) for _ in 1:multistart])
+    constraints = (
+        vcat(minimum.(noise_priors), minimum.(model.param_priors)),
+        vcat(maximum.(noise_priors), maximum.(model.param_priors))
+    )
+
+    p, _ = optim_params(loglike, starts, constraints; parallel, options=optim_options, info, debug)
     noise, params = p[1:y_dim], p[y_dim+1:end]
     return params, noise
-end
-
-function generate_start_(model, noise_priors)
-    return vcat([rand(d) for d in noise_priors], [rand(d) for d in model.param_priors])
 end
 
 Turing.@model function param_turing_model(X, Y, model, noise_priors, y_dim)

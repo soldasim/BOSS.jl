@@ -33,6 +33,10 @@ function opt_semipar_params(X, Y, par_model, gp_params_priors, noise_priors; ker
         [rand(pp, multistart)' for pp in par_model.param_priors],
         [rand(pp, multistart) for pp in gp_params_priors],
     ))
+    constraints = (
+        vcat(minimum.(noise_priors), minimum.(par_model.param_priors), vcat(minimum.(gp_params_priors)...)),
+        vcat(maximum.(noise_priors), maximum.(par_model.param_priors), vcat(maximum.(gp_params_priors)...))
+    )
 
     p, _ = optim_params(loglike, starts; parallel, options=optim_options, info, debug)
     noise, model_params, gp_hyperparams = split(p)

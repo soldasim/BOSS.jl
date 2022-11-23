@@ -7,11 +7,8 @@ using Evolutionary
 
 # - - - - - - OPTIMIZATION - - - - - -
 
-# Find ̂x that maximizes f(x) using parallel multistart LBFGS.
-function optim_params(f, starts; kwargs...)
-    return optim_params(f, starts, nothing; kwargs...)
-end
-function optim_params(f, starts, constraints; options=Optim.Options(), parallel=true, info=true, debug=false)
+# Find ̂x that maximizes f(x) using parallel multistart gradient-based optimization.
+function optim_params(f, starts, constraints=nothing; options=Optim.Options(), parallel=true, info=true, debug=false)
     multistart = size(starts)[2]
 
     args = Vector{Vector{Float64}}(undef, multistart)
@@ -46,8 +43,10 @@ function optim_params(f, starts, constraints; options=Optim.Options(), parallel=
         end
     end
 
-    info && (sum(convergence_errors) > 0) && print("      $(sum(convergence_errors))/$(multistart) optimization runs failed to converge!\n")
-    
+    errs = sum(convergence_errors)
+    info && (errs > 0) && print("      $(sum(convergence_errors))/$(multistart) optimization runs failed to converge!\n")
+    (errs == multistart) && throw(ErrorException("All optimization runs failed."))
+
     opt_i = argmax(vals)
     return args[opt_i], vals[opt_i]
 end
@@ -58,11 +57,11 @@ function optim_(f, start, constraints::Nothing; options=Optim.Options(), info=fa
     info && (Optim.iterations(opt_res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing!")
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
-function optim_(f, start, constraints::Tuple; options=Optim.Options(), info=false)
-    lb, ub = constraints
-    opt_res = Optim.optimize(p -> -f(p), lb, ub, start, Fminbox(LBFGS()), options)
-    info && (Optim.iterations(opt_res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing!")
-    return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
+function optim_(f, start, constraints::Tuple; options=Optim.options(), info=false)
+    return optim_(f, start, TwiceDifferentiableConstraints(constraints...); options, info)
+    # opt_res = Optim.optimize(p -> -f(p), constraints..., start, Fminbox(LBFGS()), options)
+    # info && (Optim.iterations(opt_res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing!")
+    # return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
 function optim_(f, start, constraints::TwiceDifferentiableConstraints; options=Optim.Options(), info=false)
     opt_res = Optim.optimize(p -> -f(p), constraints, start, IPNewton(), options)
@@ -181,10 +180,7 @@ function uniform_sample(a, b, sample_size)
 end
 
 # Sample from log-uniform distribution.
-function log_sample(a, b, sample_size)
-    X = [exp.(x) for x in uniform_sample(log.(a), log.(b), sample_size)]
-    return X
-end
+log_sample(a, b, sample_size) = exp.(uniform_sample(log.(a), log.(b), sample_size))
 
 # Return points distributed evenly over a given logarithmic range.
 function log_range(a, b, len)
