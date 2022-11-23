@@ -1,4 +1,4 @@
-module MainCoeff
+module MotorParam
 
 using LinearSolve
 using Distributions
@@ -130,7 +130,7 @@ function heat_tranfer(dk, l, v, fl, fe, Kalf, coeff = 0.8)
     return alfa_duct
 end
 
-function calc(nk, dk, Ds, D1=0.297, D2=0.4, l=0.23, Q=0.3, t=30, alt=325, alfa_0=16, lam_fe=29; coeff=0.8)
+function calc(nk, dk, Ds, Q=0.5, D1=0.297, D2=0.4, l=0.23, t=30, alt=325, alfa_0=16, lam_fe=29; coeff=0.8)
     par = Param(nk, dk, D1, D2, l, Q, t, alt, alfa_0, lam_fe)
     Pl = 5000  # Power loss
     # init Values

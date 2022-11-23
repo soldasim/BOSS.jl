@@ -10,11 +10,11 @@ include("../src/boss.jl")
 include("../example/data.jl")
 
 # THE OBJECTIVE FUNCTION
-# @pyinclude("motor/main_coeff.py")
-include("./main_coeff.jl")
+# @pyinclude("motor/param_model.py")
+include("./param_model.jl")
 function obj_func(x, coef=0.8)
     # py"calc"(x..., coef)
-    MainCoeff.calc(x...; coef)
+    MotorParam.calc(x...; coef)
 end
 
 # FITNESS
@@ -23,7 +23,6 @@ fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
 # MODEL
 # poly-model
 # include("motor_model.jl")
-# coeff-model
 motor_model() = Boss.NonlinModel(
     (x, params) -> obj_func(x, params[1]),
     [Distributions.Uniform(0., 1.)],
