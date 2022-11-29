@@ -230,8 +230,8 @@ function boss(fg::Function, fitness::Fitness, X::AbstractMatrix{<:Real}, Y::Abst
 
         # PARAMETRIC MODEL
         if (make_plots && plot_all_models) || (use_model == :param)
-            parametric, par_models, _par_params, _ = fit_parametric_model(X, Y, model, noise_priors; param_fit_alg, multistart=param_opt_multistart, mc_settings, parallel, info, debug)
-            (use_model == :param) && (parameters = _par_params)
+            parametric, par_models, par_params_, _ = fit_parametric_model(X, Y, model, noise_priors; param_fit_alg, multistart=param_opt_multistart, mc_settings, parallel, info, debug)
+            (use_model == :param) && (parameters = mean(eachcol(par_params_)))
         else
             parametric = nothing
             par_models = nothing
@@ -239,8 +239,8 @@ function boss(fg::Function, fitness::Fitness, X::AbstractMatrix{<:Real}, Y::Abst
 
         # SEMIPARAMETRIC MODEL (param + GP)
         if (make_plots && plot_all_models) || (use_model == :semiparam)
-            semiparametric, semipar_models, _semipar_mean_params, _, _ = fit_semiparametric_model(X, Y, model, kernel, gp_params_priors, noise_priors; param_fit_alg, multistart=param_opt_multistart, mc_settings, parallel, info, debug)
-            (use_model == :semiparam) && (parameters = _semipar_mean_params)
+            semiparametric, semipar_models, semipar_mean_params_, _, _ = fit_semiparametric_model(X, Y, model, kernel, gp_params_priors, noise_priors; param_fit_alg, multistart=param_opt_multistart, mc_settings, parallel, info, debug)
+            (use_model == :semiparam) && (parameters = mean(eachcol(semipar_mean_params_)))
         else
             semiparametric = nothing
             semipar_models = nothing

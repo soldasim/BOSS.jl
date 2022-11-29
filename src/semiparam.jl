@@ -105,16 +105,18 @@ end
 function fit_semiparametric_model(X, Y, model::ParamModel, kernel, gp_params_priors, noise_priors; param_fit_alg, multistart=80, optim_options=Optim.Options(), mc_settings=MCSettings(400, 20, 8, 6), parallel=true, info=false, debug=false)
     if param_fit_alg == :MLE
         mean_params, gp_params, noise = opt_semipar_params(X, Y, model, gp_params_priors, noise_priors; kernel, multistart, optim_options, parallel, info, debug)
-        model_samples = nothing
         semiparametric = gp_model(X, Y, gp_params, noise, model(mean_params), kernel)
+        
+        model_samples = nothing
 
     elseif param_fit_alg == :BI
         mean_param_samples, gp_param_samples, noise_samples = sample_semipar_params(X, Y, model, gp_params_priors, noise_priors; kernel, mc_settings, parallel)
-        noise = mean.(noise_samples)
-        gp_params = mean.(gp_param_samples; dims=2)
-        mean_params = mean(eachcol(mean_param_samples))  # for param history only
         model_samples = [gp_model(X, Y, [s[:,i] for s in gp_param_samples], [s[i] for s in noise_samples], model(mean_param_samples[:,i]), kernel) for i in 1:sample_count(mc_settings)]
         semiparametric = x -> (mapreduce(m -> m(x), .+, model_samples) ./ length(model_samples))  # for plotting only
+        
+        mean_params = mean_param_samples
+        gp_params = gp_param_samples
+        noise = noise_samples
     end
 
     return semiparametric, model_samples, mean_params, gp_params, noise

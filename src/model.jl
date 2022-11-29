@@ -153,15 +153,17 @@ end
 function fit_parametric_model(X, Y, model::ParamModel, noise_priors; param_fit_alg, multistart=80, optim_options=Optim.Options(), mc_settings=MCSettings(400, 20, 8, 6), parallel=true, info=false, debug=false)
     if param_fit_alg == :MLE
         params, noise = opt_model_params(X, Y, model, noise_priors; multistart, optim_options, parallel, info, debug)
-        model_samples = nothing
         parametric = x -> (model(x, params), noise)
+        
+        model_samples = nothing
     
     elseif param_fit_alg == :BI
         param_samples, noise_samples = sample_model_params(X, Y, model, noise_priors; mc_settings, parallel)
-        noise = mean(noise_samples; dims=2)
-        params = mean(eachcol(param_samples))  # for param history only
         model_samples = [x -> (model(x, param_samples[:,s]), noise_samples[:,s]) for s in 1:sample_count(mc_settings)]
         parametric = x -> (mapreduce(m -> m(x), .+, model_samples) ./ length(model_samples))  # for plotting only
+        
+        params = param_samples  # for param history only
+        noise = noise_samples
     end
 
     return parametric, model_samples, params, noise

@@ -177,15 +177,17 @@ end
 function fit_nonparametric_model(X, Y, kernel, gp_params_priors, noise_priors; param_fit_alg, multistart=80, optim_options=Optim.Options(), mc_settings=MCSettings(400, 20, 8, 6), parallel=true, info=false, debug=false)
     if param_fit_alg == :MLE
         gp_params, noise = opt_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; multistart, optim_options, parallel, info, debug)
-        model_samples = nothing
         nonparametric = gp_model(X, Y, gp_params, noise, nothing, kernel)
+
+        model_samples = nothing
     
     elseif param_fit_alg == :BI
         gp_param_samples, noise_samples = sample_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; mc_settings, parallel)
-        noise = mean.(noise_samples)
-        gp_params = mean.(gp_param_samples; dims=2)
         model_samples = [gp_model(X, Y, [s[:,i] for s in gp_param_samples], [s[i] for s in noise_samples], nothing, kernel) for i in 1:sample_count(mc_settings)]
         nonparametric = x -> (mapreduce(m -> m(x), .+, model_samples) ./ length(model_samples))  # for plotting only
+
+        noise = noise_samples
+        gp_params = gp_param_samples
     end
 
     return nonparametric, model_samples, gp_params, noise
