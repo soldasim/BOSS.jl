@@ -144,7 +144,7 @@ end
 function boss(fg::Function, fitness::Fitness, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, model::ParamModel, domain;
     noise_priors,
     constraints=nothing,
-    mc_settings=MCSettings(400, 20, 8, 6),
+    mc_settings=MCSettings(400, 10, 8, 5),
     acq_opt_multistart=16,
     param_opt_multistart=80,
     gp_params_priors=nothing,
