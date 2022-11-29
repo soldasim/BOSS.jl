@@ -37,12 +37,25 @@ function init_data()
 end
 
 function def_model()
-    #                  Q, D1, D2, l, t, alt, alfa_0, lam_fe
-    def_param_vals = [0.5, 0.297, 0.4, 0.23, 30, 325, 16, 29]
+    #                 Q, D1, D2, l, t, alt, alfa_0, lam_fe, Pl, alfa_a, alfa_b
+    def_param_vals = [0.5, 0.297, 0.4, 0.23, 30, 325, 16, 29, 5000, 1., 0.]
+
+    # # 8-arg version
+    # predict = (nk, dk, Ds, Q, D1, D2, l, t, alt, alfa_0, lam_fe) -> MotorParam.calc(nk, dk, Ds; Q, D1, D2, l, t, alt, alfa_0, lam_fe)
+    # param_priors = vcat(Beta(2,2), construct_lognormal.(def_param_vals[2:8], def_param_vals[2:8] ./ 2))
+    # param_count = 8
+
+    # Pl, alfa_duct version
+    predict = (nk, dk, Ds, Pl, alfa_a, alfa_b) -> MotorParam.calc(nk, dk, Ds; Pl, alfa_a, alfa_b)
+    # param_priors = [LogNormal(8.,5.), construct_lognormal(1., 0.5), Normal(0., 100.)]
+    # param_priors = [construct_lognormal(9000, 1e8), construct_lognormal(1., 0.5), Normal(0., 100.)]
+    param_priors = [truncated(Normal(5000, 5000); lower=0.), construct_lognormal(1., 0.5), Normal(0., 100.)]
+    param_count = 3
+
     param_model = Boss.NonlinModel(
-        (x, params) -> MotorParam.calc(x..., params...)[1:2],
-        vcat(Beta(2,2), construct_lognormal.(def_param_vals[2:8], def_param_vals[2:8] ./ 2)),
-        8,
+        (x, params) -> predict(x..., params...)[1:2],
+        param_priors,
+        param_count,
     )
 end
 
@@ -54,10 +67,9 @@ function fit_model(data) #param_idx=collect(1:8)
     y_dim = size(init_Y)[1]
 
     # HYPERPARAMS - - - - - -
-    param_fit_alg = :MLE #:MLE
-    multistart = 16  # for MLE
-    optim_options = Optim.Options(; iterations=1000)  # for MLE
-    mc_settings = Boss.MCSettings(200, 20, 8, 3)  # for BI
+    param_fit_alg = :BI
+    mc_settings = Boss.MCSettings(400, 10, 8, 5)
+    # mc_settings = Boss.MCSettings(40, 2, 8, 1)
 
     noise_priors = [LogNormal(-2.3, 1.) for _ in 1:y_dim]
 
@@ -65,7 +77,7 @@ function fit_model(data) #param_idx=collect(1:8)
     param_model = def_model()
 
     # FIT MODEL - - - - - -
-    fit, _, params, noise = Boss.fit_parametric_model(init_X, init_Y, param_model, noise_priors; param_fit_alg, multistart, optim_options, mc_settings, parallel=true, info=true, debug=true)
+    fit, _, params, noise = Boss.fit_parametric_model(init_X, init_Y, param_model, noise_priors; param_fit_alg, mc_settings, parallel=true, info=true, debug=false)
 
     return fit, params, noise
 end

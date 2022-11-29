@@ -61,7 +61,6 @@ function r_cont(D1, D2, nk, dk, dens)
 
     Ksi_cont = (1 / mi - 1) ^ 2
     K_cont = 0.5 * dens * (Ksi_cont + 1 - (S2 / S1) ^ 2) / S2 ^ 2
-
     return K_cont
 end
 
@@ -84,7 +83,6 @@ function r_duct(dk, nk, l, Re, dens)
 
     coeff_duct = f * l / dk
     K_duct = 0.5 * dens * coeff_duct / S ^ 2
-
     return K_duct
 end
 
@@ -92,7 +90,6 @@ function r_exp(D1, D2, nk, dk, dens)
     S1 = pi/4 * (dk ^ 2 * nk)
     S2 = pi/4*(D1 ^ 2 - D2 ^ 2)
     K_exp = 0.5 * dens * (1 / S1 - 1 / S2) ^ 2
-
     return K_exp
 end
 
@@ -104,7 +101,6 @@ function frict(Re, dk, e)
         L = L2
         L2 = (1 / (1.74 - 2 * log10(2 * K + 18.7 / (Re * L ^ (0.5))))) ^ 2
     end
-
     return L
 end
 
@@ -123,16 +119,27 @@ function g_conv(alfa, S)
     return G
 end
 
-function heat_tranfer(dk, l, v, fl, fe, Kalf, coeff = 0.8)
+function heat_tranfer(dk, l, v, fl, fe, Kalf, coeff=0.8)
     Kl = 1+(dk/l)^0.67 
-    alfa_duct = Kalf * v^coeff * dk^(-0.2) * Kl * sqrt(fe/fl) #0.8
-
+    alfa_duct = Kalf * v^coeff * dk^(-0.2) * Kl * sqrt(fe/fl)
     return alfa_duct
 end
 
-function calc(nk, dk, Ds, Q=0.5, D1=0.297, D2=0.4, l=0.23, t=30, alt=325, alfa_0=16, lam_fe=29; coeff=0.8)
+function calc(nk, dk, Ds;
+    Q=0.5,
+    D1=0.297,
+    D2=0.4,
+    l=0.23,
+    t=30,
+    alt=325,
+    alfa_0=16,
+    lam_fe=29,
+    Pl=5000,
+    alfa_a=1.,
+    alfa_b=0.,
+    coeff=0.8,
+)
     par = Param(nk, dk, D1, D2, l, Q, t, alt, alfa_0, lam_fe)
-    Pl = 5000  # Power loss
     # init Values
     Dp_ = 100
     Dp = 0
@@ -158,7 +165,7 @@ function calc(nk, dk, Ds, Q=0.5, D1=0.297, D2=0.4, l=0.23, t=30, alt=325, alfa_0
     # Heat transfer coefficient calculation for duct
     fl = frict(Re, par.Dk, 0.00001)
     fe = frict(Re, par.Dk, 0.0001)
-    alfa_duct = heat_tranfer(par.Dk, par.l, Vs, fl, fe, par.k_alf, coeff)
+    alfa_duct = alfa_a * heat_tranfer(par.Dk, par.l, Vs, fl, fe, par.k_alf, coeff) + alfa_b
 
     # Geom for stator radial conductivity
     # Ds = (par.D2 + par.D1) / 2
