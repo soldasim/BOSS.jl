@@ -47,9 +47,7 @@ function def_model()
 
     # Pl, alfa_duct version
     predict = (nk, dk, Ds, Pl, alfa_a, alfa_b) -> MotorParam.calc(nk, dk, Ds; Pl, alfa_a, alfa_b)
-    # param_priors = [LogNormal(8.,5.), construct_lognormal(1., 0.5), Normal(0., 100.)]
-    # param_priors = [construct_lognormal(9000, 1e8), construct_lognormal(1., 0.5), Normal(0., 100.)]
-    param_priors = [truncated(Normal(5000, 5000); lower=0.), construct_lognormal(1., 0.5), Normal(0., 100.)]
+    param_priors = [truncated(Normal(10_000, 5_000); lower=0.), LogNormal(0., 0.5), Normal(0., 50.)]
     param_count = 3
 
     param_model = Boss.NonlinModel(
@@ -69,15 +67,17 @@ function fit_model(data) #param_idx=collect(1:8)
     # HYPERPARAMS - - - - - -
     param_fit_alg = :BI
     mc_settings = Boss.MCSettings(400, 10, 8, 5)
-    # mc_settings = Boss.MCSettings(40, 2, 8, 1)
 
+    kernel = Boss.DiscreteKernel(Matern52Kernel(), [true, false, false])
+    gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:y_dim]
     noise_priors = [LogNormal(-2.3, 1.) for _ in 1:y_dim]
 
     # MODEL - - - - - -
     param_model = def_model()
 
     # FIT MODEL - - - - - -
-    fit, _, params, noise = Boss.fit_parametric_model(init_X, init_Y, param_model, noise_priors; param_fit_alg, mc_settings, parallel=true, info=true, debug=false)
+    # fit, _, params, noise = Boss.fit_parametric_model(init_X, init_Y, param_model, noise_priors; param_fit_alg, mc_settings, parallel=true, info=true, debug=false)
+    fit, _, params, _, noise = Boss.fit_semiparametric_model(init_X, init_Y, param_model, kernel, gp_params_priors, noise_priors; param_fit_alg, mc_settings, parallel=true, info=true, debug=false)
 
     return fit, params, noise
 end
