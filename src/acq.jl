@@ -36,15 +36,14 @@ function (f::NonlinFitness)(y)
 end
 
 function construct_acq(fitness::Fitness, model, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing)
-    # TODO better solution (May be unnecessary as this case is rare and can only happen in the zero-th iteration.)
     print("WARNING: No feasible solution in the dataset yet! Cannot calculate EI.\n")
-    
     acq(x) = 0.
 end
 function construct_acq(fitness::Fitness, model, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet)
     acq(x) = EI(x, fitness, model, ϵ_samples; best_yet)
 end
 function construct_acq(fitness::Fitness, model, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing)    
+    print("WARNING: No feasible solution in the dataset yet! Cannot calculate EI.\n")
     acq(x) = feas_prob(x, model, constraints)
 end
 function construct_acq(fitness::Fitness, model, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet)    
