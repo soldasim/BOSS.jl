@@ -54,6 +54,10 @@ function construct_acq(fitness::Fitness, model, constraints::AbstractVector{<:Re
         ei * fp
     end
 end
+function construct_acq(fitness::Fitness, models::AbstractArray{<:Base.Callable}, constraints, ϵ_samples::AbstractMatrix{<:Real}, best_yet)
+    acqs = construct_acq.(Ref(fitness), models, Ref(constraints), eachcol(ϵ_samples), best_yet)
+    acq(x) = mapreduce(a -> a(x), +, acqs) / length(acqs)
+end
 
 function construct_acq_from_samples(fitness::Fitness, models::AbstractArray, constraints, ϵ_samples::AbstractMatrix{<:Real}, best_yet)
     acqs = construct_acq.(Ref(fitness), models, Ref(constraints), eachcol(ϵ_samples), best_yet)
