@@ -18,11 +18,11 @@ function obj_func(x, coef=0.8)
 end
 
 # FITNESS
-fitness(; alpha=1., beta=1.) = Boss.LinFitness([1., alpha, beta])
+get_fitness(; alpha=1., beta=1.) = Boss.LinFitness((-1).*[1., alpha, beta])
 
 # MODEL
 # poly-model
-# include("motor_model.jl")
+# include("poly_model.jl")
 motor_model() = Boss.NonlinModel(
     (x, params) -> obj_func(x, params[1]),
     [Distributions.Uniform(0., 1.)],
@@ -146,7 +146,7 @@ function run_boss_(init_X, init_Y; kwargs...)
 
     noise_priors = [LogNormal(-2.3, 1.) for _ in 1:3]
 
-    fit = fitness(; alpha=(10.)^1, beta=(10.)^5)
+    fit = get_fitness(; alpha=(10.)^1, beta=(10.)^5)
     model = motor_model()
     domain = domain_constraints()
     kernel = Boss.DiscreteKernel(Matern52Kernel(), [true, false, false])

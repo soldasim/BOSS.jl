@@ -3,10 +3,8 @@ using Combinatorics
 using Distributions
 using KernelFunctions
 using Optim
-include("../src/boss.jl")
 
-# Parametric Surrogate Model
-# calc: [nk, dk, Ds] -> [Dp, T_av, S_stator]
+include("../src/boss.jl")
 include("./param_model.jl")
 
 # cols: nk, dk, Ds, Dp, T_av
@@ -36,6 +34,12 @@ function init_data()
     return data
 end
 
+function split_data(data)
+    init_X = data[:,1:3]' |> collect
+    init_Y = data[:,4:5]' |> collect
+    return init_X, init_Y
+end
+
 function def_model()
     #                 Q, D1, D2, l, t, alt, alfa_0, lam_fe, Pl, alfa_a, alfa_b
     def_param_vals = [0.5, 0.297, 0.4, 0.23, 30, 325, 16, 29, 5000, 1., 0.]
@@ -57,29 +61,53 @@ function def_model()
     )
 end
 
-function fit_model(data) #param_idx=collect(1:8)
-    # DATA - - - - - -
-    init_X = data[:,1:3]' |> collect
-    init_Y = data[:,4:5]' |> collect
+function opt_acq(data; model_samples=nothing)
+    # DATA
+    init_X, init_Y = split_data(data)
     x_dim = size(init_X)[1]
     y_dim = size(init_Y)[1]
 
-    # HYPERPARAMS - - - - - -
-    param_fit_alg = :BI
+    # HYPERPARAMS
     mc_settings = Boss.MCSettings(400, 10, 8, 5)
+    acq_opt_alg = :Optim
+    optim_options = Optim.Options(; x_abstol=1e-2, iterations=800)
+    acq_opt_multistart = 200 #1000
 
-    kernel = Boss.DiscreteKernel(Matern52Kernel(), [true, false, false])
+    # PROBLEM DEF
+    domain = [20., 0.01, 0.297], [60., 0.03, 0.400]
+    discrete_dims = [true, false, false]
+    constraints = [1000., Inf]
+    fitness = Boss.LinFitness([0., -1.])
+
+    # FIT MODEL
+    if isnothing(model_samples)
+        _, model_samples, _, _ = fit_model(data; mc_settings, discrete_dims)
+    end
+
+    # OPTIMIZE ACQ
+    bsf = Boss.get_best_yet(fitness, init_X, init_Y, domain, constraints)
+    ϵ_samples = rand(Normal(), (y_dim, Boss.sample_count(mc_settings)))
+    acq = Boss.construct_acq_from_samples(fitness, model_samples, constraints, ϵ_samples, bsf)
+    Boss.opt_acq_Optim(acq, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, parallel=true, info=true, debug=false)
+end
+
+function fit_model(data; mc_settings=Boss.MCSettings(400, 10, 8, 5), discrete_dims=[true, false, false])
+    # DATA
+    init_X, init_Y = split_data(data)
+    x_dim = size(init_X)[1]
+    y_dim = size(init_Y)[1]
+
+    # HYPERPARAMS
+    kernel = Boss.DiscreteKernel(Matern52Kernel(), discrete_dims)
     gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:y_dim]
     noise_priors = [LogNormal(-2.3, 1.) for _ in 1:y_dim]
 
-    # MODEL - - - - - -
+    # FIT MODEL
     param_model = def_model()
+    # fit, model_samples, params, noise = Boss.fit_parametric_model(init_X, init_Y, param_model, noise_priors; param_fit_alg, mc_settings, parallel=true, info=true, debug=false)
+    fit, model_samples, params, gp_params, noise = Boss.fit_semiparametric_model(init_X, init_Y, param_model, kernel, gp_params_priors, noise_priors; param_fit_alg=:BI, mc_settings, parallel=true, info=true, debug=false)
 
-    # FIT MODEL - - - - - -
-    # fit, _, params, noise = Boss.fit_parametric_model(init_X, init_Y, param_model, noise_priors; param_fit_alg, mc_settings, parallel=true, info=true, debug=false)
-    fit, _, params, _, noise = Boss.fit_semiparametric_model(init_X, init_Y, param_model, kernel, gp_params_priors, noise_priors; param_fit_alg, mc_settings, parallel=true, info=true, debug=false)
-
-    return fit, params, noise
+    return fit, model_samples, params, noise
 end
 
 function crosscheck()
