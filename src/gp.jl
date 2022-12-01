@@ -29,9 +29,11 @@ julia> DiscreteKernel(Matern52Kernel(), [true, false, false])
 DiscreteKernel(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), Bool[1, 0, 0])
 ```
 """
-struct DiscreteKernel <: Kernel
+struct DiscreteKernel{T} <: Kernel where {
+    T<:Union{Nothing, AbstractArray{Bool}}
+}
     kernel::Kernel
-    dims::Union{Nothing, AbstractVector{Bool}}
+    dims::T
 end
 DiscreteKernel(kernel::Kernel) = DiscreteKernel(kernel, nothing)
 
@@ -45,9 +47,9 @@ end
 
 discrete_round() = x -> round.(x)
 discrete_round(::Nothing) = discrete_round()
-discrete_round(dims) = x -> cond_round.(x, dims)
+discrete_round(dims::AbstractArray{<:Bool}) = x -> cond_round.(x, dims)
 
-cond_round(x, b) = b ? round(x) : x
+cond_round(x, b::Bool) = b ? round(x) : x
 
 function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscale::Real)
     return DiscreteKernel(with_lengthscale(dk.kernel, lengthscale), dk.dims)
@@ -58,19 +60,19 @@ end
 
 gp_param_count(x_dim) = x_dim
 
-function gp_model(X, Y, params, noise, mean::Nothing, kernel)
+function gp_model(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, params, noise, mean::Nothing, kernel::Kernel)
     finite_gps = construct_finite_gp.(Ref(X), params, noise, Ref(nothing), Ref(kernel))
     gp_model(finite_gps, Y)
 end
-function gp_model(X, Y, params, noise, mean::Base.Callable, kernel)
+function gp_model(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, params, noise, mean, kernel::Kernel)
     means = [x -> mean(x)[i] for i in 1:length(params)]
     gp_model(X, Y, params, noise, means, kernel)
 end
-function gp_model(X, Y, params, noise, means::AbstractArray{<:Base.Callable}, kernel)
+function gp_model(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, params, noise, means::AbstractArray, kernel::Kernel)
     finite_gps = construct_finite_gp.(Ref(X), params, noise, means, Ref(kernel))
     gp_model(finite_gps, Y)
 end
-function gp_model(finite_gps, Y)
+function gp_model(finite_gps::AbstractArray{<:AbstractGPs.FiniteGP}, Y::AbstractMatrix{<:Real})
     posts = posterior.(finite_gps, eachrow(Y))
 
     function model(x)
@@ -88,7 +90,7 @@ function gp_model(finite_gps, Y)
     end
 end
 
-function construct_finite_gp(X, params, noise, mean::Nothing, kernel; min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
+function construct_finite_gp(X::AbstractMatrix{<:Real}, params, noise, mean::Nothing, kernel::Kernel; min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
     # for numerical stability
     params = params .+ min_param_val
     noise = noise + min_noise
@@ -96,7 +98,7 @@ function construct_finite_gp(X, params, noise, mean::Nothing, kernel; min_param_
     kernel = with_lengthscale(kernel, params)
     GP(kernel)(X, noise)
 end
-function construct_finite_gp(X, params, noise, mean, kernel; min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
+function construct_finite_gp(X::AbstractMatrix{<:Real}, params, noise, mean, kernel::Kernel; min_param_val=MIN_PARAM_VALUE, min_noise=MIN_PARAM_VALUE)
     # for numerical stability
     params = params .+ min_param_val
     noise = noise + min_noise
@@ -105,7 +107,7 @@ function construct_finite_gp(X, params, noise, mean, kernel; min_param_val=MIN_P
     GP(CustomMean(mean), kernel)(X, noise)
 end
 
-function gp_params_loglike(X, y, params_prior, mean, kernel)
+function gp_params_loglike(X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real}, params_prior, mean, kernel::Kernel)
     function ll_data(params, noise)
         gp = construct_finite_gp(X, params, noise, mean, kernel)
         logpdf(gp, y)
@@ -116,7 +118,7 @@ function gp_params_loglike(X, y, params_prior, mean, kernel)
     end
 end
 
-function opt_gp_params(X, y, params_prior, noise_prior, mean, kernel; multistart, optim_options=Optim.Options(), parallel, info=true, debug=false, min_param_value=MIN_PARAM_VALUE)
+function opt_gp_params(X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real}, params_prior, noise_prior, mean, kernel::Kernel; multistart, optim_options=Optim.Options(), parallel, info=true, debug=false, min_param_value=MIN_PARAM_VALUE)
     softplus(x) = log(1. + exp(x))
     lift(p) = softplus.(p) .+ min_param_value  # 'min_param_value' for numerical stability
     
@@ -139,14 +141,14 @@ function opt_gp_params(X, y, params_prior, noise_prior, mean, kernel; multistart
     return params, noise
 end
 
-function opt_gps_params(X, Y, params_priors, noise_priors, means, kernel; multistart, optim_options=Optim.Options(), parallel, info, debug)
+function opt_gps_params(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, params_priors, noise_priors, means, kernel::Kernel; multistart::Int, optim_options=Optim.Options(), parallel, info, debug)
     P = opt_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); multistart, optim_options, parallel, info, debug)
     params = [p[1] for p in P]
     noise = [p[2] for p in P]
     return params, noise
 end
 
-Turing.@model function gp_turing_model(X, y, mean, kernel, params_prior, noise_prior)
+Turing.@model function gp_turing_model(X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real}, mean, kernel::Kernel, params_prior, noise_prior)
     params ~ params_prior
     noise ~ noise_prior
     
@@ -155,7 +157,7 @@ Turing.@model function gp_turing_model(X, y, mean, kernel, params_prior, noise_p
     y ~ gp
 end
 
-function sample_gp_params(X, y, params_prior, noise_prior, mean, kernel; x_dim, mc_settings::MCSettings, parallel)
+function sample_gp_params(X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real}, params_prior, noise_prior, mean, kernel::Kernel; x_dim::Int, mc_settings::MCSettings, parallel)
     model = gp_turing_model(X, y, mean, kernel, params_prior, noise_prior)
     param_symbols = vcat([Symbol("params[$i]") for i in 1:gp_param_count(x_dim)], :noise)
     samples = sample_params_turing(model, param_symbols, mc_settings; parallel)
@@ -165,7 +167,7 @@ function sample_gp_params(X, y, params_prior, noise_prior, mean, kernel; x_dim, 
     return params, noise
 end
 
-function sample_gps_params(X, Y, params_priors, noise_priors, means, kernel; mc_settings::MCSettings, parallel)
+function sample_gps_params(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, params_priors, noise_priors, means, kernel::Kernel; mc_settings::MCSettings, parallel)
     x_dim = size(X)[1]
 
     samples = sample_gp_params.(Ref(X), eachrow(Y), params_priors, noise_priors, means, Ref(kernel); x_dim, mc_settings, parallel)
@@ -174,7 +176,7 @@ function sample_gps_params(X, Y, params_priors, noise_priors, means, kernel; mc_
     return params, noise
 end
 
-function fit_nonparametric_model(X, Y, kernel, gp_params_priors, noise_priors; param_fit_alg, multistart=80, optim_options=Optim.Options(), mc_settings=MCSettings(400, 20, 8, 6), parallel=true, info=false, debug=false)
+function fit_nonparametric_model(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, kernel::Kernel, gp_params_priors, noise_priors; param_fit_alg, multistart=80, optim_options=Optim.Options(), mc_settings=MCSettings(400, 20, 8, 6), parallel=true, info=false, debug=false)
     if param_fit_alg == :MLE
         gp_params, noise = opt_gps_params(X, Y, gp_params_priors, noise_priors, nothing, kernel; multistart, optim_options, parallel, info, debug)
         nonparametric = gp_model(X, Y, gp_params, noise, nothing, kernel)

@@ -273,8 +273,7 @@ function boss(fg::Function, fitness::Fitness, X::AbstractMatrix{<:Real}, Y::Abst
             if param_fit_alg == :MLE
                 acq_par = construct_acq(fitness, parametric, constraints, ϵ_samples, last(bsf))
             elseif param_fit_alg == :BI
-                acqs_par_ = construct_acq.(Ref(fitness), par_models, Ref(constraints), eachcol(ϵ_samples), last(bsf))
-                acq_par = x -> (mapreduce(a -> a(x), +, acqs_par_) / length(acqs_par_))
+                acq_par = construct_acq_from_samples(fitness, par_models, constraints, ϵ_samples, last(bsf))
             end
             if acq_opt_alg == :CMAES
                 res_par = opt_acq_CMAES(acq_par, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, parallel, info, debug)
@@ -291,8 +290,7 @@ function boss(fg::Function, fitness::Fitness, X::AbstractMatrix{<:Real}, Y::Abst
             if param_fit_alg == :MLE
                 acq_semipar = construct_acq(fitness, semiparametric, constraints, ϵ_samples, last(bsf))
             elseif param_fit_alg == :BI
-                acqs_semipar_ = construct_acq.(Ref(fitness), semipar_models, Ref(constraints), eachcol(ϵ_samples), last(bsf))
-                acq_semipar = x -> (mapreduce(a -> a(x), +, acqs_semipar_) / length(acqs_semipar_))
+                acq_semipar = construct_acq_from_samples(fitness, semipar_models, constraints, ϵ_samples, last(bsf))
             end
             if acq_opt_alg == :CMAES
                 res_semipar = opt_acq_CMAES(acq_semipar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, parallel, info, debug)
@@ -309,8 +307,7 @@ function boss(fg::Function, fitness::Fitness, X::AbstractMatrix{<:Real}, Y::Abst
             if param_fit_alg == :MLE
                 acq_nonpar = construct_acq(fitness, nonparametric, constraints, ϵ_samples, last(bsf))
             elseif param_fit_alg == :BI
-                acqs_nonpar_ = construct_acq.(Ref(fitness), nonpar_models, Ref(constraints), eachcol(ϵ_samples), last(bsf))
-                acq_nonpar = x -> (mapreduce(a -> a(x), +, acqs_nonpar_) / length(acqs_nonpar_))
+                acq_nonpar = construct_acq_from_samples(fitness, nonpar_models, constraints, ϵ_samples, last(bsf))
             end
             if acq_opt_alg == :CMAES
                 res_nonpar = opt_acq_CMAES(acq_nonpar, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=cmaes_options, parallel, info, debug)
@@ -388,13 +385,13 @@ function boss(fg::Function, fitness::Fitness, X::AbstractMatrix{<:Real}, Y::Abst
     return X, Y, bsf, model_params_history, errs, plots
 end
 
-function init_Φs(lift, X)
+function init_Φs(lift, X::AbstractMatrix{<:Real})
     d = lift.(eachcol(X))
     Φs = [reduce(hcat, [ϕs[i] for ϕs in d]) for i in 1:length(d[1])]
     return Φs
 end
 
-function augment_data!(opt_new_x, fg, model::ParamModel, fitness::Fitness, domain, constraints, X, Y, Φs, F, bsf; y_dim, info)
+function augment_data!(opt_new_x, fg, model::ParamModel, fitness::Fitness, domain, constraints, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, Φs, F::AbstractVector{<:Real}, bsf; y_dim::Int, info)
     x_ = opt_new_x
     y_ = fg(x_)
     f_ = fitness(y_)
@@ -446,7 +443,11 @@ function select_opt_x_and_calculate_model_error(use_model, res_param, res_semipa
     return opt_new_x, err
 end
 
-function get_best_yet(F, X, Y, domain, constraints)
+function get_best_yet(fitness, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, domain, constraints)
+    F = fitness.(eachcol(Y))
+    get_best_yet(F, X, Y, domain, constraints)
+end
+function get_best_yet(F::AbstractArray{<:Real}, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, domain, constraints)
     in_domain = get_in_domain(X, domain)
     feasible = get_feasible(Y, constraints)
     good = in_domain .& feasible
@@ -462,7 +463,7 @@ get_feasible(Y::AbstractMatrix, constraints) = is_feasible.(eachcol(Y), Ref(cons
 is_feasible(y::AbstractVector, constraints::Nothing) = true
 is_feasible(y::AbstractVector, constraints) = all(y .< constraints)
 
-function loglike(model, X, Y)
+function loglike(model, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real})
     ll(x, y) = logpdf(MvNormal(model(x)...), y)
     mapreduce(d -> ll(d...), +, zip(eachcol(X), eachcol(Y)))
 end

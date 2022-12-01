@@ -95,7 +95,7 @@ function θ_posterior_(Φ, y, θ_prior, noise)
     return μθ_, Σθ_
 end
 
-function model_params_loglike(X, Y, model::ParamModel)
+function model_params_loglike(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, model::ParamModel)
     function loglike(params, noise)
         pred = model(params)
         ll_datum(x, y) = logpdf(MvNormal(pred(x), noise), y)
@@ -107,7 +107,7 @@ function model_params_loglike(X, Y, model::ParamModel)
     end
 end
 
-function opt_model_params(X, Y, model::ParamModel, noise_priors; multistart, optim_options=Optim.Options(), parallel, info=true, debug=false)
+function opt_model_params(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, model::ParamModel, noise_priors; multistart::Int, optim_options=Optim.Options(), parallel, info=true, debug=false)
     y_dim = size(Y)[1]
     params_loglike = model_params_loglike(X, Y, model::ParamModel)
     noise_loglike = noise -> mapreduce(n -> logpdf(n...), +, zip(noise_priors, noise))
@@ -128,7 +128,7 @@ function opt_model_params(X, Y, model::ParamModel, noise_priors; multistart, opt
     return params, noise
 end
 
-Turing.@model function param_turing_model(X, Y, model, noise_priors, y_dim)
+Turing.@model function param_turing_model(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, model::ParamModel, noise_priors)
     params ~ arraydist(model.param_priors)
     noise ~ arraydist(noise_priors)
 
@@ -137,12 +137,12 @@ Turing.@model function param_turing_model(X, Y, model, noise_priors, y_dim)
     Y ~ arraydist(Distributions.MvNormal.(means, Ref(noise)))
 end
 
-function sample_model_params(X, Y, par_model, noise_priors; mc_settings::MCSettings, parallel)
+function sample_model_params(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, par_model::ParamModel, noise_priors; mc_settings::MCSettings, parallel)
     y_dim = size(Y)[1]
     
     param_symbols = vcat([Symbol("params[$i]") for i in 1:par_model.param_count],
                          [Symbol("noise[$i]") for i in 1:y_dim])
-    model = param_turing_model(X, Y, par_model, noise_priors, y_dim)
+    model = param_turing_model(X, Y, par_model, noise_priors)
     samples = sample_params_turing(model, param_symbols, mc_settings; parallel)
     
     params = reduce(vcat, transpose.(samples[1:par_model.param_count]))
@@ -150,7 +150,7 @@ function sample_model_params(X, Y, par_model, noise_priors; mc_settings::MCSetti
     return params, noise
 end
 
-function fit_parametric_model(X, Y, model::ParamModel, noise_priors; param_fit_alg, multistart=80, optim_options=Optim.Options(), mc_settings=MCSettings(400, 20, 8, 6), parallel=true, info=false, debug=false)
+function fit_parametric_model(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, model::ParamModel, noise_priors; param_fit_alg, multistart=80, optim_options=Optim.Options(), mc_settings=MCSettings(400, 20, 8, 6), parallel=true, info=false, debug=false)
     if param_fit_alg == :MLE
         params, noise = opt_model_params(X, Y, model, noise_priors; multistart, optim_options, parallel, info, debug)
         parametric = x -> (model(x, params), noise)

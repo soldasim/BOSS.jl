@@ -144,24 +144,16 @@ sample_count(mc::MCSettings) = mc.chain_count * mc.samples_in_chain
 function sample_params_turing(model, param_symbols, mc::MCSettings; adbackend=:zygote, parallel=true)
     Turing.setadbackend(adbackend)
 
-    # # NUTS
-    # samples_in_chain = mc.leap_size * mc.samples_in_chain
-    # chains = Turing.sample(model, NUTS(mc.warmup, 0.65), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
-    # samples = [vec(chains[s][mc.leap_size:mc.leap_size:end,:]) for s in param_symbols]
-
-    # PG
     samples_in_chain = mc.warmup + (mc.leap_size * mc.samples_in_chain)
-    
+    sampler = PG(20)  # NUTS(mc.warmup, 0.65)
+
     if parallel
-        chains = Turing.sample(model, PG(20), MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
+        chains = Turing.sample(model, sampler, MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
     else
-        chains = mapreduce(_ -> Turing.sample(model, PG(20), samples_in_chain; progress=false), chainscat, 1:mc.chain_count)
+        chains = mapreduce(_ -> Turing.sample(model, sampler, samples_in_chain; progress=false), chainscat, 1:mc.chain_count)
     end
 
-    # samples = [reduce(vcat, [ch[s][(mc.warmup+mc.leap_size):mc.leap_size:end,:] for ch in chains]) for s in param_symbols]
     samples = [reduce(vcat, eachrow(chains[s][(mc.warmup+mc.leap_size):mc.leap_size:end,:])) for s in param_symbols]
-    
-    return samples
 end
 
 # TODO unused

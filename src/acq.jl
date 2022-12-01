@@ -35,19 +35,19 @@ function (f::NonlinFitness)(y)
     return f.fitness(y)
 end
 
-function construct_acq(fitness::Fitness, model, constraints::Nothing, ϵ_samples, best_yet::Nothing)
+function construct_acq(fitness::Fitness, model, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing)
     # TODO better solution (May be unnecessary as this case is rare and can only happen in the zero-th iteration.)
     print("WARNING: No feasible solution in the dataset yet! Cannot calculate EI.\n")
     
     acq(x) = 0.
 end
-function construct_acq(fitness::Fitness, model, constraints::Nothing, ϵ_samples, best_yet)
+function construct_acq(fitness::Fitness, model, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet)
     acq(x) = EI(x, fitness, model, ϵ_samples; best_yet)
 end
-function construct_acq(fitness::Fitness, model, constraints::AbstractVector{<:Real}, ϵ_samples, best_yet::Nothing)    
+function construct_acq(fitness::Fitness, model, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing)    
     acq(x) = feas_prob(x, model, constraints)
 end
-function construct_acq(fitness::Fitness, model, constraints::AbstractVector{<:Real}, ϵ_samples, best_yet)    
+function construct_acq(fitness::Fitness, model, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet)    
     function acq(x)
         mean, var = model(x)
         ei = EI(mean, var, fitness, ϵ_samples; best_yet)
@@ -56,13 +56,18 @@ function construct_acq(fitness::Fitness, model, constraints::AbstractVector{<:Re
     end
 end
 
+function construct_acq_from_samples(fitness::Fitness, models::AbstractArray, constraints, ϵ_samples::AbstractMatrix{<:Real}, best_yet)
+    acqs = construct_acq.(Ref(fitness), models, Ref(constraints), eachcol(ϵ_samples), best_yet)
+    acq(x) = mapreduce(a -> a(x), +, acqs) / length(acqs)
+end
+
 feas_prob(x::AbstractVector{<:Real}, model, constraints) = feas_prob(model(x)..., constraints)
 feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::Nothing) = 1.
 feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::AbstractVector{<:Real}) = prod(cdf.(Distributions.Normal.(mean, var), constraints))
 
-EI(x::AbstractVector{<:Real}, fitness::Fitness, model, ϵ_samples; best_yet) = EI(model(x)..., fitness, ϵ_samples; best_yet)
+EI(x::AbstractVector{<:Real}, fitness::Fitness, model, ϵ_samples::AbstractArray{<:Real}; best_yet) = EI(model(x)..., fitness, ϵ_samples; best_yet)
 
-EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::LinFitness, ϵ_samples; best_yet) = EI(mean, var, fitness; best_yet)
+EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::LinFitness, ϵ_samples::AbstractArray{<:Real}; best_yet) = EI(mean, var, fitness; best_yet)
 function EI(mean, var, fitness::LinFitness; best_yet)
     μf = fitness.coefs' * mean
     σf = sqrt((fitness.coefs .^ 2)' * var)
@@ -71,16 +76,16 @@ function EI(mean, var, fitness::LinFitness; best_yet)
     return (μf - best_yet) * cdf(Distributions.Normal(), norm_ϵ) + σf * pdf(Distributions.Normal(), norm_ϵ)
 end
 
-function EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::NonlinFitness, ϵ_samples::AbstractMatrix{<:Real}; best_yet)
+function EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::NonlinFitness, ϵ_samples::AbstractMatrix{<:Real}; best_yet::AbstractVector{<:Real})
     pred_samples = [mean .+ (var .* ϵ) for ϵ in eachcol(ϵ_samples)]
     return sum(max.(0, fitness.(pred_samples) .- best_yet)) / size(ϵ_samples)[2]
 end
-function EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::NonlinFitness, ϵ::AbstractArray{<:Real}; best_yet)
+function EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::NonlinFitness, ϵ::AbstractVector{<:Real}; best_yet::Real)
     pred_sample = mean .+ (var .* ϵ)
     return max(0, fitness(pred_sample) - best_yet)
 end
 
-function opt_acq_Optim(acq, domain; x_dim, multistart=1, discrete_dims=nothing, options, parallel, info=true, debug=false)
+function opt_acq_Optim(acq, domain; x_dim::Int, multistart=1, discrete_dims=nothing, options, parallel, info=true, debug=false)
     # starts = generate_starts_random_(domain, multistart)
     starts = generate_starts_LHC_(domain, multistart; x_dim)
     arg, val = optim_params(acq, starts, domain; options, parallel, info, debug)
@@ -88,7 +93,7 @@ function opt_acq_Optim(acq, domain; x_dim, multistart=1, discrete_dims=nothing, 
     isnothing(discrete_dims) || (arg = discrete_round(discrete_dims)(arg))
     return arg, val
 end
-function opt_acq_CMAES(acq, domain; x_dim, multistart=1, discrete_dims=nothing, options, parallel, info=true, debug=false)
+function opt_acq_CMAES(acq, domain; x_dim::Int, multistart=1, discrete_dims=nothing, options, parallel, info=true, debug=false)
     # starts = generate_starts_random_(domain, multistart)
     starts = generate_starts_LHC_(domain, multistart; x_dim)
 
@@ -98,12 +103,12 @@ function opt_acq_CMAES(acq, domain; x_dim, multistart=1, discrete_dims=nothing, 
     return arg, val
 end
 
-function generate_starts_LHC_(domain::Tuple, count; x_dim)
+function generate_starts_LHC_(domain::Tuple, count::Int; x_dim::Int)
     lb, ub = domain
     starts = scaleLHC(randomLHC(count, x_dim), [(lb[i], ub[i]) for i in 1:x_dim])'
     return starts
 end
-function generate_starts_LHC_(domain, count; x_dim)
+function generate_starts_LHC_(domain, count::Int; x_dim::Int)
     bounds = get_bounds(domain)
     starts = generate_starts_LHC_(bounds, count; x_dim)
     
@@ -117,7 +122,7 @@ function generate_starts_LHC_(domain, count; x_dim)
     return starts
 end
 
-function generate_starts_random_(domain, count)
+function generate_starts_random_(domain, count::Int)
     return reduce(vcat, transpose.([generate_starting_point_(domain) for _ in 1:count]))
 end
 
