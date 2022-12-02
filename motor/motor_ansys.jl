@@ -68,39 +68,43 @@ function opt_acq(data; model_samples=nothing)
     y_dim = size(init_Y)[1]
 
     # HYPERPARAMS
-    mc_settings = Boss.MCSettings(400, 10, 8, 5)
-    acq_opt_alg = :Optim
-    optim_options = Optim.Options(; x_abstol=1e-2, iterations=800)
-    acq_opt_multistart = 200 #1000
+    acq_opt_multistart = 200
 
     # PROBLEM DEF
-    domain = [20., 0.01, 0.297], [60., 0.03, 0.400]
+    domain = [29.9, 0.018, 0.410], [60.1, 0.030, 0.520]
     discrete_dims = [true, false, false]
     constraints = [1000., Inf]
     fitness = Boss.LinFitness([0., -1.])
 
     # FIT MODEL
     if isnothing(model_samples)
-        _, model_samples, _, _ = fit_model(data; mc_settings, discrete_dims)
+        _, model_samples, _, _ = fit_model(data; discrete_dims)
     end
 
     # OPTIMIZE ACQ
     bsf = Boss.get_best_yet(fitness, init_X, init_Y, domain, constraints)
-    ϵ_samples = rand(Normal(), (y_dim, Boss.sample_count(mc_settings)))
+    ϵ_samples = rand(Normal(), (y_dim, length(model_samples)))
     acq = Boss.construct_acq_from_samples(fitness, model_samples, constraints, ϵ_samples, bsf)
-    Boss.opt_acq_Optim(acq, domain; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, parallel=true, info=true, debug=false)
+
+    domain_opt = domain[1] .* [1.,1000.,1000.], domain[2] .* [1.,1000.,1000.]
+    acq_opt(x) = acq(x ./ [1.,1000.,1000.])
+    optim_options = Optim.Options(; outer_x_tol=1e-1, x_tol=1e-1)
+    # TODO domain constraints ?
+    Boss.opt_acq_Optim(acq_opt, domain_opt; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, parallel=true, info=true, debug=false)
 end
 
-function fit_model(data; mc_settings=Boss.MCSettings(400, 10, 8, 5), discrete_dims=[true, false, false])
+function fit_model(data; discrete_dims=[true, false, false])
     # DATA
     init_X, init_Y = split_data(data)
     x_dim = size(init_X)[1]
     y_dim = size(init_Y)[1]
 
     # HYPERPARAMS
+    mc_settings = Boss.MCSettings(400, 10, 8, 5)
     kernel = Boss.DiscreteKernel(Matern52Kernel(), discrete_dims)
     gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:y_dim]
     noise_priors = [LogNormal(-2.3, 1.) for _ in 1:y_dim]
+    # noise_priors = [LogNormal(-10., 1.) for _ in 1:y_dim]  # no noise
 
     # FIT MODEL
     param_model = def_model()
