@@ -103,6 +103,7 @@ function opt_acq_CMAES(acq, domain; x_dim::Int, multistart=1, discrete_dims=noth
 end
 
 function generate_starts_LHC_(domain::Tuple, count::Int; x_dim::Int)
+    @assert count > 1  # `randomLHC(count, dim)` returns NaNs if `count == 1`
     lb, ub = domain
     starts = scaleLHC(randomLHC(count, x_dim), [(lb[i], ub[i]) for i in 1:x_dim])'
     return starts

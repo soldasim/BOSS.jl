@@ -54,22 +54,26 @@ end
 # TODO try changing optimization algorithms
 function optim_(f, start, constraints::Nothing; options=Optim.Options(), info=false)
     opt_res = Optim.optimize(p -> -f(p), start, NelderMead(), options)
-    info && (Optim.iterations(opt_res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing!")
+    info && check_optim_convergence(opt_res)
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
 function optim_(f, start, constraints::Tuple; options=Optim.options(), info=false)
     # return optim_(f, start, TwiceDifferentiableConstraints(constraints...); options, info)
     opt_res = Optim.optimize(p -> -f(p), constraints..., start, Fminbox(LBFGS()), options)
-    info && (Optim.iterations(opt_res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing!")
+    info && check_optim_convergence(opt_res)
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
 function optim_(f, start, constraints::TwiceDifferentiableConstraints; options=Optim.Options(), info=false)
     opt_res = Optim.optimize(p -> -f(p), constraints, start, IPNewton(), options)
-    info && (Optim.iterations(opt_res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing!")
+    info && check_optim_convergence(opt_res)
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
 function optim_(f, start, constraints::Evolutionary.AbstractConstraints; kwargs...)
     throw(ArgumentError("`$(typeof(constraints))` are not supported with Optim. Use `Optim.TwiceDifferentiableConstraints` instead."))
+end
+
+function check_optim_convergence(opt_res)
+    Optim.x_converged(opt_res) || println("Warning: Optimization did not converge!")
 end
 
 # - - - - - - CMA-ES - - - - - -
