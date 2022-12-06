@@ -46,8 +46,6 @@ function domain_constraints()
     D2_gap = 0.003
 
     # constraints
-    lc, uc = [0.], [Inf]
-
     function constraints(x)
         nk, dk, Ds = x
         

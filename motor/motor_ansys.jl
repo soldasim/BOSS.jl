@@ -41,14 +41,6 @@ function split_data(data)
 end
 
 function def_model()
-    #                 Q, D1, D2, l, t, alt, alfa_0, lam_fe, Pl, alfa_a, alfa_b
-    def_param_vals = [0.5, 0.297, 0.4, 0.23, 30, 325, 16, 29, 5000, 1., 0.]
-
-    # # 8-arg version
-    # predict = (nk, dk, Ds, Q, D1, D2, l, t, alt, alfa_0, lam_fe) -> MotorParam.calc(nk, dk, Ds; Q, D1, D2, l, t, alt, alfa_0, lam_fe)
-    # param_priors = vcat(Beta(2,2), construct_lognormal.(def_param_vals[2:8], def_param_vals[2:8] ./ 2))
-    # param_count = 8
-
     # Pl, alfa_duct version
     predict = (nk, dk, Ds, Pl, alfa_a, alfa_b) -> MotorParam.calc(nk, dk, Ds; Pl, alfa_a, alfa_b)
     param_priors = [truncated(Normal(10_000, 5_000); lower=0.), LogNormal(0., 0.5), Normal(0., 50.)]
@@ -86,11 +78,18 @@ function opt_acq(data; model_samples=nothing)
     ϵ_samples = rand(Normal(), (y_dim, length(model_samples)))
     acq = Boss.construct_acq_from_samples(fitness, model_samples, constraints, ϵ_samples, bsf)
 
-    domain_opt = domain[1] .* [1.,1000.,1000.], domain[2] .* [1.,1000.,1000.]
-    acq_opt(x) = acq(x ./ [1.,1000.,1000.])
-    optim_options = Optim.Options(; outer_x_tol=1e-1, x_tol=1e-1)
-    # TODO domain constraints ?
+    optim_options = Optim.Options(; outer_x_tol=0.05, x_tol=0.05, iterations=1000)
+    domain_convert = [1.,1000.,1000.]
+    domain_opt = domain[1] .* domain_convert, domain[2] .* domain_convert
+    acq_opt(x) = acq(x ./ domain_convert)
+
+    # unconstrained LBFGS
     Boss.opt_acq_Optim(acq_opt, domain_opt; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, parallel=true, info=true, debug=false)
+    
+    # constrained IPNewton - Violates constraints!
+    # opt_c!(c, x) = MotorParam.domain_c!(c, x ./ domain_convert)
+    # constraints_opt = TwiceDifferentiableConstraints(opt_c!, domain_opt..., [-Inf,-Inf,-Inf], [0.,0.,0.], :forward)
+    # Boss.opt_acq_Optim(acq_opt, constraints_opt; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, parallel=true, info=true, debug=false)
 end
 
 function fit_model(data; discrete_dims=[true, false, false])

@@ -3,6 +3,16 @@ module MotorParam
 using LinearSolve
 using Distributions
 
+### CONSTANTS
+const Q = 0.5
+const D1 = 0.297
+const D2 = 0.4
+const l = 0.23
+const t = 30
+const alt = 325
+const alfa_0 = 16
+const lam_fe = 29
+
 
 ### Param
 
@@ -119,25 +129,16 @@ function g_conv(alfa, S)
     return G
 end
 
-function heat_tranfer(dk, l, v, fl, fe, Kalf, coeff=0.8)
+function heat_tranfer(dk, l, v, fl, fe, Kalf)
     Kl = 1+(dk/l)^0.67 
-    alfa_duct = Kalf * v^coeff * dk^(-0.2) * Kl * sqrt(fe/fl)
+    alfa_duct = Kalf * v^0.8 * dk^(-0.2) * Kl * sqrt(fe/fl)
     return alfa_duct
 end
 
 function calc(nk, dk, Ds;
-    Q=0.5,
-    D1=0.297,
-    D2=0.4,
-    l=0.23,
-    t=30,
-    alt=325,
-    alfa_0=16,
-    lam_fe=29,
     Pl=5000,
     alfa_a=1.,
     alfa_b=0.,
-    coeff=0.8,
 )
     par = Param(nk, dk, D1, D2, l, Q, t, alt, alfa_0, lam_fe)
     # init Values
@@ -165,7 +166,7 @@ function calc(nk, dk, Ds;
     # Heat transfer coefficient calculation for duct
     fl = frict(Re, par.Dk, 0.00001)
     fe = frict(Re, par.Dk, 0.0001)
-    alfa_duct = alfa_a * heat_tranfer(par.Dk, par.l, Vs, fl, fe, par.k_alf, coeff) + alfa_b
+    alfa_duct = alfa_a * heat_tranfer(par.Dk, par.l, Vs, fl, fe, par.k_alf) + alfa_b
 
     # Geom for stator radial conductivity
     # Ds = (par.D2 + par.D1) / 2
@@ -202,4 +203,53 @@ end
 
 ### end
 
-end  # MainCoeff
+
+# Domain constraints for Optim optimization.
+#   c < 0.
+function domain_c!(c, x)
+    nk, dk, Ds = x
+
+    duct_gap = 0.005
+    D1_gap = 0.002
+    D2_gap = 0.003
+    
+    const_gap = nk * (dk + duct_gap) / pi
+    const_D1 = Ds - dk/2
+    const_D2 = Ds + dk/2
+    
+    c[1] = const_gap - Ds
+    c[2] = (D1 + 2 * D1_gap) - const_D1
+    c[3] = const_D2 - (D2 - 2 * D2_gap)
+
+    return c
+end
+
+# function domain_j!(j, x)
+#     nk, dk, Ds = x
+#     duct_gap = 0.005
+#
+#     # 1st constraint
+#     j[1,1] = (dk + duct_gap) / pi
+#     j[1,2] = nk / pi
+#     j[1,3] = -1.
+#
+#     # 2nd constraint
+#     j[2,1] = 0.
+#     j[2,2] = 0.5
+#     j[2,3] = -1.
+#
+#     # 3rd constraint
+#     j[3,1] = 0.
+#     j[3,2] = 0.5
+#     j[3,3] = 1.
+#
+#     return j
+# end
+
+# function domain_h!(h, x, λ)
+#     h[1,2] += λ[1] * (1. / pi)
+#     h[2,1] = h[1,2]
+#     return h
+# end
+
+end  # MotorParam
