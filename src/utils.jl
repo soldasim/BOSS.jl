@@ -4,6 +4,7 @@ using Turing
 using Turing: Variational
 using Zygote
 using Evolutionary
+using Suppressor
 
 # - - - - - - OPTIMIZATION - - - - - -
 
@@ -44,16 +45,15 @@ function optim_params(f, starts, constraints=nothing; options=Optim.Options(), p
     end
 
     errs = sum(convergence_errors)
-    info && (errs > 0) && print("      $(sum(convergence_errors))/$(multistart) optimization runs failed to converge!\n")
+    info && (errs > 0) && @warn "      $(sum(convergence_errors))/$(multistart) optimization runs failed!\n"
     (errs == multistart) && throw(ErrorException("All optimization runs failed."))
 
     opt_i = argmax(vals)
     return args[opt_i], vals[opt_i]
 end
 
-# TODO try changing optimization algorithms
 function optim_(f, start, constraints::Nothing; options=Optim.Options(), info=false)
-    opt_res = Optim.optimize(p -> -f(p), start, NelderMead(), options)
+    opt_res = Optim.optimize(p -> -f(p), start, NelderMead(), options)  # TODO try changing alg
     info && check_optim_convergence(opt_res)
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
@@ -63,17 +63,38 @@ function optim_(f, start, constraints::Tuple; options=Optim.options(), info=fals
     info && check_optim_convergence(opt_res)
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
-function optim_(f, start, constraints::TwiceDifferentiableConstraints; options=Optim.Options(), info=false)
-    opt_res = Optim.optimize(p -> -f(p), constraints, start, IPNewton(), options)
+function optim_(f, start, constraints::TwiceDifferentiableConstraints; options=Optim.Options(), info=false, alpha=1e-8)
+    IPNewton_check_start_!(start, get_bounds(constraints), alpha; info)
+    opt_res = @suppress Optim.optimize(p -> -f(p), constraints, start, IPNewton(), options)  # suppress "initial point not interior" warnings
     info && check_optim_convergence(opt_res)
-    return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
+    arg, val = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
+    Optim.isinterior(constraints, arg) ? (arg, val) : (arg, -Inf)
 end
 function optim_(f, start, constraints::Evolutionary.AbstractConstraints; kwargs...)
     throw(ArgumentError("`$(typeof(constraints))` are not supported with Optim. Use `Optim.TwiceDifferentiableConstraints` instead."))
 end
 
 function check_optim_convergence(opt_res)
-    Optim.x_converged(opt_res) || println("Warning: Optimization did not converge!")
+    Optim.x_converged(opt_res) || @warn "Optimization run did not converge!"
+end
+
+# IPNewton cannot handle `start == bound`.
+# (https://julianlsolvers.github.io/Optim.jl/stable/#examples/generated/ipnewton_basics/#generic-nonlinear-constraints)
+function IPNewton_check_start_!(start, bounds, alpha; info=true)
+    lb, ub = bounds
+    @assert all(ub .- lb .>= 2*alpha)
+    @assert all(start .>= lb) && all(start .<= ub)
+
+    lb_far = ((start .- lb) .>= alpha) 
+    ub_far = ((ub .- start) .>= alpha)
+    all(lb_far) && all(ub_far) && return start
+    
+    info && @warn "Start is too close to the domain bounds. Moving it further."
+    for i in eachindex(start)
+        lb_far[i] || (start[i] = lb[i] + alpha)
+        ub_far[i] || (start[i] = ub[i] - alpha)
+    end
+    return start
 end
 
 # - - - - - - CMA-ES - - - - - -

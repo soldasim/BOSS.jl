@@ -108,19 +108,8 @@ function generate_starts_LHC_(domain::Tuple, count::Int; x_dim::Int)
     starts = scaleLHC(randomLHC(count, x_dim), [(lb[i], ub[i]) for i in 1:x_dim])'
     return starts
 end
-function generate_starts_LHC_(domain, count::Int; x_dim::Int)
-    bounds = get_bounds(domain)
-    starts = generate_starts_LHC_(bounds, count; x_dim)
-    
-    # replace exterior vertices with random points
-    interior = in_domain.(eachcol(starts), Ref(domain))
-    for i in 1:count
-        interior[i] && continue
-        starts[:,i] = generate_start_(domain)
-    end
-
-    return starts
-end
+# TODO: Implement LHC generation for more complex domains.
+generate_starts_LHC_(domain, count::Int; x_dim::Int) = generate_starts_LHC_(get_bounds(domain), count; x_dim)
 
 function generate_starts_random_(domain, count::Int)
     return reduce(vcat, transpose.([generate_starting_point_(domain) for _ in 1:count]))
