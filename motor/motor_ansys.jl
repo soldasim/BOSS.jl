@@ -3,13 +3,16 @@ using Combinatorics
 using Distributions
 using KernelFunctions
 using Optim
+using NLopt
+using Evolutionary
 
 include("../src/boss.jl")
-include("./param_model.jl")
+include("./param_model_eliptic.jl")
 
 # cols: nk, dk, Ds, Dp, T_av
 function init_data()
     data = [
+        # initial data
         34.0	25.0	474.2	768.1	123.0
         42.0	17.0	481.5	2782.3	104.5
         40.0	11.7	433.8	15541.5	84.0
@@ -33,6 +36,7 @@ function init_data()
     data[:,2:3] /= 1000  # [mm] to [m]
     return data
 end
+domain_convert() = [1.,1000.,1000.]
 
 function split_data(data)
     init_X = data[:,1:3]' |> collect
@@ -41,7 +45,6 @@ function split_data(data)
 end
 
 function def_model()
-    # Pl, alfa_duct version
     predict = (nk, dk, Ds, Pl, alfa_a, alfa_b) -> MotorParam.calc(nk, dk, Ds; Pl, alfa_a, alfa_b)
     param_priors = [truncated(Normal(10_000, 5_000); lower=0.), LogNormal(0., 0.5), Normal(0., 50.)]
     param_count = 3
@@ -60,10 +63,10 @@ function opt_acq(data; model_samples=nothing)
     y_dim = size(init_Y)[1]
 
     # HYPERPARAMS
-    acq_opt_multistart = 200
+    x_tol = 0.05
 
     # PROBLEM DEF
-    domain = [29.9, 0.018, 0.410], [60.1, 0.030, 0.520]
+    domain = MotorParam.domain()
     discrete_dims = [true, false, false]
     constraints = [1000., Inf]
     fitness = Boss.LinFitness([0., -1.])
@@ -78,18 +81,55 @@ function opt_acq(data; model_samples=nothing)
     ϵ_samples = rand(Normal(), (y_dim, length(model_samples)))
     acq = Boss.construct_acq_from_samples(fitness, model_samples, constraints, ϵ_samples, bsf)
 
-    optim_options = Optim.Options(; outer_x_tol=0.05, x_tol=0.05, iterations=1000)
-    domain_convert = [1.,1000.,1000.]
-    domain_opt = domain[1] .* domain_convert, domain[2] .* domain_convert
-    acq_opt(x) = acq(x ./ domain_convert)
+    domain_opt = domain[1] .* domain_convert(), domain[2] .* domain_convert()
+    function acq_opt(x)
+        val = acq(x ./ domain_convert())
+        isnan(val) ? 0. : val  # TODO
+    end
 
-    # unconstrained LBFGS
-    Boss.opt_acq_Optim(acq_opt, domain_opt; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, parallel=true, info=true, debug=false)
+    # # CMAES - - - - - -
+    # cmaes_constraints = MixedTypePenaltyConstraints(
+    #     WorstFitnessConstraints(domain_opt..., [-Inf,-Inf,-Inf], [0.,0.,0.], x -> MotorParam.domain_constraints(x ./ domain_convert())),
+    #     [Int, Float64, Float64],
+    # )
+    # # cmaes_constraints = BoxConstraints(domain_opt...)
+
+    # multistart = 200
+    # cmaes_options = Evolutionary.Options(; abstol=x_tol, iterations=1000)
+    # Boss.opt_acq_CMAES(acq_opt, cmaes_constraints; x_dim, multistart, discrete_dims, options=cmaes_options, parallel=true, info=true, debug=false)
+
+    # # unconstrained LBFGS - - - - - -
+    # multistart = 200
+    # optim_options = Optim.Options(; outer_x_tol=x_tol, x_tol=x_tol, iterations=1000)
+    # Boss.opt_acq_Optim(acq_opt, domain_opt; x_dim, multistart, discrete_dims, options=optim_options, parallel=true, info=true, debug=false)
     
-    # constrained IPNewton - Violates constraints!
-    # opt_c!(c, x) = MotorParam.domain_c!(c, x ./ domain_convert)
+    # # constrained IPNewton - Violates constraints! - - - - - -    
+    # function opt_c!(c, x)
+    #     x ./= domain_convert()
+    #     c .= MotorParam.domain_constraints(x)
+    # end
     # constraints_opt = TwiceDifferentiableConstraints(opt_c!, domain_opt..., [-Inf,-Inf,-Inf], [0.,0.,0.], :forward)
-    # Boss.opt_acq_Optim(acq_opt, constraints_opt; x_dim, multistart=acq_opt_multistart, discrete_dims, options=optim_options, parallel=true, info=true, debug=false)
+    
+    # multistart = 200
+    # optim_options = Optim.Options(; outer_x_tol=x_tol, x_tol=x_tol, iterations=1000)
+    # Boss.opt_acq_Optim(acq_opt, constraints_opt; x_dim, multistart, discrete_dims, options=optim_options, parallel=false, info=true, debug=true)
+
+    # constrained NLopt - - - - - -
+    nlopt = Opt(:LN_COBYLA, x_dim)  # GN_ISRES, LN_COBYLA, LD_MMA
+    nlopt.xtol_abs = x_tol
+    multistart = 200
+    nlopt.maxeval = 1_000
+
+    function nlopt_c!(result::Vector, x::Vector, grad::Matrix)
+        x ./= domain_convert()
+        if length(grad) > 0
+            grad .= ForwardDiff.jacobian(MotorParam.domain_constraints, x)'
+        end
+        result .= MotorParam.domain_constraints(x)
+    end
+    inequality_constraint!(nlopt, nlopt_c!, zeros(3))
+    
+    Boss.opt_acq_NLopt(acq_opt, domain_opt; x_dim, multistart, discrete_dims, optimizer=nlopt, parallel=false, info=true)
 end
 
 function fit_model(data; discrete_dims=[true, false, false])
