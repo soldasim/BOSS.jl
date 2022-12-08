@@ -67,6 +67,7 @@ feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints
 EI(x::AbstractVector{<:Real}, fitness::Fitness, model, ϵ_samples::AbstractArray{<:Real}; best_yet) = EI(model(x)..., fitness, ϵ_samples; best_yet)
 
 EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::LinFitness, ϵ_samples::AbstractArray{<:Real}; best_yet) = EI(mean, var, fitness; best_yet)
+# https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7352306 Eq(44)
 function EI(mean, var, fitness::LinFitness; best_yet)
     μf = fitness.coefs' * mean
     σf = sqrt((fitness.coefs .^ 2)' * var)
@@ -87,16 +88,32 @@ end
 function opt_acq_Optim(acq, domain; x_dim::Int, multistart=1, discrete_dims=nothing, options, parallel, info=true, debug=false)
     # starts = generate_starts_random_(domain, multistart)
     starts = generate_starts_LHC_(domain, multistart; x_dim)
-    arg, val = optim_params(acq, starts, domain; options, parallel, info, debug)
+    arg, val = optim_Optim_multistart(acq, starts, domain; options, parallel, info, debug)
    
     isnothing(discrete_dims) || (arg = discrete_round(discrete_dims)(arg))
     return arg, val
 end
+
 function opt_acq_CMAES(acq, domain; x_dim::Int, multistart=1, discrete_dims=nothing, options, parallel, info=true, debug=false)
     # starts = generate_starts_random_(domain, multistart)
     starts = generate_starts_LHC_(domain, multistart; x_dim)
-
     arg, val = optim_cmaes_multistart(acq, domain, starts; options, parallel, info)
+
+    isnothing(discrete_dims) || (arg = discrete_round(discrete_dims)(arg))
+    return arg, val
+end
+
+# TODO: Check if parallelization is safe.
+function opt_acq_NLopt(acq, domain; x_dim::Int, multistart=1, discrete_dims=nothing, optimizer=nothing, parallel, info=true, debug=false)
+    info && parallel && println("TODO: Check that parallelization is safe with NLopt!")
+    
+    isnothing(optimizer) && (optimizer = Opt(:LD_MMA, length(start)))
+    optimizer.lower_bounds = domain[1]
+    optimizer.upper_bounds = domain[2]
+    
+    # starts = generate_starts_random_(domain, multistart)
+    starts = generate_starts_LHC_(domain, multistart; x_dim)
+    arg, val = optim_NLopt_multistart(acq, starts; optimizer, parallel, info)
 
     isnothing(discrete_dims) || (arg = discrete_round(discrete_dims)(arg))
     return arg, val

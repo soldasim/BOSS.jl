@@ -5,11 +5,13 @@ using Turing: Variational
 using Zygote
 using Evolutionary
 using Suppressor
+using NLopt
+using ForwardDiff
 
-# - - - - - - OPTIMIZATION - - - - - -
+# - - - - - - OPTIM - - - - - -
 
 # Find ̂x that maximizes f(x) using parallel multistart gradient-based optimization.
-function optim_params(f, starts, constraints=nothing; options=Optim.Options(), parallel=true, info=true, debug=false)
+function optim_Optim_multistart(f, starts, constraints=nothing; options=Optim.Options(), parallel=true, info=true, debug=false)
     multistart = size(starts)[2]
 
     args = Vector{Vector{Float64}}(undef, multistart)
@@ -19,7 +21,7 @@ function optim_params(f, starts, constraints=nothing; options=Optim.Options(), p
     if parallel
         Threads.@threads for i in 1:multistart
             try
-                a, v = optim_(f, starts[:,i], constraints; options, info)
+                a, v = optim_Optim(f, starts[:,i], constraints; options, info)
                 args[i] = a
                 vals[i] = v
             catch e
@@ -32,7 +34,7 @@ function optim_params(f, starts, constraints=nothing; options=Optim.Options(), p
     else
         for i in 1:multistart
             try
-                a, v = optim_(f, starts[:,i], constraints; options, info)
+                a, v = optim_Optim(f, starts[:,i], constraints; options, info)
                 args[i] = a
                 vals[i] = v
             catch e
@@ -52,26 +54,26 @@ function optim_params(f, starts, constraints=nothing; options=Optim.Options(), p
     return args[opt_i], vals[opt_i]
 end
 
-function optim_(f, start, constraints::Nothing; options=Optim.Options(), info=false)
+function optim_Optim(f, start, constraints::Nothing; options=Optim.Options(), info=false)
     opt_res = Optim.optimize(p -> -f(p), start, NelderMead(), options)  # TODO try changing alg
     info && check_optim_convergence(opt_res)
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
-function optim_(f, start, constraints::Tuple; options=Optim.options(), info=false)
+function optim_Optim(f, start, constraints::Tuple; options=Optim.options(), info=false)
     # return optim_(f, start, TwiceDifferentiableConstraints(constraints...); options, info)
     opt_res = Optim.optimize(p -> -f(p), constraints..., start, Fminbox(LBFGS()), options)
     info && check_optim_convergence(opt_res)
     return Optim.minimizer(opt_res), -Optim.minimum(opt_res)
 end
-function optim_(f, start, constraints::TwiceDifferentiableConstraints; options=Optim.Options(), info=false, alpha=1e-8)
+function optim_Optim(f, start, constraints::TwiceDifferentiableConstraints; options=Optim.Options(), info=false, alpha=1e-8)
     IPNewton_check_start_!(start, get_bounds(constraints), alpha; info)
     opt_res = @suppress Optim.optimize(p -> -f(p), constraints, start, IPNewton(), options)  # suppress "initial point not interior" warnings
     info && check_optim_convergence(opt_res)
     arg, val = Optim.minimizer(opt_res), -Optim.minimum(opt_res)
-    Optim.isinterior(constraints, arg) ? (arg, val) : (arg, -Inf)
+    arg, val
 end
-function optim_(f, start, constraints::Evolutionary.AbstractConstraints; kwargs...)
-    throw(ArgumentError("`$(typeof(constraints))` are not supported with Optim. Use `Optim.TwiceDifferentiableConstraints` instead."))
+function optim_Optim(f, start, constraints; kwargs...)
+    throw(ArgumentError("Constraints of type `$(typeof(constraints))` are not supported with Optim. Use `Optim.TwiceDifferentiableConstraints` instead."))
 end
 
 function check_optim_convergence(opt_res)
@@ -105,10 +107,10 @@ optim_cmaes(f, bounds::Tuple, start; kwargs...) = optim_cmaes(f, Evolutionary.Bo
 function optim_cmaes(f, constraints::Evolutionary.AbstractConstraints, start; options=Evolutionary.Options(; Evolutionary.default_options(CMAES())...), info=false)
     res = Evolutionary.optimize(x->-f(x), constraints, start, CMAES(), options)
     info && (Evolutionary.iterations(res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing!")
-    return res.minimizer, -res.minimum
+    return res.minimizer, f(res.minimizer)
 end
 function optim_cmaes(f, cons::Optim.TwiceDifferentiableConstraints, start; kwargs...)
-    throw(ArgumentError("`Optim.TwiceDifferentiableConstraints` are not supported with CMAES. Use `Evolutionary.WorstFitnessConstraints` or any other constraints from the `Evolutionary` package instead."))
+    throw(ArgumentError("Constraints of type `$(typeof(cons))` are not supported with CMAES. Use `Evolutionary.WorstFitnessConstraints` or any other constraints from the `Evolutionary` package instead."))
 end
 
 function optim_cmaes_multistart(f, constraints, starts; options=Evolutionary.Options(; Evolutionary.default_options(CMAES())...), parallel=true, info=false)
@@ -133,6 +135,54 @@ function optim_cmaes_multistart(f, constraints, starts; options=Evolutionary.Opt
     
     opt_i = argmax(vals)
     return args[opt_i], vals[opt_i]
+end
+
+# - - - - - - NLopt - - - - - -
+
+function optim_NLopt_multistart(f, starts; optimizer=nothing, parallel=true, info=true)
+    multistart = size(starts)[2]
+
+    args = Vector{Vector{Float64}}(undef, multistart)
+    vals = Vector{Float64}(undef, multistart)
+    
+    if parallel
+        Threads.@threads for i in 1:multistart
+            a, v = optim_NLopt(f, starts[:,i]; optimizer, info)
+            args[i] = a
+            vals[i] = v
+        end
+    else
+        for i in 1:multistart
+            a, v = optim_NLopt(f, starts[:,i]; optimizer, info)
+            args[i] = a
+            vals[i] = v
+        end
+    end
+
+    opt_i = argmax(vals)
+    return args[opt_i], vals[opt_i]
+end
+
+function optim_NLopt(f, start; optimizer=nothing, info=false)
+    isnothing(optimizer) && (optimizer = Opt(:LD_MMA, length(start)))
+    
+    function f_nlopt(x::Vector, grad::Vector)
+        if length(grad) > 0
+            grad .= ForwardDiff.gradient(f, x)
+        end
+        return f(x)
+    end
+    
+    optimizer.max_objective = f_nlopt
+    val, arg, ret = NLopt.optimize(optimizer, start)
+    info && check_nlopt_convergence(ret)
+    return arg, val
+end
+
+function check_nlopt_convergence(ret)
+    if ret != :XTOL_REACHED
+        @warn "Optimization terminated with return value `$ret`."
+    end
 end
 
 # - - - - - - NUTS SAMPLING - - - - - -

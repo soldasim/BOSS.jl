@@ -38,7 +38,7 @@ function opt_semipar_params(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}
         vcat(maximum.(noise_priors), maximum.(par_model.param_priors), vcat(maximum.(gp_params_priors)...))
     )
 
-    p, _ = optim_params(loglike, starts; parallel, options=optim_options, info, debug)
+    p, _ = optim_Optim_multistart(loglike, starts; parallel, options=optim_options, info, debug)
     noise, model_params, gp_hyperparams = split(p)
     gp_hyperparams = lift.(gp_hyperparams)
     return model_params, gp_hyperparams, noise

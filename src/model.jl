@@ -123,7 +123,7 @@ function opt_model_params(X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, 
         vcat(maximum.(noise_priors), maximum.(model.param_priors))
     )
 
-    p, _ = optim_params(loglike, starts, constraints; parallel, options=optim_options, info, debug)
+    p, _ = optim_Optim_multistart(loglike, starts, constraints; parallel, options=optim_options, info, debug)
     noise, params = p[1:y_dim], p[y_dim+1:end]
     return params, noise
 end

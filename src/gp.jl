@@ -136,7 +136,7 @@ function opt_gp_params(X::AbstractMatrix{<:Real}, y::AbstractVector{<:Real}, par
         vcat(maximum(noise_prior), maximum(params_prior))
     )
 
-    p, _ = optim_params(p -> loglike(lift(p)), starts, constraints; parallel, options=optim_options, info, debug)
+    p, _ = optim_Optim_multistart(p -> loglike(lift(p)), starts, constraints; parallel, options=optim_options, info, debug)
     noise, params... = lift(p)
     return params, noise
 end
