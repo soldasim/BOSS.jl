@@ -10,7 +10,7 @@ include("../src/boss.jl")
 include("./param_model_eliptic.jl")
 
 # cols: nk, dk, Ds, Dp, T_av
-function init_data()
+function get_data()
     data = [
         # initial data
         34.0	25.0	474.2	768.1	123.0
@@ -87,35 +87,8 @@ function opt_acq(data; model_samples=nothing)
         isnan(val) ? 0. : val  # TODO
     end
 
-    # # CMAES - - - - - -
-    # cmaes_constraints = MixedTypePenaltyConstraints(
-    #     WorstFitnessConstraints(domain_opt..., [-Inf,-Inf,-Inf], [0.,0.,0.], x -> MotorParam.domain_constraints(x ./ domain_convert())),
-    #     [Int, Float64, Float64],
-    # )
-    # # cmaes_constraints = BoxConstraints(domain_opt...)
-
-    # multistart = 200
-    # cmaes_options = Evolutionary.Options(; abstol=x_tol, iterations=1000)
-    # Boss.opt_acq_CMAES(acq_opt, cmaes_constraints; x_dim, multistart, discrete_dims, options=cmaes_options, parallel=true, info=true, debug=false)
-
-    # # unconstrained LBFGS - - - - - -
-    # multistart = 200
-    # optim_options = Optim.Options(; outer_x_tol=x_tol, x_tol=x_tol, iterations=1000)
-    # Boss.opt_acq_Optim(acq_opt, domain_opt; x_dim, multistart, discrete_dims, options=optim_options, parallel=true, info=true, debug=false)
-    
-    # # constrained IPNewton - Violates constraints! - - - - - -    
-    # function opt_c!(c, x)
-    #     x ./= domain_convert()
-    #     c .= MotorParam.domain_constraints(x)
-    # end
-    # constraints_opt = TwiceDifferentiableConstraints(opt_c!, domain_opt..., [-Inf,-Inf,-Inf], [0.,0.,0.], :forward)
-    
-    # multistart = 200
-    # optim_options = Optim.Options(; outer_x_tol=x_tol, x_tol=x_tol, iterations=1000)
-    # Boss.opt_acq_Optim(acq_opt, constraints_opt; x_dim, multistart, discrete_dims, options=optim_options, parallel=false, info=true, debug=true)
-
-    # constrained NLopt - - - - - -
-    nlopt = Opt(:LN_COBYLA, x_dim)  # GN_ISRES, LN_COBYLA, LD_MMA
+    # optimize acq with COBYLA
+    nlopt = Opt(:LN_COBYLA, x_dim)
     nlopt.xtol_abs = x_tol
     multistart = 200
     nlopt.maxeval = 1_000
@@ -168,7 +141,7 @@ function crosscheck()
         @show tst_idx
         trn_idx = [i for i in 1:total_size if !in(i, tst_idx)]
 
-        data = init_data()
+        data = get_data()
         train = data[trn_idx,:]
         test = data[tst_idx,:]
 
