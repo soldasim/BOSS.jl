@@ -205,7 +205,8 @@ In each chain;
     and each 'leap_size'-th of these samples is kept.
 Finally, kept samples from all chains are joined and returned.
 """
-struct MCSettings
+struct MCSettings{S}
+    sampler::S
     warmup::Int
     samples_in_chain::Int
     chain_count::Int
@@ -220,12 +221,10 @@ function sample_params_turing(model, param_symbols, mc::MCSettings; adbackend=:z
     Turing.setadbackend(adbackend)
 
     samples_in_chain = mc.warmup + (mc.leap_size * mc.samples_in_chain)
-    sampler = PG(20)  # NUTS(mc.warmup, 0.65)
-
     if parallel
-        chains = Turing.sample(model, sampler, MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
+        chains = Turing.sample(model, mc.sampler, MCMCThreads(), samples_in_chain, mc.chain_count; progress=false)
     else
-        chains = mapreduce(_ -> Turing.sample(model, sampler, samples_in_chain; progress=false), chainscat, 1:mc.chain_count)
+        chains = mapreduce(_ -> Turing.sample(model, mc.sampler, samples_in_chain; progress=false), chainscat, 1:mc.chain_count)
     end
 
     samples = [reduce(vcat, eachrow(chains[s][(mc.warmup+mc.leap_size):mc.leap_size:end,:])) for s in param_symbols]

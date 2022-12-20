@@ -89,7 +89,7 @@ At least one of the termination conditions has to be provided.
                                 Example: `constraints=[Inf, 1000.]` specifies that the optimization is subject to y2 < 1000. and y1 ∈ R.
                                 Defaults to `constraints=nothing` meaning there are no constraints on the output.
 
-- mc_settings:                  An instance of `Boss.MCSettings` defining the hyperparameters of the MC sampler.
+- mc_settings:                  An instance of `Boss.MCSettings` specifying which MC sampler is to be used and defining its hyperparameters.
 
 - vi_samples:                   Specifies how many samples are to be drawn from the hyperparameter posterior infered with VI.
 
@@ -144,7 +144,7 @@ end
 function boss(fg::Function, fitness::Fitness, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, model::ParamModel, domain;
     noise_priors,
     constraints=nothing,
-    mc_settings=MCSettings(400, 10, 8, 5),
+    mc_settings=MCSettings(PG(20), 400, 10, 8, 5),  # NUTS(400, 0.65)
     acq_opt_multistart=16,
     param_opt_multistart=80,
     gp_params_priors=nothing,

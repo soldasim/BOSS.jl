@@ -2,6 +2,7 @@ using Random
 using Distributions
 using Optim
 using AbstractGPs
+using Turing
 
 # TODO example env ?
 # TODO: using .Boss
@@ -141,7 +142,7 @@ function compare_models(; save_run_data=false, filename="rundata.jld2", make_plo
 end
 
 function run_boss_(model, init_X, init_Y; kwargs...)
-    mc_settings = Boss.MCSettings(50, 6, 8, 3)
+    mc_settings = Boss.MCSettings(PG(20), 50, 6, 8, 3)
     acq_opt_multistart = 12
     param_opt_multistart = 20
 
