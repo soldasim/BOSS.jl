@@ -112,7 +112,7 @@ function fit_model(data; discrete_dims=[true, false, false])
     y_dim = size(init_Y)[1]
 
     # HYPERPARAMS
-    mc_settings = Boss.MCSettings(400, 10, 8, 5)
+    mc_settings = Boss.MCSettings(PG(20), 400, 10, 8, 5)
     kernel = Boss.DiscreteKernel(Matern52Kernel(), discrete_dims)
     gp_params_priors = [MvLogNormal(ones(x_dim), ones(x_dim)) for _ in 1:y_dim]
     noise_priors = [LogNormal(-2.3, 1.) for _ in 1:y_dim]

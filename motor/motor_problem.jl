@@ -138,7 +138,7 @@ end
 
 # wrapper function
 function run_boss_(init_X, init_Y; kwargs...)
-    mc_settings = Boss.MCSettings(50, 8, 6, 3)
+    mc_settings = Boss.MCSettings(PG(20), 50, 8, 6, 3)
     param_fit_alg = :BI
     acq_opt_multistart = 12
 
