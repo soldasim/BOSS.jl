@@ -32,6 +32,44 @@ function get_data()
         52.0	11.0	463.2	11869.6	84.0
         44.0	21.7	411.8	858.7	99.3
         56.0	14.3	492.5	3275.6	97.9
+        # requested by BOSS
+        60      18.3    446.6   898     95.9
+        49      19.8	421.5   994.6   96.9
+        51      19.6	412.8   952.3   94.2
+        50      19.8	444.6   950.8   101.2
+        48	    20.2	502.3   951.83  114
+        59	    18.4	442.6   910     95.6
+        58	    18.4	443.5   948.4   96
+        57	    18.7	429.8   916     94.2
+        60      18.2	444.6   921.6   95.3
+        38	    22.8	483.9   939.17  118.5
+        51  	25.6	501.2   264.84  124.6
+        58	    18.4	435.0   948.42  94.3
+        53  	19.2	411.7   959     92.6
+        55	    19.0	426.2   924.4   94.6
+        52	    19.4	410.0   955     92.9
+        40	    21.8	483.6   1000    115.8
+        53      19.1    411.1   982     92.3
+        53      19.1    410.0   982     92.1
+        59      18.2    411.9   959     89
+        60      18.1    441.8   946     94.5
+        59      18.1    443.0   948     95
+        60      21.3    503.3   436     113.6
+        44      30.0    495.2   164     134.5
+        60      18.1    442.4   946     94.6
+        45      20.8    418.7   963.8   99.4
+        55      18.8    419.7   970.7   92.9
+        57      18.4    479.1   987.7   103.4
+        47      21.1    468.6   820.6   109.5
+        53      19.0    413.7   1000    92.6
+        60      21.5    495.4   416     112.4
+        43      21.3    468.6   959.6   111
+        41      21.5    457.5   1000    109.7
+        39      22.2    417.1   995.5   103.6
+        54      19.1    480.9   941.2   106
+        37      22.9    466.9   977.5   115.5
+        53      24.5    501.7   300     121.8
+        58      22.0    502.5   406.3   115.4 
     ]
     data[:,2:3] /= 1000  # [mm] to [m]
     return data
@@ -120,7 +158,6 @@ function fit_model(data; discrete_dims=[true, false, false])
 
     # FIT MODEL
     param_model = def_model()
-    # fit, model_samples, params, noise = Boss.fit_parametric_model(init_X, init_Y, param_model, noise_priors; param_fit_alg, mc_settings, parallel=true, info=true, debug=false)
     fit, model_samples, params, gp_params, noise = Boss.fit_semiparametric_model(init_X, init_Y, param_model, kernel, gp_params_priors, noise_priors; param_fit_alg=:BI, mc_settings, parallel=true, info=true, debug=false)
 
     return fit, model_samples, params, noise
