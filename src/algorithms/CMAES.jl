@@ -1,3 +1,4 @@
+using Evolutionary
 
 struct CMAESMaximizer{O} <: AcquisitionMaximizer where {
     O<:Evolutionary.Options,

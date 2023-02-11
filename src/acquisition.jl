@@ -1,33 +1,33 @@
 
 sample_ϵs(y_dim::Int, sample_count::Int) = rand(Distributions.Normal(), (y_dim, sample_count))
 
-acquisition(fitness::Fitness, predict::Function, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
+acquisition(fitness::Fitness, posterior::Base.Callable, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
     acq(x) = 0.
 
-acquisition(fitness::Fitness, predict::Function, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
-    acq(x) = feas_prob(x, predict, constraints)
+acquisition(fitness::Fitness, posterior::Base.Callable, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
+    acq(x) = feas_prob(x, posterior, constraints)
 
-acquisition(fitness::Fitness, predict::Function, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
-    acq(x) = EI(x, fitness, predict, ϵ_samples; best_yet)
+acquisition(fitness::Fitness, posterior::Base.Callable, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
+    acq(x) = EI(x, fitness, posterior, ϵ_samples; best_yet)
 
-acquisition(fitness::Fitness, predict::Function, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
+acquisition(fitness::Fitness, posterior::Base.Callable, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
     function acq(x)
-        mean, var = predict(x)
+        mean, var = posterior(x)
         ei = EI(mean, var, fitness, ϵ_samples; best_yet)
         fp = feas_prob(mean, var, constraints)
         ei * fp
     end
 
-function acquisition(fitness::Fitness, predicts::AbstractArray{<:Function}, constraints, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Union{Nothing, <:Real})
-    acqs = acquisition.(Ref(fitness), predicts, Ref(constraints), eachcol(ϵ_samples), Ref(best_yet))
+function acquisition(fitness::Fitness, posteriors::AbstractArray{<:Base.Callable}, constraints::AbstractArray{<:Real}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Union{Nothing, <:Real})
+    acqs = acquisition.(Ref(fitness), posteriors, Ref(constraints), eachcol(ϵ_samples), Ref(best_yet))
     acq(x) = mapreduce(a -> a(x), +, acqs) / length(acqs)
 end
 
-feas_prob(x::AbstractVector{<:Real}, predict, constraints) = feas_prob(predict(x)..., constraints)
+feas_prob(x::AbstractVector{<:Real}, posterior, constraints) = feas_prob(posterior(x)..., constraints)
 feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::Nothing) = 1.
 feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::AbstractVector{<:Real}) = prod(cdf.(Distributions.Normal.(mean, var), constraints))
 
-EI(x::AbstractVector{<:Real}, fitness::Fitness, predict, ϵ_samples::AbstractArray{<:Real}; best_yet) = EI(predict(x)..., fitness, ϵ_samples; best_yet)
+EI(x::AbstractVector{<:Real}, fitness::Fitness, posterior, ϵ_samples::AbstractArray{<:Real}; best_yet) = EI(posterior(x)..., fitness, ϵ_samples; best_yet)
 
 EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::LinFitness, ϵ_samples::AbstractArray{<:Real}; best_yet) = EI(mean, var, fitness; best_yet)
 # https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7352306 Eq(44)

@@ -1,7 +1,3 @@
-using Optim
-using Evolutionary
-using NLopt
-using Turing
 using AbstractGPs
 
 const AbstractBounds = Tuple{<:AbstractArray{<:Real}, <:AbstractArray{<:Real}}
@@ -117,6 +113,11 @@ struct Nonparametric{
     kernel::K
     length_scale_priors::D
 end
+Nonparametric(;
+    mean=nothing,
+    kernel=Matern52Kernel(),
+    length_scale_priors,
+) = Nonparametric(mean, kernel, length_scale_priors)
 
 """
 Used to define a semiparametric surrogate model (combination of a parametric model and GP).
@@ -214,19 +215,22 @@ abstract type TermCond end
 The structures deriving this type contain all the data collected during the optimization
 as well as the parameters and hyperparameters of the model.
 """
-abstract type AbstractExperimentData{NUM<:Real} end
+abstract type ExperimentData{NUM<:Real} end
 
-Base.length(data::AbstractExperimentData) = size(data.X)[2]
+Base.length(data::ExperimentData) = size(data.X)[2]
 
 mutable struct ExperimentDataPrior{
     NUM<:Real,
     T<:AbstractMatrix{NUM},
-} <: AbstractExperimentData{NUM}
+} <: ExperimentData{NUM}
     X::T
     Y::T
 end
 
-abstract type ExperimentDataPost{T<:ModelFit, NUM<:Real} <: AbstractExperimentData{NUM} end
+# TODO: Implement an options to pass empty data to BOSS and let it automatically sample few initial samples.
+# empty_data(x_dim::Int, y_dim::Int, type::Type=Float64) = ExperimentDataPrior(Array{type}(undef, x_dim, 0), Array{type}(undef, y_dim, 0))
+
+abstract type ExperimentDataPost{T<:ModelFit, NUM<:Real} <: ExperimentData{NUM} end
 
 mutable struct ExperimentDataMLE{
     NUM<:Real,
@@ -270,8 +274,7 @@ mutable struct OptimizationProblem{
     X<:Any,  # type depends on EI maximizer
     I<:AbstractArray{<:Bool},
     M<:SurrogateModel,
-    N<:Any,
-    D<:AbstractExperimentData{NUM},
+    N<:AbstractArray,
 }
     fitness::Q
     f::F
@@ -279,9 +282,19 @@ mutable struct OptimizationProblem{
     domain::X
     discrete::I
     model::M
-    noise_var_prior::N
-    data::D
+    noise_var_priors::N
+    data::ExperimentData
 end
+OptimizationProblem(;
+    fitness,
+    f,
+    cons,
+    domain,
+    discrete,
+    model,
+    noise_var_priors,
+    data,
+) = OptimizationProblem(fitness, f, cons, domain, discrete, model, noise_var_priors, data)
 
 x_dim(problem::OptimizationProblem) = length(problem.discrete)
 y_dim(problem::OptimizationProblem) = length(problem.cons)
@@ -293,3 +306,7 @@ struct BossOptions
     info::Bool
     ϵ_samples::Int  # only for MLE, in case of BI ϵ_samples == sample_count(ModelFitterBI)
 end
+BossOptions(;
+    info=true,
+    ϵ_samples=200,
+) = BossOptions(info, ϵ_samples)

@@ -1,22 +1,20 @@
-module Boss
+module BOSS
 
-export boss
+export boss!
 
 include("types.jl")
 include("parametric.jl")
 include("nonparametric.jl")
 include("semiparametric.jl")
 include("acquisition.jl")
-include("plotting.jl")
+include("algorithms/include.jl")
+include("term_cond.jl")
 
-# REFACTORING TODO-LIST:
-# plots: make_plots, show_plots, plot_all_models, f_true, kwargs...
-
-function boss(problem::OptimizationProblem;
+function boss!(problem::OptimizationProblem;
     model_fitter::ModelFitter=TuringBI(),
-    acq_maximizer::AcquisitionMaximizer,  # TODO: add default
+    acq_maximizer::AcquisitionMaximizer,
     term_cond::TermCond=IterLimit(1),
-    options::BossOptions,
+    options::BossOptions=BossOptions(),
 )
     while term_cond(problem)
         estimate_parameters!(problem, model_fitter; options)
@@ -29,8 +27,8 @@ end
 function estimate_parameters!(problem::OptimizationProblem, model_fitter::ModelFitter{T}; options::BossOptions) where {T}
     options.info && println("Estimating model parameters ...")
 
-    params = estimate_parameters(model_fitter, problem; info)
-    update_parameters!(T, problem; params...)
+    params = estimate_parameters(model_fitter, problem; info=options.info)
+    problem.data = update_parameters!(T, problem.data; params...)
 end
 
 # Specialized methods of this function are in '\src\algorithms'.
@@ -46,9 +44,9 @@ function maximize_acquisition(problem::OptimizationProblem, model_fitter::ModelF
     options.info && isnothing(b) && @warn "No feasible solution in the dataset yet. Cannot calculate EI!"
 
     acq = acquisition(problem.fitness, predict, problem.cons, ϵ_samples, b)
-    x = maximize_acquisition(acq_maximizer, problem, acq; info)
+    x = maximize_acquisition(acq_maximizer, problem, acq; info=options.info)
     x = cond_round.(x, problem.discrete)
-    return x, acq(x)
+    return x
 end
 
 # Specialized methods of this function are in '\src\algorithms'.
@@ -74,38 +72,38 @@ function best_yet(fitness::Fitness, Y::AbstractMatrix{<:Real}, cons::AbstractVec
     maximum([fitness(Y[:,i]) for i in 1:size(Y)[2] if feasible[i]])
 end
 
-is_feasible(y::AbstractVector{<:Real}, cons::AsbtractVector{<:Real}) = all(y .< cons)
+is_feasible(y::AbstractVector{<:Real}, cons::AbstractVector{<:Real}) = all(y .< cons)
 
-ϵ_sample_count(model_fitter::ModelFitter{BI}, options::BossOptions) = options.ϵ_samples
+ϵ_sample_count(model_fitter::ModelFitter{MLE}, options::BossOptions) = options.ϵ_samples
 ϵ_sample_count(model_fitter::ModelFitter{BI}, options::BossOptions) = sample_count(model_fitter)
 
 cond_round(x, b::Bool) = b ? round(x) : x
 
-function update_parameters!(::MLE, problem::OptimizationProblem{NUM,Q,F,C,X,I,M,N,D}; θ, length_scales, noise_vars) where {D<:ExperimentDataPrior}
-    problem.data = ExperimentDataMLE(
-        problem.data.X,
-        problem.data.Y,
+function update_parameters!(::Type{MLE}, data::ExperimentDataPrior; θ, length_scales, noise_vars)
+    return ExperimentDataMLE(
+        data.X,
+        data.Y,
         θ,
         length_scales,
         noise_vars,
     )
 end
-function update_parameters!(::BI, problem::OptimizationProblem{NUM,Q,F,C,X,I,M,N,D}; θ, length_scales, noise_vars) where {D<:ExperimentDataPrior}
-    problem.data = ExperimentDataBI(
-        problem.data.X,
-        problem.data.Y,
+function update_parameters!(::Type{BI}, data::ExperimentDataPrior; θ, length_scales, noise_vars)
+    return ExperimentDataBI(
+        data.X,
+        data.Y,
         θ,
         length_scales,
         noise_vars,
     )
 end
-function update_parameters!(::T, problem::OptimizationProblem{NUM,Q,F,C,X,I,M,N,D}; θ, length_scales, noise_vars) where {D<:ExperimentDataPost{T}}
-    problem.data.θ = θ
-    problem.data.length_scales = length_scales
-    problem.data.noise_vars = noise_vars
-    return θ, length_scales, noise_vars
+function update_parameters!(::Type{T}, data::ExperimentDataPost{T}; θ, length_scales, noise_vars) where {T<:ModelFit}
+    data.θ = θ
+    data.length_scales = length_scales
+    data.noise_vars = noise_vars
+    return data
 end
-update_parameters!(::T, problem::OptimizationProblem; kwargs...) =
+update_parameters!(::T, problem::OptimizationProblem; kwargs...) where {T<:ModelFit} =
     throw(ArgumentError("Inconsistent experiment data!\nCannot switch from MLE to BI or vice-versa."))
 
-end # module Boss
+end # module BOSS

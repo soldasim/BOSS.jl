@@ -1,3 +1,4 @@
+using NLopt
 
 struct NLoptMaximizer{O} <: AcquisitionMaximizer where {
     O<:NLopt.Opt,

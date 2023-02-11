@@ -63,28 +63,44 @@ model_posterior(model::Nonparametric, data::ExperimentDataBI) =
     model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.length_scales, eachcol(data.noise_vars))
 
 function model_posterior(
-    model::Nonparametric,
+    model::Nonparametric{M},
     X::AbstractMatrix{NUM},
     Y::AbstractMatrix{NUM},
     length_scales::AbstractMatrix{NUM},
     noise_vars::AbstractArray{NUM},
-) where {NUM<:Real}
-    finite_gps = finite_gp.(Ref(X), Ref(model.mean), Ref(model.kernel), eachcol(length_scales), noise_vars)
-    posterior_gps = posterior.(finite_gps, eachrow(Y))
-
+) where {M<:Nothing, NUM<:Real}
+    posts = model_posterior.(Ref(model.mean), Ref(model.kernel), Ref(X), eachrow(Y), eachcol(length_scales), noise_vars)
     function posterior(x)
-        in = [x]
-        mean = Vector{NUM}(undef, length(posterior_gps))
-        var = Vector{NUM}(undef, length(posterior_gps))
-        
-        for i in eachindex(posterior_gps)
-            m, v = mean_and_var(posterior_gps[i](in))
-            mean[i] = m[1]
-            var[i] = v[1]
-        end
-
-        return mean, var
+        rs = map.(posts, Ref(x))
+        first.(rs), last.(rs)
     end
+end
+function model_posterior(
+    model::Nonparametric{M},
+    X::AbstractMatrix{NUM},
+    Y::AbstractMatrix{NUM},
+    length_scales::AbstractMatrix{NUM},
+    noise_vars::AbstractArray{NUM},
+) where {M<:Base.Callable, NUM<:Real}
+    y_dim = length(noise_vars)
+    means = [x->model.mean(x)[i] for i in 1:y_dim]
+    posts = model_posterior.(means, Ref(model.kernel), Ref(X), eachrow(Y), eachcol(length_scales), noise_vars)
+    function posterior(x)
+        ys = map(p->p(x), posts)
+        first.(ys), last.(ys)
+    end
+end
+
+function model_posterior(
+    mean::Union{Nothing, <:Base.Callable},
+    kernel::Kernel,
+    X::AbstractMatrix{NUM},
+    y::AbstractArray{NUM},
+    length_scales::AbstractArray{NUM},
+    noise_var::NUM,
+) where {NUM<:Real}
+    posterior_gp = AbstractGPs.posterior(finite_gp(X, mean, kernel, length_scales, noise_var), y)
+    posterior(x) = first.(mean_and_var(posterior_gp(hcat(x))))
 end
 
 function finite_gp(
@@ -93,8 +109,8 @@ function finite_gp(
     kernel::Kernel,
     length_scales::AbstractArray{NUM},
     noise_var::NUM;
-    min_param_val<:Real=MIN_PARAM_VALUE,
-    min_noise<:Real=MIN_PARAM_VALUE,
+    min_param_val::Real=MIN_PARAM_VALUE,
+    min_noise::Real=MIN_PARAM_VALUE,
 ) where {NUM<:Real}
     # for numerical stability
     params = length_scales .+ min_param_val
@@ -109,8 +125,8 @@ function finite_gp(
     kernel::Kernel,
     length_scales::AbstractArray{NUM},
     noise_var::NUM;
-    min_param_val<:Real=MIN_PARAM_VALUE,
-    min_noise<:Real=MIN_PARAM_VALUE,
+    min_param_val::Real=MIN_PARAM_VALUE,
+    min_noise::Real=MIN_PARAM_VALUE,
 ) where {NUM<:Real}
     # for numerical stability
     params = length_scales .+ min_param_val
@@ -121,9 +137,10 @@ function finite_gp(
 end
 
 # Log-likelihood of GP hyperparameters and noise variance.
-function model_loglike(model::Nonparametric, noise_var_prior, data::AbstractExperimentData)
+function model_loglike(model::Nonparametric, noise_var_priors::AbstractArray, data::ExperimentData)
     params_loglike = model_params_loglike(model, data.X, data.Y)
-    loglike(length_scales, noise_vars) = params_loglike(length_scales, noise_vars) + logpdf(noise_var_prior, noise_vars)
+    noise_loglike(noise_vars) = mapreduce(p -> logpdf(p...), +, zip(noise_var_priors, noise_vars))
+    loglike(length_scales, noise_vars) = params_loglike(length_scales, noise_vars) + noise_loglike(noise_vars)
 end
 
 # Log-likelihood of GP hyperparameters.

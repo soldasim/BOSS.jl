@@ -4,7 +4,7 @@ model_posterior(model::Semiparametric, data::ExperimentDataMLE) =
     model_posterior(model, data.X, data.Y, data.θ, data.length_scales, data.noise_vars)
 
 model_posterior(model::Semiparametric, data::ExperimentDataBI) =
-    model_posterior.(Ref(model), Ref(X), Ref(Y), eachcol(data.θ), data.length_scales, eachcol(data.noise_vars))
+    model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), eachcol(data.θ), data.length_scales, eachcol(data.noise_vars))
 
 model_posterior(
     model::Semiparametric,
@@ -17,9 +17,10 @@ model_posterior(
     model_posterior(add_mean(model.nonparametric, model.parametric(θ)), X, Y, length_scales, noise_vars)
 
 # Log-likelihood of model parameters, hyperparameters and noise variance.
-function model_loglike(model::Semiparametric, noise_var_prior, data::AbstractExperimentData)
+function model_loglike(model::Semiparametric, noise_var_prior, data::ExperimentData)
     params_loglike = model_params_loglike(model, data.X, data.Y)
-    loglike(θ, length_scales, noise_vars) = params_loglike(θ, length_scales, noise_vars) + logpdf(noise_var_prior, noise_vars)
+    noise_loglike(noise_vars) = mapreduce(p -> logpdf(p...), +, zip(noise_var_priors, noise_vars))
+    loglike(θ, length_scales, noise_vars) = params_loglike(θ, length_scales, noise_vars) + noise_loglike(noise_vars)
 end
 
 # Log-likelihood of model parameters and hyperparameters.

@@ -28,37 +28,54 @@ function opt_multistart(
 
     args = Vector{Vector{Float64}}(undef, multistart)
     vals = Vector{Float64}(undef, multistart)
-    errors = Atomic{Int}(0)
+    errors = Threads.Atomic{Int}(0)
     
     if parallel
+        io_lock = Threads.SpinLock()
         Threads.@threads for i in 1:multistart
             try
                 a, v = optimize(starts[:,i])
                 args[i] = a
                 vals[i] = v
+
             catch e
-                info && @warn "Optimization error:\n$e"
-                @atomic errors.x += 1
+                if info
+                    lock(io_lock)
+                    try
+                        warn_optim_err(e)
+                    finally
+                        unlock(io_lock)
+                    end
+                end
+                Threads.atomic_add!(errors, 1)
                 args[i] = Float64[]
                 vals[i] = -Inf
             end
         end
+
     else
         for i in 1:multistart
-            try
+            # try
                 a, v = optimize(starts[:,i])
                 args[i] = a
                 vals[i] = v
-            catch e
-                info && @warn "Optimization error:\n$e"
-                errrors.x += 1
-                args[i] = Float64[]
-                vals[i] = -Inf
-            end
+
+            # catch e
+            #     info && warn_optim_err(e)
+            #     errors.value += 1
+            #     args[i] = Float64[]
+            #     vals[i] = -Inf
+            # end
         end
     end
 
-    (errors == opt.multistart) && throw(ErrorException("All acquisition optimization runs failed!"))
-    info && (errors > 0) && @warn "$(errors)/$(opt.multistart) acquisition optimization runs failed!\n"
-    return args[argmax(vals)]
+    (errors.value == multistart) && throw(ErrorException("All acquisition optimization runs failed!"))
+    info && (errors.value > 0) && @warn "$(errors.value)/$(multistart) acquisition optimization runs failed!\n"
+    b = argmax(vals)
+    return args[b], vals[b]
+end
+
+function warn_optim_err(e)
+    @warn "Optimization error:"
+    showerror(stderr, e); println(stderr)
 end
