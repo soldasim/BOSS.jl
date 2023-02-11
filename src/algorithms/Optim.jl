@@ -1,9 +1,9 @@
 using Optim
-using Threads
 
 
 # - - - - - - - - Model Parameter MLE - - - - - - - -
 
+# TODO: doc
 struct OptimMLE{
     A<:Optim.Fminbox,
     O<:Optim.Options,
@@ -13,14 +13,20 @@ struct OptimMLE{
     multistart::Int
     parallel::Bool
 end
+OptimMLE(;
+    algorithm=Fminbox(LBFGS()),
+    options=Optim.Options(),
+    multistart=200,
+    parallel=true,
+) = OptimMLE(algorithm, options, multistart, parallel)
 
 function estimate_parameters(opt::OptimMLE, problem::OptimizationProblem; info::Bool)
-    loglike = model_loglike(problem.model, problem.noise_var_prior, problem.data)
-    θ, length_scales, noise_vars = opt_params(loglike, opt, problem.model, problem.noise_var_prior; x_dim=x_dim(problem), y_dim=y_dim(problem), info)
+    loglike = model_loglike(problem.model, problem.noise_var_priors, problem.data)
+    θ, length_scales, noise_vars = opt_params(loglike, opt, problem.model, problem.noise_var_priors; x_dim=x_dim(problem), y_dim=y_dim(problem), info)
     return (θ=θ, length_scales=length_scales, noise_vars=noise_vars)
 end
 
-function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Parametric, noise_var_prior; x_dim::Int, y_dim::Int, info::Bool)
+function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Parametric, noise_var_priors::AbstractArray; x_dim::Int, y_dim::Int, info::Bool)
     split(p) = p[1:y_dim], p[y_dim+1:end]
     function ll(p)
         noise_vars, θ = split(p)
@@ -32,16 +38,16 @@ function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Parametric, 
         rand.(model.param_priors),
     ) for _ in 1:optim.multistart])
     bounds = (
-        vcat(minimum(noise_var_prior), minimum.(model.param_priors)),
-        vcat(maximum(noise_var_prior), maximum.(model.param_priors))
+        vcat(minimum.(noise_var_priors), minimum.(model.param_priors)),
+        vcat(maximum.(noise_var_priors), maximum.(model.param_priors))
     )
 
     optimize(start) = optim_maximize(ll, bounds, optim.algorithm, optim.options, start; info)
-    p, _ = opt_multistart(optimize, starts; parallel=optim.parallel, info)
+    p, _ = opt_multistart(optimize, starts, optim.parallel, info)
     noise_vars, θ = split(p)
     return θ, nothing, noise_vars
 end
-function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Nonparametric, noise_var_prior; x_dim::Int, y_dim::Int, info::Bool)
+function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Nonparametric, noise_var_priors::AbstractArray; x_dim::Int, y_dim::Int, info::Bool)
     # TODO: use softplus to ensure positive length scales ?
     split(p) = p[1:y_dim], reshape(p[y_dim+1:end], x_dim, y_dim)
     function ll(p)
@@ -54,19 +60,19 @@ function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Nonparametri
         reduce(vcat, rand.(model.length_scale_priors)),
     ) for _ in 1:optim.multistart])
     bounds = (
-        vcat(minimum(noise_var_prior), reduce(vcat, minimum.(model.length_scale_priors))),
-        vcat(maximum(noise_var_prior), reduce(vcat, maximum.(model.length_scale_priors)))
+        vcat(minimum.(noise_var_priors), reduce(vcat, minimum.(model.length_scale_priors))),
+        vcat(maximum.(noise_var_priors), reduce(vcat, maximum.(model.length_scale_priors)))
     )
 
     optimize(start) = optim_maximize(ll, bounds, optim.algorithm, optim.options, start; info)
-    p, _ = opt_multistart(optimize, starts; parallel=optim.parallel, info)
+    p, _ = opt_multistart(optimize, starts, optim.parallel, info)
     noise_vars, length_scales = split(p)
     return nothing, length_scales, noise_vars
 end
-function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Semiparametric, noise_var_prior; x_dim::Int, y_dim::Int, info::Bool)
+function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Semiparametric, noise_var_priors::AbstractArray; x_dim::Int, y_dim::Int, info::Bool)
     # TODO: use softplus to ensure positive length scales ?
     θ_len = param_count(model.parametric)
-    split(p) = p[1:y_dim], p[y_dim+1:y_dim+θ_len], reshape([y_dim+θ_len+1:end], x_dim, y_dim)
+    split(p) = p[1:y_dim], p[y_dim+1:y_dim+θ_len], reshape(p[y_dim+θ_len+1:end], x_dim, y_dim)
     function ll(p)
         noise_vars, θ, length_scales = split(p)
         loglike(θ, length_scales, noise_vars)
@@ -78,12 +84,12 @@ function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Semiparametr
         reduce(vcat, rand.(model.length_scale_priors)),
     ) for _ in 1:optim.multistart])
     bounds = (
-        vcat(minimum(noise_var_prior), minimum.(model.param_priors), reduce(vcat, minimum.(model.length_scale_priors))),
-        vcat(maximum(noise_var_prior), maximum.(model.param_priors), reduce(vcat, maximum.(model.length_scale_priors)))
+        vcat(minimum.(noise_var_priors), minimum.(model.param_priors), reduce(vcat, minimum.(model.length_scale_priors))),
+        vcat(maximum.(noise_var_priors), maximum.(model.param_priors), reduce(vcat, maximum.(model.length_scale_priors)))
     )
 
     optimize(start) = optim_maximize(ll, bounds, optim.algorithm, optim.options, start; info)
-    p, _ = opt_multistart(optimize, starts; parallel=optim.parallel, info)
+    p, _ = opt_multistart(optimize, starts, optim.parallel, info)
     noise_vars, θ, length_scales = split(p)
     return θ, length_scales, noise_vars
 end
@@ -91,6 +97,9 @@ end
 
 # - - - - - - - - Acquisition Maximization - - - - - - - -
 
+# TODO: doc
+# Either use `Optim.AbstractConstraints` as x domain
+# or use x bounds given as a tuple with some `Optim.Fminbox` algorithm.
 struct OptimMaximizer{
     A<:Optim.AbstractOptimizer,
     O<:Optim.Options,
@@ -100,11 +109,17 @@ struct OptimMaximizer{
     multistart::Int
     parallel::Bool
 end
+OptimMaximizer(;
+    algorithm=IPNewton(),
+    options=Optim.Options(),
+    multistart=200,
+    parallel=true,
+) = OptimMaximizer(algorithm, options, multistart, parallel)
 
 function maximize_acquisition(optim::OptimMaximizer, problem::OptimizationProblem, acq::Base.Callable; info::Bool)
-    starts = generate_starts_LHC(get_bounds(cons), multistart)
-    optimize(start) = optim_maximize(acq, problem.cons, optim.algorithm, optim.options, start; info)
-    arg, _ = opt_multistart(optimize, starts; parallel=optim.parallel, info)
+    starts = generate_starts_LHC(get_bounds(problem.domain), optim.multistart)
+    optimize(start) = optim_maximize(acq, problem.domain, optim.algorithm, optim.options, start; info)
+    arg, _ = opt_multistart(optimize, starts, optim.parallel, info)
     return arg
 end
 
@@ -113,13 +128,26 @@ end
 
 function optim_maximize(
     f::Base.Callable,
-    cons,
+    cons::Optim.AbstractConstraints,
     alg::Optim.AbstractOptimizer,
     options::Optim.Options,
     start::AbstractArray{<:Real};
     info::Bool,
 )
     result = Optim.optimize(p -> -f(p), cons, start, alg, options)
+    info && check_convergence(result)
+    return Optim.minimizer(result), -Optim.minimum(result)
+end
+
+function optim_maximize(
+    f::Base.Callable,
+    bounds::Tuple,
+    alg::Optim.Fminbox,
+    options::Optim.Options,
+    start::AbstractArray{<:Real};
+    info::Bool,
+)
+    result = Optim.optimize(p -> -f(p), bounds..., start, alg, options)
     info && check_convergence(result)
     return Optim.minimizer(result), -Optim.minimum(result)
 end
@@ -133,7 +161,7 @@ function get_bounds(domain::Optim.TwiceDifferentiableConstraints)
     domain_ub = domain.bounds.bx[2:2:end]
     return domain_lb, domain_ub
 end
-
+get_bounds(domain::Tuple) = domain
 
 
 

@@ -1,0 +1,5 @@
+[deps]
+BOSS = "15052f3f-a82a-4ca3-bbc4-f478a3bd1ae2"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
+Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
