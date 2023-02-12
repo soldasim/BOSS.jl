@@ -9,6 +9,7 @@ include("semiparametric.jl")
 include("acquisition.jl")
 include("algorithms/include.jl")
 include("term_cond.jl")
+include("plot.jl")
 
 function boss!(problem::OptimizationProblem;
     model_fitter::ModelFitter=TuringBI(),
@@ -18,7 +19,8 @@ function boss!(problem::OptimizationProblem;
 )
     while term_cond(problem)
         estimate_parameters!(problem, model_fitter; options)
-        x = maximize_acquisition(problem, model_fitter, acq_maximizer; options)
+        x, acq = maximize_acquisition(problem, model_fitter, acq_maximizer; options)
+        isnothing(options.plot_options) || make_plot(options.plot_options, problem, acq, x; info=options.info)
         eval_objective!(x, problem; options)
     end
     return problem
@@ -46,7 +48,7 @@ function maximize_acquisition(problem::OptimizationProblem, model_fitter::ModelF
     acq = acquisition(problem.fitness, predict, problem.cons, ϵ_samples, b)
     x = maximize_acquisition(acq_maximizer, problem, acq; info=options.info)
     x = cond_round.(x, problem.discrete)
-    return x
+    return x, acq
 end
 
 # Specialized methods of this function are in '\src\algorithms'.
@@ -105,5 +107,20 @@ function update_parameters!(::Type{T}, data::ExperimentDataPost{T}; θ, length_s
 end
 update_parameters!(::T, problem::OptimizationProblem; kwargs...) where {T<:ModelFit} =
     throw(ArgumentError("Inconsistent experiment data!\nCannot switch from MLE to BI or vice-versa."))
+
+function make_plot(opt::PlotOptions, problem::OptimizationProblem, acquistion::Function, acq_opt::AbstractArray{<:Real}; info::Bool)
+    info && println("Plotting ...")
+    opt_ = PlotOptions(
+        opt.Plots,
+        opt.f_true,
+        acquistion,
+        acq_opt,
+        opt.points,
+        opt.xaxis,
+        opt.yaxis,
+        opt.title,
+    )
+    plot_problem(opt_, problem)
+end
 
 end # module BOSS

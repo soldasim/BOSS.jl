@@ -2,14 +2,18 @@ using BOSS
 using Distributions
 using Optim
 using Turing
+using Plots
+using Random
+
+Random.seed!(5555)
 
 # The unknown blackbox function.
-function blackbox(x)
+function blackbox(x; noise=0.1)
     y = exp(x[1]/10) * cos(2*x[1])
-    z = x[1]^2 - sqrt(15.)
+    z = (1/2)^6 * (x[1]^2 - (15.)^2)
     
-    y += rand(Normal(0., 0.5))
-    z += rand(Normal(0., 0.5))
+    y += rand(Normal(0., noise))
+    z += rand(Normal(0., noise))
 
     return [y,z]
 end
@@ -30,12 +34,12 @@ function parametric_model()
 end
 
 # Our prediction about the noise and GP length scales.
-noise_var_priors() = fill(Truncated(Normal(0.5, 1.), 0., Inf), 2)
+noise_var_priors() = fill(Truncated(Normal(0.1, 1.), 0., Inf), 2)
 length_scale_priors() = fill(Product([Gamma(2., 1.)]), 2)
 
 # Initial data.
-function init_data()
-    X = hcat([10.])
+function gen_data(count, bounds)
+    X = reduce(hcat, [BOSS.random_start(bounds) for i in 1:count])
     Y = reduce(hcat, blackbox.(eachcol(X)))
     return X, Y
 end
@@ -43,34 +47,48 @@ end
 """
 We have an unknown noisy function 'blackbox(x)=y,z' and we want to maximize y s.t. z < 0 on domain x ∈ [0,20].
 """
-function example()
+function example(iters=1, init_data=4)
+    bounds = ([0.], [20.])
+    data = gen_data(init_data, bounds)
+
     problem = BOSS.OptimizationProblem(;
         fitness = BOSS.LinFitness([1, 0]),
         f = blackbox,
         cons = [Inf, 0.],
-        domain = ([0.], [20.]),
+        domain = BOSS.OptimDomain(bounds),
         discrete = [false],
         model = BOSS.Semiparametric(parametric_model(), BOSS.Nonparametric(; length_scale_priors=length_scale_priors())),
         noise_var_priors = noise_var_priors(),
-        data = BOSS.ExperimentDataPrior(init_data()...),
+        data = BOSS.ExperimentDataPrior(data...),
     )
 
-    model_fitter = BOSS.TuringBI(;
-        sampler=Turing.PG(20),
-        warmup=50,
-        samples_in_chain=10,
-        chain_count=1,
-        leap_size=3,
-        parallel=false,
+    # model_fitter = BOSS.TuringBI(;
+    #     sampler=Turing.PG(20),
+    #     warmup=50,
+    #     samples_in_chain=10,
+    #     chain_count=1,
+    #     leap_size=3,
+    #     parallel=false,
+    # )
+    model_fitter = BOSS.OptimMLE(;
+        algorithm=Fminbox(LBFGS()),
+        options=Optim.Options(; x_abstol=0.01),
+        multistart=16,
+        parallel=true,
     )
+
     acq_maximizer = BOSS.OptimMaximizer(;
         algorithm=Fminbox(LBFGS()),
         options=Optim.Options(; x_abstol=0.01),
         multistart=16,
         parallel=true,
     )
-    term_cond = BOSS.IterLimit(1)
-    options = BOSS.BossOptions(; info=true)
+    
+    term_cond = BOSS.IterLimit(iters)
+    options = BOSS.BossOptions(;
+        info=true,
+        plot_options=BOSS.PlotOptions(Plots, f_true=x->blackbox(x; noise=0.)),
+    )
 
     boss!(problem; model_fitter, acq_maximizer, term_cond, options)
 end

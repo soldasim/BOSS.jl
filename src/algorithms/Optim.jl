@@ -56,7 +56,7 @@ function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Nonparametri
     end
 
     starts = reduce(hcat, [vcat(
-        rand.(noise_priors),
+        rand.(noise_var_priors),
         reduce(vcat, rand.(model.length_scale_priors)),
     ) for _ in 1:optim.multistart])
     bounds = (
@@ -79,13 +79,13 @@ function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Semiparametr
     end
 
     starts = reduce(hcat, [vcat(
-        rand.(noise_priors),
-        rand.(model.param_priors),
-        reduce(vcat, rand.(model.length_scale_priors)),
+        rand.(noise_var_priors),
+        rand.(model.parametric.param_priors),
+        reduce(vcat, rand.(model.nonparametric.length_scale_priors)),
     ) for _ in 1:optim.multistart])
     bounds = (
-        vcat(minimum.(noise_var_priors), minimum.(model.param_priors), reduce(vcat, minimum.(model.length_scale_priors))),
-        vcat(maximum.(noise_var_priors), maximum.(model.param_priors), reduce(vcat, maximum.(model.length_scale_priors)))
+        vcat(minimum.(noise_var_priors), minimum.(model.parametric.param_priors), reduce(vcat, minimum.(model.nonparametric.length_scale_priors))),
+        vcat(maximum.(noise_var_priors), maximum.(model.parametric.param_priors), reduce(vcat, maximum.(model.nonparametric.length_scale_priors)))
     )
 
     optimize(start) = optim_maximize(ll, bounds, optim.algorithm, optim.options, start; info)
@@ -98,8 +98,6 @@ end
 # - - - - - - - - Acquisition Maximization - - - - - - - -
 
 # TODO: doc
-# Either use `Optim.AbstractConstraints` as x domain
-# or use x bounds given as a tuple with some `Optim.Fminbox` algorithm.
 struct OptimMaximizer{
     A<:Optim.AbstractOptimizer,
     O<:Optim.Options,
@@ -116,9 +114,17 @@ OptimMaximizer(;
     parallel=true,
 ) = OptimMaximizer(algorithm, options, multistart, parallel)
 
+struct OptimDomain{
+    C<:Union{Optim.AbstractConstraints, Tuple}
+} <: Domain
+    cons::C
+end
+get_bounds(domain::OptimDomain) = get_bounds(domain.cons)
+in_domain(domain::OptimDomain, x) = in_domain(domain.cons, x)
+
 function maximize_acquisition(optim::OptimMaximizer, problem::OptimizationProblem, acq::Base.Callable; info::Bool)
     starts = generate_starts_LHC(get_bounds(problem.domain), optim.multistart)
-    optimize(start) = optim_maximize(acq, problem.domain, optim.algorithm, optim.options, start; info)
+    optimize(start) = optim_maximize(acq, problem.domain.cons, optim.algorithm, optim.options, start; info)
     arg, _ = opt_multistart(optimize, starts, optim.parallel, info)
     return arg
 end
@@ -162,6 +168,15 @@ function get_bounds(domain::Optim.TwiceDifferentiableConstraints)
     return domain_lb, domain_ub
 end
 get_bounds(domain::Tuple) = domain
+
+in_domain(domain::Optim.TwiceDifferentiableConstraints, x::AbstractArray{<:Real}) =
+    Optim.isinterior(domain, x)
+function in_domain(domain::Tuple, x::AbstractVector)
+    lb, ub = domain
+    any(x .< lb) && return false
+    any(x .> ub) && return false
+    return true
+end
 
 
 

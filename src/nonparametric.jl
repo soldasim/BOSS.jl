@@ -145,13 +145,16 @@ end
 
 # Log-likelihood of GP hyperparameters.
 function model_params_loglike(model::Nonparametric, X::AbstractMatrix{NUM}, Y::AbstractMatrix{NUM}) where {NUM<:Real}
+    y_dim = size(Y)[1]
+    means = [x->model.mean(x)[i] for i in 1:y_dim]
+
     function params_loglike(length_scales, noise_vars)
-        function ll_data_dim(X, y, length_scales, noise_var)
-            gp = finite_gp(X, mean, kernel, length_scales, noise_var)
+        function ll_data_dim(X, y, mean, length_scales, noise_var)
+            gp = finite_gp(X, mean, model.kernel, length_scales, noise_var)
             logpdf(gp, y)
         end
 
-        ll_data = mapreduce(p -> ll_data_dim(X, p...), +, zip(eachrow(Y), eachcol(length_scales), noise_vars))
+        ll_data = mapreduce(p -> ll_data_dim(X, p...), +, zip(eachrow(Y), means, eachcol(length_scales), noise_vars))
         ll_length_scales = mapreduce(p -> logpdf(p...), +, zip(model.length_scale_priors, eachcol(length_scales)))
         ll_data + ll_length_scales
     end
