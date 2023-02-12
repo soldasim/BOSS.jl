@@ -154,7 +154,7 @@ Inherit this type to define a custom model-fitting algorithms.
 Example: `struct CustomAlg <: ModelFitter{MLE} ... end` or `struct CustomAlg <: ModelFitter{BI} ... end`
 
 Structures derived from this type have to implement the following method:
-`estimate_parameters(model_fitter::CustomFitter, problem::OptimizationProblem; info::Bool) where {CustomFitter<:ModelFitter}`.
+`estimate_parameters(model_fitter::CustomFitter, problem::OptimizationProblem; info::Bool)`.
 
 This method should return a named tuple `(θ = ..., length_scales = ..., noise_vars = ...)`
 with either MLE model parameters (if `CustomAlg <: ModelFitter{MLE}`) or model parameter samples (if `CustomAlg <: ModelFitter{BI}`). 
@@ -172,22 +172,34 @@ abstract type ModelFitter{T<:ModelFit} end
 # - - - - - - - - EI Maximization - - - - - - - -
 
 """
-Specifies the library/algorithm is used for acquisition function optimization.
+Specifies the library/algorithm used for acquisition function optimization.
 
-Inherit this type to define a custom acquisition maximizer.
+Extend this type to define a custom acquisition maximizer.
 
 Example: `struct CustomAlg <: AcquisitionMaximizer ... end`
 
 Structures derived from this type have to implement the following method:
-`maximize_acquisition(acq_maximizer::CustomAlg, problem::OptimizationProblem, acq::Base.Callable; info::Bool) where {CustomAlg <: AcquisitionMaximizer}`
-
+`maximize_acquisition(acq_maximizer::CustomAlg, problem::OptimizationProblem, acq::Base.Callable; info::Bool)`
 This method should return the point of the input domain which maximizes the given acquisition function `acq`.
+
+Also, a corresponding `Domain` should be defined for the custom acquisition maximizer.
 
 See '\\src\\algorithms' for some implementations of `AcquisitionMaximizer`.
 """
 abstract type AcquisitionMaximizer end
 
 # Specific implementations of `AcquisitionMaximizer` are in '\src\algorithms'.
+
+"""
+Specifies the optimization domain. (The constraints on the input.)
+
+Extend this type to define the domain for your custom `AcquisitionMaximizer`.
+
+To work with plotting, your domain type should also implement
+the method `get_bounds(::CustomDomain)` which returns a tuple giving the bounds of the domain
+and the method `in_domain(::CustomDomain, ::AbstractArray{<:Real})` which returns true if the given point belongs to the domain.
+"""
+abstract type Domain end
 
 
 # - - - - - - - - Termination Conditions - - - - - - - -
@@ -218,6 +230,7 @@ as well as the parameters and hyperparameters of the model.
 abstract type ExperimentData{NUM<:Real} end
 
 Base.length(data::ExperimentData) = size(data.X)[2]
+Base.isempty(data::ExperimentData) = isempty(data.X)
 
 mutable struct ExperimentDataPrior{
     NUM<:Real,
@@ -271,7 +284,7 @@ mutable struct OptimizationProblem{
     Q<:Fitness,
     F<:Base.Callable,
     C<:AbstractArray{NUM},
-    X<:Any,  # type depends on EI maximizer
+    D<:Domain,
     I<:AbstractArray{<:Bool},
     M<:SurrogateModel,
     N<:AbstractArray,
@@ -279,7 +292,7 @@ mutable struct OptimizationProblem{
     fitness::Q
     f::F
     cons::C
-    domain::X
+    domain::D
     discrete::I
     model::M
     noise_var_priors::N
@@ -302,11 +315,43 @@ y_dim(problem::OptimizationProblem) = length(problem.cons)
 
 # - - - - - - - - Boss Options - - - - - - - -
 
-struct BossOptions
+# TODO: doc
+# mention Plots
+struct PlotOptions{
+    F<:Union{Nothing, Function},
+    A<:Union{Nothing, Function},
+    O<:Union{Nothing, AbstractArray{<:Real}},
+}
+    Plots::Module
+    f_true::F
+    acquisition::A
+    acq_opt::O
+    points::Int
+    xaxis::Symbol
+    yaxis::Symbol
+    title::String
+end
+PlotOptions(Plots::Module;
+    f_true=nothing,
+    acquisition=nothing,
+    acq_opt=nothing,
+    points=200,
+    xaxis=:identity,
+    yaxis=:identity,
+    title="BOSS optimization problem",
+) = PlotOptions(Plots, f_true, acquisition, acq_opt, points, xaxis, yaxis, title)
+
+
+# TODO: doc
+struct BossOptions{
+    P<:Union{Nothing, PlotOptions},
+}
     info::Bool
     ϵ_samples::Int  # only for MLE, in case of BI ϵ_samples == sample_count(ModelFitterBI)
+    plot_options::P
 end
 BossOptions(;
     info=true,
     ϵ_samples=200,
-) = BossOptions(info, ϵ_samples)
+    plot_options=nothing,
+) = BossOptions(info, ϵ_samples, plot_options)

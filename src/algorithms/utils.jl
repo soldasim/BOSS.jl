@@ -55,17 +55,17 @@ function opt_multistart(
 
     else
         for i in 1:multistart
-            # try
+            try
                 a, v = optimize(starts[:,i])
                 args[i] = a
                 vals[i] = v
 
-            # catch e
-            #     info && warn_optim_err(e)
-            #     errors.value += 1
-            #     args[i] = Float64[]
-            #     vals[i] = -Inf
-            # end
+            catch e
+                info && warn_optim_err(e)
+                errors.value += 1
+                args[i] = Float64[]
+                vals[i] = -Inf
+            end
         end
     end
 
