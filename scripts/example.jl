@@ -35,7 +35,7 @@ end
 
 # Our prediction about the noise and GP length scales.
 noise_var_priors() = fill(Truncated(Normal(0.1, 1.), 0., Inf), 2)
-length_scale_priors() = fill(Product([Gamma(2., 1.)]), 2)
+length_scale_priors() = fill(MvLogNormal(0.1*ones(1), 1.0*ones(1)), 2)
 
 # Initial data.
 function gen_data(count, bounds)
@@ -68,7 +68,7 @@ We have an unknown noisy function 'blackbox(x)=y,z' and we want to maximize y s.
 function example(problem=opt_problem(), iters=1)
     model_fitter = BOSS.TuringBI(;
         sampler=Turing.PG(20),
-        # sampler=NUTS(20, 0.65),
+        # sampler=NUTS(1000, 0.65),
         warmup=400,
         samples_in_chain=10,
         chain_count=8,

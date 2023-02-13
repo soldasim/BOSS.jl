@@ -2,7 +2,11 @@ using Turing
 using Turing: Variational
 using Zygote
 using ForwardDiff
+using Distributions
+using DistributionsAD: VectorOfMultivariate
+using Bijectors
 using Suppressor
+using AbstractGPs
 
 """
 Stores hyperparameters of the Turing sampler.
@@ -55,8 +59,11 @@ function estimate_parameters(turing::TuringBI, problem::OptimizationProblem; inf
     return (θ=θ, length_scales=length_scales, noise_vars=noise_vars)
 end
 
+# TODO: Refactor this or at least generalize for more distributions.
 # Needed for `arraydist` to work with multivariate distributions.
-Bijectors.bijector(::Turing.DistributionsAD.VectorOfMultivariate) = Bijectors.PDBijector()
+# Is needed with `NUTS` but not with `PG`.
+Bijectors.bijector(d::VectorOfMultivariate{Distributions.Continuous, <:Distributions.AbstractMvLogNormal}) = Bijectors.Log{2}()
+Bijectors.bijector(d::VectorOfMultivariate{Distributions.Continuous, <:AbstractGPs.FiniteGP}) = Bijectors.Identity{2}()
 
 Turing.@model function turing_model(
     model::Parametric,
@@ -85,7 +92,7 @@ Turing.@model function turing_model(
     length_scales ~ arraydist(model.length_scale_priors)
     
     gps = [finite_gp(X, nothing, model.kernel, length_scales[:,i], noise_vars[i]) for i in 1:y_dim]
-    
+
     Yt = transpose(Y)
     Yt ~ arraydist(gps)
 end

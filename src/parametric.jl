@@ -2,7 +2,7 @@ using Turing
 
 (model::Parametric)(θ::AbstractArray{<:Real}) = x -> model(x, θ)
 
-function (model::LinModel)(x::AbstractArray{NUM}, θ::AbstractArray{NUM}) where {NUM<:Real}
+function (model::LinModel)(x::AbstractArray{<:Real}, θ::AbstractArray{<:Real})
     ϕs = model.lift(x)
     m = length(ϕs)
 
@@ -13,7 +13,7 @@ function (model::LinModel)(x::AbstractArray{NUM}, θ::AbstractArray{NUM}) where 
     return y
 end
 
-(m::NonlinModel)(x::AbstractArray{NUM}, θ::AbstractArray{NUM}) where {NUM<:Real} =
+(m::NonlinModel)(x::AbstractArray{<:Real}, θ::AbstractArray{<:Real}) =
     m.predict(x, θ)
 
 Base.convert(::Type{NonlinModel}, model::LinModel) =
