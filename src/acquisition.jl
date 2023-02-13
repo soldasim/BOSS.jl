@@ -43,7 +43,6 @@ function EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::
     pred_samples = [mean .+ (var .* ϵ) for ϵ in eachcol(ϵ_samples)]
     return sum(max.(0, fitness.(pred_samples) .- best_yet)) / size(ϵ_samples)[2]
 end
-
 function EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::NonlinFitness, ϵ::AbstractVector{<:Real}; best_yet::Real)
     pred_sample = mean .+ (var .* ϵ)
     return max(0, fitness(pred_sample) - best_yet)

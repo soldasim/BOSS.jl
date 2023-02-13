@@ -36,17 +36,17 @@ function plot_y_slice(opt::PlotOptions, problem::OptimizationProblem, dim::Int)
             # BI -> samples & mean
             predicts = model_posterior(problem.model, problem.data)
             for i in eachindex(predicts)
-                y_points = (x->first(predicts[i]([x])[1])).(x_points)
-                # var_points = (x->first(predicts[i]([x])[2])).(x_points)
+                y_points = (x->predicts[i]([x])[1][dim]).(x_points)
+                # var_points = (x->predicts[i]([x])[2][dim]).(x_points)
                 label = (i == 1) ? "model samples" : nothing
-                opt.Plots.plot!(p, x_points, y_points; label, color=:red, alpha=0.2)
+                opt.Plots.plot!(p, x_points, y_points; label, color=:orange, style=:dash, alpha=0.2)
             end
 
-            pred_mean(x) = mean(map(p->p(x)[1], predicts))
-            pred_var(x) = mean(map(p->p(x)[2], predicts))
-            y_points = (x->first(pred_mean([x])[1])).(x_points)
-            var_points = (x->first(pred_var([x])[2])).(x_points)
-            opt.Plots.plot!(p, x_points, y_points; ribon=var_points, label="model mean", color=:red)
+            pred_mean(x) = mean(map(p->p(x)[1][dim], predicts))
+            pred_var(x) = mean(map(p->p(x)[2][dim], predicts))
+            y_points = (x->first(pred_mean([x]))).(x_points)
+            var_points = (x->first(pred_var([x]))).(x_points)
+            opt.Plots.plot!(p, x_points, y_points; ribbon=var_points, label="averaged model", color=:red)
             ylims = update_ylims(ylims, y_points)
         end
     end

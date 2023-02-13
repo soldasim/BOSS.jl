@@ -18,9 +18,6 @@ Amount of used samples:     'chain_count * sample_count'
   - leap_size: Only every `leap_size`-th sample is used from each chain. (To avoid correlated samples.)
   - parallel: Set to false to turn off parallel sampling.
 
-Note that the `n_adapts` field is redundant when used with the `NUTS` sampler which has the same field as well.
-However, not all sampler have this option (e.g. the `PG` sampler).
-
 # Sampling process
 
 In each sampled chain;
@@ -58,11 +55,15 @@ function estimate_parameters(turing::TuringBI, problem::OptimizationProblem; inf
     return (θ=θ, length_scales=length_scales, noise_vars=noise_vars)
 end
 
+# Needed for `arraydist` to work with multivariate distributions.
+Bijectors.bijector(::Turing.DistributionsAD.VectorOfMultivariate) = Bijectors.PDBijector()
+
 Turing.@model function turing_model(
     model::Parametric,
     noise_var_priors::AbstractArray,
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real};
+    x_dim::Int,
     y_dim::Int,
 )
     noise_vars ~ arraydist(noise_var_priors)
@@ -76,13 +77,14 @@ Turing.@model function turing_model(
     model::Nonparametric,
     noise_var_priors::AbstractArray,
     X::AbstractMatrix{<:Real},
-    Y::AbstractVector{<:Real};
+    Y::AbstractMatrix{<:Real};
+    x_dim::Int,
     y_dim::Int,
 )
     noise_vars ~ arraydist(noise_var_priors)
     length_scales ~ arraydist(model.length_scale_priors)
     
-    gps = [finite_gp(X, nothing, kernel, length_scales[:,i], noise_vars[i]) for i in 1:y_dim]
+    gps = [finite_gp(X, nothing, model.kernel, length_scales[:,i], noise_vars[i]) for i in 1:y_dim]
     
     Yt = transpose(Y)
     Yt ~ arraydist(gps)
@@ -92,6 +94,7 @@ Turing.@model function turing_model(
     noise_var_priors::AbstractArray,
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real};
+    x_dim::Int,
     y_dim::Int,
 )
     noise_vars ~ arraydist(noise_var_priors)
@@ -106,7 +109,7 @@ Turing.@model function turing_model(
 end
 
 function sample_params(turing::TuringBI, model::Parametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; x_dim::Int, y_dim::Int)
-    tm = turing_model(model, noise_var_priors, X, Y; y_dim)
+    tm = turing_model(model, noise_var_priors, X, Y; x_dim, y_dim)
     param_symbols = vcat(
         [Symbol("noise_vars[$i]") for i in 1:y_dim],
         [Symbol("θ[$i]") for i in 1:param_count(model)],
@@ -118,10 +121,10 @@ function sample_params(turing::TuringBI, model::Parametric, noise_var_priors::Ab
     return θ, nothing, noise_vars
 end
 function sample_params(turing::TuringBI, model::Nonparametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; x_dim::Int, y_dim::Int)    
-    tm = turing_model(model, noise_var_priors, X, Y; y_dim)
+    tm = turing_model(model, noise_var_priors, X, Y; x_dim, y_dim)
     param_symbols = vcat(
         [Symbol("noise_vars[$i]") for i in 1:y_dim],
-        reduce(vcat, [[Symbol("length_scales[$j,$i]") for j in 1:x_dim] for i in 1:y_dim]),
+        [[Symbol("length_scales[$j,$i]") for j in 1:x_dim] for i in 1:y_dim] |> x->reduce(vcat,x),
     )
 
     samples = sample_params_turing(turing, tm, param_symbols)
@@ -132,11 +135,11 @@ end
 function sample_params(turing::TuringBI, model::Semiparametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; x_dim::Int, y_dim::Int)    
     θ_len = param_count(model.parametric)
     
-    tm = turing_model(model, noise_var_priors, X, Y; y_dim)
+    tm = turing_model(model, noise_var_priors, X, Y; x_dim, y_dim)
     param_symbols = vcat(
         [Symbol("noise_vars[$i]") for i in 1:y_dim],
         [Symbol("θ[$i]") for i in 1:θ_len],
-        reduce(vcat, [[Symbol("length_scales[$j,$i]") for j in 1:x_dim] for i in 1:y_dim]),
+        [[Symbol("length_scales[$j,$i]") for j in 1:x_dim] for i in 1:y_dim] |> x->reduce(vcat,x),
     )
 
     samples = sample_params_turing(turing, tm, param_symbols)

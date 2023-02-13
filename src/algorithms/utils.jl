@@ -3,6 +3,12 @@ using LatinHypercubeSampling
 # Activation function to ensure positive optimization arguments.
 softplus(x) = log(one(x) + exp(x))
 
+# Inverse function of softplus.
+function invsoftplus(x)
+    @assert x > zero(x)
+    log(exp(x) - one(x))
+end
+
 function generate_starts_LHC(bounds::AbstractBounds, count::Int)
     @assert count > 1  # `randomLHC(count, dim)` returns NaNs if `count == 1`
     lb, ub = bounds
@@ -55,17 +61,17 @@ function opt_multistart(
 
     else
         for i in 1:multistart
-            try
+            # try
                 a, v = optimize(starts[:,i])
                 args[i] = a
                 vals[i] = v
 
-            catch e
-                info && warn_optim_err(e)
-                errors.value += 1
-                args[i] = Float64[]
-                vals[i] = -Inf
-            end
+            # catch e
+            #     info && warn_optim_err(e)
+            #     errors.value += 1
+            #     args[i] = Float64[]
+            #     vals[i] = -Inf
+            # end
         end
     end
 
