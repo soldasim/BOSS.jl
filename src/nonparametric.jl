@@ -91,14 +91,14 @@ function model_posterior(
 end
 
 function finite_gp(
-    X::AbstractMatrix{NUM},
+    X::AbstractMatrix{<:Real},
     mean::Nothing,
     kernel::Kernel,
-    length_scales::AbstractArray{NUM},
-    noise_var::NUM;
+    length_scales::AbstractArray{<:Real},
+    noise_var::Real;
     min_param_val::Real=MIN_PARAM_VALUE,
     min_noise::Real=MIN_PARAM_VALUE,
-) where {NUM<:Real}
+)
     # for numerical stability
     params = length_scales .+ min_param_val
     noise = noise_var + min_noise
@@ -107,14 +107,14 @@ function finite_gp(
     GP(kernel)(X, noise)
 end
 function finite_gp(
-    X::AbstractMatrix{NUM},
+    X::AbstractMatrix{<:Real},
     mean::Base.Callable,
     kernel::Kernel,
-    length_scales::AbstractArray{NUM},
-    noise_var::NUM;
+    length_scales::AbstractArray{<:Real},
+    noise_var::Real;
     min_param_val::Real=MIN_PARAM_VALUE,
     min_noise::Real=MIN_PARAM_VALUE,
-) where {NUM<:Real}
+)
     # for numerical stability
     params = length_scales .+ min_param_val
     noise = noise_var + min_noise

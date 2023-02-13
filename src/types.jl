@@ -103,6 +103,8 @@ Used to define a nonparametric surrogate model (Gaussian Process).
   - mean:                   A function `x::Vector{Float64} -> y::Vector{Float64}`. Zero-mean is used if mean is nothing.
   - kernel:                 An instance of `AbstractGPs.Kernel`.
   - length_scale_priors:    An array of length `y_dim` containing multivariate prior distributions of size `x_dim`.
+
+TODO: length_scale_priors have to be MvLogNormal with NUTS (for now)
 """
 struct Nonparametric{
     M<:Union{Nothing, Base.Callable},
