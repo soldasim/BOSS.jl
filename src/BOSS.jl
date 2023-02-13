@@ -27,7 +27,7 @@ function boss!(problem::OptimizationProblem;
 end
 
 function estimate_parameters!(problem::OptimizationProblem, model_fitter::ModelFitter{T}; options::BossOptions) where {T}
-    options.info && println("Estimating model parameters ...")
+    options.info && @info "Estimating model parameters ..."
 
     params = estimate_parameters(model_fitter, problem; info=options.info)
     problem.data = update_parameters!(T, problem.data; params...)
@@ -38,7 +38,7 @@ estimate_parameters(model_fitter::ModelFitter, problem::OptimizationProblem; inf
     throw(ErrorException("An `estimate_parameters` method for `$(typeof(model_fitter))` does not exist!\nImplement `estimate_parameters(model_fitter::$(typeof(model_fitter)), problem::OptimizationProblem; info::Bool)` method to fix this error."))
 
 function maximize_acquisition(problem::OptimizationProblem, model_fitter::ModelFitter, acq_maximizer::AcquisitionMaximizer; options::BossOptions)
-    options.info && println("Maximizing acquisition function ...")
+    options.info && @info "Maximizing acquisition function ..."
     
     predict = model_posterior(problem.model, problem.data)
     ϵ_samples = sample_ϵs(y_dim(problem), ϵ_sample_count(model_fitter, options))
@@ -56,13 +56,13 @@ maximize_acquisition(acq_maximizer::AcquisitionMaximizer, problem::OptimizationP
     throw(ErrorException("A `maximize_acquisition` method for `$(typeof(acq_maximizer))` does not exist!\nImplement `maximize_acquisition(acq_maximizer::$(typeof(acq_maximizer)), problem::OptimizationProblem, acq::Base.Callable; info::Bool)` method to fix this error."))
 
 function eval_objective!(x::AbstractVector{NUM}, problem::OptimizationProblem{NUM}; options::BossOptions) where {NUM}
-    options.info && println("Evaluating objective function ...")
+    options.info && @info "Evaluating objective function ..."
     
     y = problem.f(x)
     problem.data.X = hcat(problem.data.X, x)
     problem.data.Y = hcat(problem.data.Y, y)
 
-    options.info && println("New data point: $x : $y")
+    options.info && @info "New data point: $x : $y"
     return y
 end
 
@@ -109,7 +109,7 @@ update_parameters!(::T, problem::OptimizationProblem; kwargs...) where {T<:Model
     throw(ArgumentError("Inconsistent experiment data!\nCannot switch from MLE to BI or vice-versa."))
 
 function make_plot(opt::PlotOptions, problem::OptimizationProblem, acquistion::Function, acq_opt::AbstractArray{<:Real}; info::Bool)
-    info && println("Plotting ...")
+    info && @info "Plotting ..."
     opt_ = PlotOptions(
         opt.Plots,
         opt.f_true,

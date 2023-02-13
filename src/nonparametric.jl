@@ -63,27 +63,14 @@ model_posterior(model::Nonparametric, data::ExperimentDataBI) =
     model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.length_scales, eachcol(data.noise_vars))
 
 function model_posterior(
-    model::Nonparametric{M},
+    model::Nonparametric,
     X::AbstractMatrix{NUM},
     Y::AbstractMatrix{NUM},
     length_scales::AbstractMatrix{NUM},
     noise_vars::AbstractArray{NUM},
-) where {M<:Nothing, NUM<:Real}
-    posts = model_posterior.(Ref(model.mean), Ref(model.kernel), Ref(X), eachrow(Y), eachcol(length_scales), noise_vars)
-    function posterior(x)
-        rs = map.(posts, Ref(x))
-        first.(rs), last.(rs)
-    end
-end
-function model_posterior(
-    model::Nonparametric{M},
-    X::AbstractMatrix{NUM},
-    Y::AbstractMatrix{NUM},
-    length_scales::AbstractMatrix{NUM},
-    noise_vars::AbstractArray{NUM},
-) where {M<:Base.Callable, NUM<:Real}
+) where {NUM<:Real}
     y_dim = length(noise_vars)
-    means = [x->model.mean(x)[i] for i in 1:y_dim]
+    means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]
     posts = model_posterior.(means, Ref(model.kernel), Ref(X), eachrow(Y), eachcol(length_scales), noise_vars)
     function posterior(x)
         ys = map(p->p(x), posts)
@@ -146,7 +133,7 @@ end
 # Log-likelihood of GP hyperparameters.
 function model_params_loglike(model::Nonparametric, X::AbstractMatrix{NUM}, Y::AbstractMatrix{NUM}) where {NUM<:Real}
     y_dim = size(Y)[1]
-    means = [x->model.mean(x)[i] for i in 1:y_dim]
+    means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]
 
     function params_loglike(length_scales, noise_vars)
         function ll_data_dim(X, y, mean, length_scales, noise_var)

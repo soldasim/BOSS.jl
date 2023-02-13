@@ -24,6 +24,6 @@ optim_CMAES(f, bounds::Tuple, start; kwargs...) = optim_CMAES(f, Evolutionary.Bo
 
 function optim_CMAES(f, start, constraints::Evolutionary.AbstractConstraints; options=Evolutionary.Options(; Evolutionary.default_options(CMAES())...), info=false)
     res = Evolutionary.optimize(x->-f(x), constraints, start, CMAES(), options)
-    info && (Evolutionary.iterations(res) == options.iterations) && println("Warning: Maximum iterations reached while optimizing!")
+    info && (Evolutionary.iterations(res) == options.iterations) && @warn "Maximum iterations reached while optimizing!"
     return res.minimizer, f(res.minimizer)
 end

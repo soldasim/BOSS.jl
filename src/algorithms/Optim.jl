@@ -4,14 +4,20 @@ using Optim
 # - - - - - - - - Model Parameter MLE - - - - - - - -
 
 # TODO: doc
+# TODO: into docs: `Optim.Fminbox` -> bounds(priors), not `Optim.Fminbox` -> unconstrained
 struct OptimMLE{
-    A<:Optim.Fminbox,
+    A<:Optim.AbstractOptimizer,
     O<:Optim.Options,
 } <: ModelFitter{MLE}
     algorithm::A
     options::O
     multistart::Int
     parallel::Bool
+
+    function OptimMLE(a::A, o::O, m::Int, p::Bool) where {A<:Optim.AbstractOptimizer, O<:Optim.Options}
+        (A <: Optim.Fminbox) || @warn "Unconstrained optimization algorithm provided.\nAssuming θ ∈ R for all model parameters."
+        new{A,O}(a,o,m,p)
+    end
 end
 OptimMLE(;
     algorithm=Fminbox(LBFGS()),
@@ -26,7 +32,16 @@ function estimate_parameters(opt::OptimMLE, problem::OptimizationProblem; info::
     return (θ=θ, length_scales=length_scales, noise_vars=noise_vars)
 end
 
-function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Parametric, noise_var_priors::AbstractArray; x_dim::Int, y_dim::Int, info::Bool)
+# With `Optim.Fminbox` algorithm
+function opt_params(
+    loglike::Base.Callable,
+    optim::OptimMLE{A},
+    model::Parametric,
+    noise_var_priors::AbstractArray;
+    x_dim::Int,
+    y_dim::Int,
+    info::Bool
+) where {A<:Optim.Fminbox}
     split(p) = p[1:y_dim], p[y_dim+1:end]
     function ll(p)
         noise_vars, θ = split(p)
@@ -34,7 +49,7 @@ function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Parametric, 
     end
 
     starts = reduce(hcat, [vcat(
-        rand.(noise_priors),
+        rand.(noise_var_priors),
         rand.(model.param_priors),
     ) for _ in 1:optim.multistart])
     bounds = (
@@ -42,13 +57,20 @@ function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Parametric, 
         vcat(maximum.(noise_var_priors), maximum.(model.param_priors))
     )
 
-    optimize(start) = optim_maximize(ll, bounds, optim.algorithm, optim.options, start; info)
+    optimize(start) = optim_maximize(ll, bounds, optim.algorithm, optim.options, start)
     p, _ = opt_multistart(optimize, starts, optim.parallel, info)
     noise_vars, θ = split(p)
     return θ, nothing, noise_vars
 end
-function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Nonparametric, noise_var_priors::AbstractArray; x_dim::Int, y_dim::Int, info::Bool)
-    # TODO: use softplus to ensure positive length scales ?
+function opt_params(
+    loglike::Base.Callable,
+    optim::OptimMLE{A},
+    model::Nonparametric,
+    noise_var_priors::AbstractArray;
+    x_dim::Int,
+    y_dim::Int,
+    info::Bool
+) where {A<:Optim.Fminbox}
     split(p) = p[1:y_dim], reshape(p[y_dim+1:end], x_dim, y_dim)
     function ll(p)
         noise_vars, length_scales = split(p)
@@ -57,20 +79,27 @@ function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Nonparametri
 
     starts = reduce(hcat, [vcat(
         rand.(noise_var_priors),
-        reduce(vcat, rand.(model.length_scale_priors)),
+        rand.(model.length_scale_priors) |> x->reduce(vcat,x),
     ) for _ in 1:optim.multistart])
     bounds = (
-        vcat(minimum.(noise_var_priors), reduce(vcat, minimum.(model.length_scale_priors))),
-        vcat(maximum.(noise_var_priors), reduce(vcat, maximum.(model.length_scale_priors)))
+        vcat(minimum.(noise_var_priors), minimum.(model.length_scale_priors) |> x->reduce(vcat,x)),
+        vcat(maximum.(noise_var_priors), maximum.(model.length_scale_priors) |> x->reduce(vcat,x))
     )
 
-    optimize(start) = optim_maximize(ll, bounds, optim.algorithm, optim.options, start; info)
+    optimize(start) = optim_maximize(ll, bounds, optim.algorithm, optim.options, start)
     p, _ = opt_multistart(optimize, starts, optim.parallel, info)
     noise_vars, length_scales = split(p)
     return nothing, length_scales, noise_vars
 end
-function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Semiparametric, noise_var_priors::AbstractArray; x_dim::Int, y_dim::Int, info::Bool)
-    # TODO: use softplus to ensure positive length scales ?
+function opt_params(
+    loglike::Base.Callable,
+    optim::OptimMLE{A},
+    model::Semiparametric,
+    noise_var_priors::AbstractArray;
+    x_dim::Int,
+    y_dim::Int,
+    info::Bool
+) where {A<:Optim.Fminbox}
     θ_len = param_count(model.parametric)
     split(p) = p[1:y_dim], p[y_dim+1:y_dim+θ_len], reshape(p[y_dim+θ_len+1:end], x_dim, y_dim)
     function ll(p)
@@ -81,14 +110,96 @@ function opt_params(loglike::Base.Callable, optim::OptimMLE, model::Semiparametr
     starts = reduce(hcat, [vcat(
         rand.(noise_var_priors),
         rand.(model.parametric.param_priors),
-        reduce(vcat, rand.(model.nonparametric.length_scale_priors)),
+        rand.(model.nonparametric.length_scale_priors) |> x->reduce(vcat,x),
     ) for _ in 1:optim.multistart])
     bounds = (
-        vcat(minimum.(noise_var_priors), minimum.(model.parametric.param_priors), reduce(vcat, minimum.(model.nonparametric.length_scale_priors))),
-        vcat(maximum.(noise_var_priors), maximum.(model.parametric.param_priors), reduce(vcat, maximum.(model.nonparametric.length_scale_priors)))
+        vcat(minimum.(noise_var_priors), minimum.(model.parametric.param_priors), minimum.(model.nonparametric.length_scale_priors) |> x->reduce(vcat,x)),
+        vcat(maximum.(noise_var_priors), maximum.(model.parametric.param_priors), maximum.(model.nonparametric.length_scale_priors) |> x->reduce(vcat,x))
     )
 
-    optimize(start) = optim_maximize(ll, bounds, optim.algorithm, optim.options, start; info)
+    optimize(start) = optim_maximize(ll, bounds, optim.algorithm, optim.options, start)
+    p, _ = opt_multistart(optimize, starts, optim.parallel, info)
+    noise_vars, θ, length_scales = split(p)
+    return θ, length_scales, noise_vars
+end
+
+# With unconstrained algorithm
+function opt_params(
+    loglike::Base.Callable,
+    optim::OptimMLE,
+    model::Parametric,
+    noise_var_priors::AbstractArray;
+    x_dim::Int,
+    y_dim::Int,
+    info::Bool
+)
+    # `softplus` used to keep noise variance positive
+    split(p) = softplus.(p[1:y_dim]), p[y_dim+1:end]
+    function ll(p)
+        noise_vars, θ = split(p)
+        loglike(θ, noise_vars)
+    end
+
+    starts = reduce(hcat, [vcat(
+        rand.(noise_var_priors) .|> invsoftplus,
+        rand.(model.param_priors),
+    ) for _ in 1:optim.multistart])
+
+    optimize(start) = optim_maximize(ll, nothing, optim.algorithm, optim.options, start)
+    p, _ = opt_multistart(optimize, starts, optim.parallel, info)
+    noise_vars, θ = split(p)
+    return θ, nothing, noise_vars
+end
+function opt_params(
+    loglike::Base.Callable,
+    optim::OptimMLE,
+    model::Nonparametric,
+    noise_var_priors::AbstractArray;
+    x_dim::Int,
+    y_dim::Int,
+    info::Bool
+)
+    # `softplus` used to keep noise variance and length scales positive
+    split(p) = softplus.(p[1:y_dim]), softplus.(reshape(p[y_dim+1:end], x_dim, y_dim))
+    function ll(p)
+        noise_vars, length_scales = split(p)
+        loglike(length_scales, noise_vars)
+    end
+
+    starts = reduce(hcat, [vcat(
+        rand.(noise_var_priors) .|> invsoftplus,
+        rand.(model.length_scale_priors) |> x->reduce(vcat,x) .|> invsoftplus,
+    ) for _ in 1:optim.multistart])
+
+    optimize(start) = optim_maximize(ll, nothing, optim.algorithm, optim.options, start)
+    p, _ = opt_multistart(optimize, starts, optim.parallel, info)
+    noise_vars, length_scales = split(p)
+    return nothing, length_scales, noise_vars
+end
+function opt_params(
+    loglike::Base.Callable,
+    optim::OptimMLE,
+    model::Semiparametric,
+    noise_var_priors::AbstractArray;
+    x_dim::Int,
+    y_dim::Int,
+    info::Bool
+)
+    θ_len = param_count(model.parametric)
+    # `softplus` used to keep noise variance and length scales positive
+    split(p) = softplus.(p[1:y_dim]), p[y_dim+1:y_dim+θ_len], softplus.(reshape(p[y_dim+θ_len+1:end], x_dim, y_dim))
+    function ll(p)
+        noise_vars, θ, length_scales = split(p)
+        loglike(θ, length_scales, noise_vars)
+    end
+
+    starts = reduce(hcat, [vcat(
+        rand.(noise_var_priors) .|> invsoftplus,
+        rand.(model.parametric.param_priors),
+        rand.(model.nonparametric.length_scale_priors) |> x->reduce(vcat,x) .|> invsoftplus,
+    ) for _ in 1:optim.multistart])
+
+    optimize(start) = optim_maximize(ll, nothing, optim.algorithm, optim.options, start)
     p, _ = opt_multistart(optimize, starts, optim.parallel, info)
     noise_vars, θ, length_scales = split(p)
     return θ, length_scales, noise_vars
@@ -115,7 +226,7 @@ OptimMaximizer(;
 ) = OptimMaximizer(algorithm, options, multistart, parallel)
 
 struct OptimDomain{
-    C<:Union{Optim.AbstractConstraints, Tuple}
+    C<:Union{Optim.AbstractConstraints, Tuple, Nothing}
 } <: Domain
     cons::C
 end
@@ -124,7 +235,7 @@ in_domain(domain::OptimDomain, x) = in_domain(domain.cons, x)
 
 function maximize_acquisition(optim::OptimMaximizer, problem::OptimizationProblem, acq::Base.Callable; info::Bool)
     starts = generate_starts_LHC(get_bounds(problem.domain), optim.multistart)
-    optimize(start) = optim_maximize(acq, problem.domain.cons, optim.algorithm, optim.options, start; info)
+    optimize(start) = optim_maximize(acq, problem.domain.cons, optim.algorithm, optim.options, start)
     arg, _ = opt_multistart(optimize, starts, optim.parallel, info)
     return arg
 end
@@ -137,29 +248,30 @@ function optim_maximize(
     cons::Optim.AbstractConstraints,
     alg::Optim.AbstractOptimizer,
     options::Optim.Options,
-    start::AbstractArray{<:Real};
-    info::Bool,
+    start::AbstractArray{<:Real},
 )
     result = Optim.optimize(p -> -f(p), cons, start, alg, options)
-    info && check_convergence(result)
     return Optim.minimizer(result), -Optim.minimum(result)
 end
-
 function optim_maximize(
     f::Base.Callable,
     bounds::Tuple,
     alg::Optim.Fminbox,
     options::Optim.Options,
-    start::AbstractArray{<:Real};
-    info::Bool,
+    start::AbstractArray{<:Real},
 )
     result = Optim.optimize(p -> -f(p), bounds..., start, alg, options)
-    info && check_convergence(result)
     return Optim.minimizer(result), -Optim.minimum(result)
 end
-
-function check_convergence(result::Optim.OptimizationResults)
-    Optim.x_converged(result) || @warn "Optimization run did not converge!"
+function optim_maximize(
+    f::Base.Callable,
+    ::Nothing,
+    alg::Optim.AbstractOptimizer,
+    options::Optim.Options,
+    start::AbstractArray{<:Real},
+)
+    result = Optim.optimize(p -> -f(p), start, alg, options)
+    return Optim.minimizer(result), -Optim.minimum(result)
 end
 
 function get_bounds(domain::Optim.TwiceDifferentiableConstraints)
