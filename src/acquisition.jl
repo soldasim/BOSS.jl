@@ -31,7 +31,7 @@ EI(x::AbstractVector{<:Real}, fitness::Fitness, posterior, ϵ_samples::AbstractA
 
 EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::LinFitness, ϵ_samples::AbstractArray{<:Real}; best_yet) = EI(mean, var, fitness; best_yet)
 # https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7352306 Eq(44)
-function EI(mean, var, fitness::LinFitness; best_yet)
+function EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::LinFitness; best_yet::Real)
     μf = fitness.coefs' * mean
     σf = sqrt((fitness.coefs .^ 2)' * var)
     
@@ -39,7 +39,7 @@ function EI(mean, var, fitness::LinFitness; best_yet)
     return (μf - best_yet) * cdf(Distributions.Normal(), norm_ϵ) + σf * pdf(Distributions.Normal(), norm_ϵ)
 end
 
-function EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::NonlinFitness, ϵ_samples::AbstractMatrix{<:Real}; best_yet::AbstractVector{<:Real})
+function EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::NonlinFitness, ϵ_samples::AbstractMatrix{<:Real}; best_yet::Real)
     pred_samples = [mean .+ (var .* ϵ) for ϵ in eachcol(ϵ_samples)]
     return sum(max.(0, fitness.(pred_samples) .- best_yet)) / size(ϵ_samples)[2]
 end

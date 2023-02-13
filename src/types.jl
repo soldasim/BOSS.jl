@@ -78,6 +78,10 @@ struct LinModel{
     lift::L
     param_priors::D
 end
+LinModel(;
+    lift,
+    param_priors,
+) = LinModel(lift, param_priors)
 
 """
 Used to define a parametric surrogate model.
@@ -95,6 +99,10 @@ struct NonlinModel{
     predict::P
     param_priors::D
 end
+NonlinModel(;
+    predict,
+    param_priors,
+) = NonlinModel(predict, param_priors)
 
 """
 Used to define a nonparametric surrogate model (Gaussian Process).
