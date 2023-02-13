@@ -43,10 +43,8 @@ function plot_y_slice(opt::PlotOptions, problem::OptimizationProblem, dim::Int)
             end
 
             pred_mean(x) = mean(map(p->p(x)[1][dim], predicts))
-            pred_var(x) = mean(map(p->p(x)[2][dim], predicts))
             y_points = (x->first(pred_mean([x]))).(x_points)
-            var_points = (x->first(pred_var([x]))).(x_points)
-            opt.Plots.plot!(p, x_points, y_points; ribbon=var_points, label="averaged model", color=:red)
+            opt.Plots.plot!(p, x_points, y_points; label="averaged model", color=:red)
             ylims = update_ylims(ylims, y_points)
         end
     end

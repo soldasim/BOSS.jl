@@ -1,6 +1,12 @@
-using BOSS
 using Test
+using BOSS
+using Distributions
+using LinearAlgebra
 
 @testset "BOSS.jl" begin
-    # Write your tests here.
+    include("acquisition.jl")
+    include("parametric.jl")
+    include("nonparametric.jl")
+    include("semiparametric.jl")
+    include("term_cond.jl")
 end

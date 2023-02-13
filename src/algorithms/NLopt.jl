@@ -19,27 +19,27 @@ end
 
 # UNUSED
 
-function optim_NLopt(f, start; optimizer=nothing, info=false)
-    isnothing(optimizer) && (optimizer = Opt(:LD_MMA, length(start)))
+# function optim_NLopt(f, start; optimizer=nothing, info=false)
+#     isnothing(optimizer) && (optimizer = Opt(:LD_MMA, length(start)))
     
-    function f_nlopt(x::Vector, grad::Vector)
-        if length(grad) > 0
-            grad .= ForwardDiff.gradient(f, x)
-        end
-        return f(x)
-    end
+#     function f_nlopt(x::Vector, grad::Vector)
+#         if length(grad) > 0
+#             grad .= ForwardDiff.gradient(f, x)
+#         end
+#         return f(x)
+#     end
     
-    optimizer.max_objective = f_nlopt
-    val, arg, ret = NLopt.optimize(optimizer, start)
-    info && check_nlopt_convergence(ret)
-    return arg, val
-end
+#     optimizer.max_objective = f_nlopt
+#     val, arg, ret = NLopt.optimize(optimizer, start)
+#     info && check_nlopt_convergence(ret)
+#     return arg, val
+# end
 
-function check_nlopt_convergence(ret)
-    if ret != :XTOL_REACHED
-        @warn "Optimization terminated with return value `$ret`."
-    end
-end
+# function check_nlopt_convergence(ret)
+#     if ret != :XTOL_REACHED
+#         @warn "Optimization terminated with return value `$ret`."
+#     end
+# end
 
 # TODO remove
 # # TODO: Check if parallelization is safe.

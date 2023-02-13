@@ -101,7 +101,7 @@ version = "0.4.6"
 
 [[deps.BOSS]]
 deps = ["AbstractGPs", "Bijectors", "Distributions", "DistributionsAD", "Evolutionary", "ForwardDiff", "LatinHypercubeSampling", "NLopt", "Optim", "Suppressor", "Turing", "Zygote"]
-path = "D:\\plzen\\sandbox\\boss"
+path = ".."
 uuid = "15052f3f-a82a-4ca3-bbc4-f478a3bd1ae2"
 version = "0.1.0"
 
