@@ -4,22 +4,6 @@ using ForwardDiff
 
 const MIN_PARAM_VALUE = 1e-6
 
-"""
-Construct a `BOSS.Nonparametric` model by adding the given mean function an existing nonparametric model.
-"""
-add_mean(m::Nonparametric{Nothing}, mean::Base.Callable) =
-    Nonparametric(mean, m.kernel, m.length_scale_priors)
-
-"""
-Construct a new `BOSS.Nonparametric` model by wrapping its `kernel` in `BOSS.DiscreteKernel`
-to define some dimensions as discrete.
-"""
-make_discrete(m::Nonparametric, discrete::AbstractArray{<:Bool}) =
-    Nonparametric(m.mean, make_discrete(m.kernel, discrete), m.length_scale_priors)
-
-make_discrete(k::Kernel, discrete::AbstractArray{<:Bool}) = DiscreteKernel(k, discrete)
-make_discrete(k::DiscreteKernel, discrete::AbstractArray{<:Bool}) = k
-
 # A workaround: https://discourse.julialang.org/t/zygote-gradient-does-not-work-with-abstractgps-custommean/87815/7
 struct CustomMean{Tf} <: AbstractGPs.MeanFunction
     f::Tf
@@ -77,6 +61,22 @@ end
 function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscales::AbstractVector{<:Real})
     return DiscreteKernel(with_lengthscale(dk.kernel, lengthscales), dk.dims)
 end
+
+"""
+Construct a `BOSS.Nonparametric` model by adding the given mean function an existing nonparametric model.
+"""
+add_mean(m::Nonparametric{Nothing}, mean::Base.Callable) =
+    Nonparametric(mean, m.kernel, m.length_scale_priors)
+
+"""
+Construct a new `BOSS.Nonparametric` model by wrapping its `kernel` in `BOSS.DiscreteKernel`
+to define some dimensions as discrete.
+"""
+make_discrete(m::Nonparametric, discrete::AbstractArray{<:Bool}) =
+    Nonparametric(m.mean, make_discrete(m.kernel, discrete), m.length_scale_priors)
+
+make_discrete(k::Kernel, discrete::AbstractArray{<:Bool}) = DiscreteKernel(k, discrete)
+make_discrete(k::DiscreteKernel, discrete::AbstractArray{<:Bool}) = k
 
 model_posterior(model::Nonparametric, data::ExperimentDataMLE) =
     model_posterior(model, data.X, data.Y, data.length_scales, data.noise_vars)

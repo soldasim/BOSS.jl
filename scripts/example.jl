@@ -25,12 +25,25 @@ end
 # Let's assume we know that x->y is a periodic function, so we use `cos` there.
 # We don't know anything about x->z, so we put a constant 0 there.
 # (That is equivalent to using a simple GP with zero-mean to model x->z.)
-function parametric_model()
+function good_parametric_model()
     y(x, θ) = θ[1] * x[1] * cos(θ[2] * x[1]) + θ[3]
     z(x, θ) = 0.
     predict(x, θ) = [y(x, θ), z(x, θ)]
 
-    θ_priors = [Normal(0., 1.), Normal(0., 1.), Normal(0., 10.)]
+    θ_priors = fill(Normal(0., 1.), 3)
+
+    BOSS.NonlinModel(predict, θ_priors)
+end
+# You can also try how the Parametric and Semiparametric models behave
+# when we provide a completely wrong parametric model.
+#
+# Here we wrongly assume that the objective function will have a parabolic shape.
+function bad_parametric_model()
+    y(x, θ) = θ[1] * x[1]^2 + θ[2] * x[1] + θ[3]
+    z(x, θ) = 0.
+    predict(x, θ) = [y(x, θ), z(x, θ)]
+
+    θ_priors = fill(Normal(0., 1.), 3)
 
     BOSS.NonlinModel(predict, θ_priors)
 end
@@ -39,7 +52,7 @@ end
 noise_var_priors() = fill(LogNormal(-2.3, 1.), 2)
 length_scale_priors() = fill(MvLogNormal(0.1*ones(1), 1.0*ones(1)), 2)
 
-# Initial data.
+# Generate some initial data.
 function gen_data(count, bounds)
     X = reduce(hcat, [BOSS.random_start(bounds) for i in 1:count])
     Y = reduce(hcat, blackbox.(eachcol(X)))
@@ -51,10 +64,12 @@ function opt_problem(init_data=4)
     bounds = ([0.], [20.])
     data = gen_data(init_data, bounds)
 
-    # You can try out the parametric, nonparametric (GP) and semiparametric (param. + GP) models:
-    model = BOSS.Semiparametric(parametric_model(), BOSS.Nonparametric(; length_scale_priors=length_scale_priors()))
-    # model = BOSS.Nonparametric(; length_scale_priors=length_scale_priors())
-    # model = parametric_model()
+    # Try changing the parametric model here.
+    model = BOSS.Semiparametric(
+        good_parametric_model(),
+        # bad_parametric_model(),
+        BOSS.Nonparametric(; length_scale_priors=length_scale_priors())
+    )
 
     BOSS.OptimizationProblem(;
         fitness = BOSS.LinFitness([1, 0]),
@@ -68,39 +83,59 @@ function opt_problem(init_data=4)
     )
 end
 
-function example(problem=opt_problem(), iters=3)
-    # Algorithm selection and hyperparameters:
-    # You can try changing some. :)
+default_options = BOSS.BossOptions(;
+    info=true,
+    plot_options=BOSS.PlotOptions(Plots, f_true=x->blackbox(x; noise=0.)),
+)
 
+"""
+An example usage of the BOSS algorithm with a MLE algorithm.
+"""
+function example_mle(problem=opt_problem(4), iters=3;
+    parallel=true,
+    options=default_options,
+)
+    # Algorithm selection and hyperparameters:
     model_fitter = BOSS.OptimMLE(;
-        # algorithm=Fminbox(LBFGS()),
         algorithm=NelderMead(),
         options=Optim.Options(; outer_x_tol=0.01),
         multistart=200,
-        parallel=true,
+        parallel,
     )
-    # model_fitter = BOSS.TuringBI(;
-    #     # sampler=NUTS(1000, 0.65),
-    #     sampler=Turing.PG(20),
-    #     warmup=400,
-    #     samples_in_chain=10,
-    #     chain_count=8,
-    #     leap_size=5,
-    #     parallel=true,
-    # )
-
     acq_maximizer = BOSS.OptimMaximizer(;
         algorithm=Fminbox(LBFGS()),
         options=Optim.Options(; outer_x_tol=0.01),
         multistart=200,
-        parallel=true,
+        parallel,
     )
-    
     term_cond = BOSS.IterLimit(iters)
-    options = BOSS.BossOptions(;
-        info=true,
-        plot_options=BOSS.PlotOptions(Plots, f_true=x->blackbox(x; noise=0.)),
+
+    # Run BOSS:
+    boss!(problem; model_fitter, acq_maximizer, term_cond, options)
+end
+"""
+An example usage of the BOSS algorithm with a BI algorithm.
+"""
+function example_bi(problem=opt_problem(4), iters=3;
+    parallel=true,
+    options=default_options,
+)
+    # Algorithm selection and hyperparameters:
+    model_fitter = BOSS.TuringBI(;
+        sampler=PG(20),
+        warmup=1000,
+        samples_in_chain=10,
+        chain_count=8,
+        leap_size=5,
+        parallel,
     )
+    acq_maximizer = BOSS.OptimMaximizer(;
+        algorithm=Fminbox(LBFGS()),
+        options=Optim.Options(; outer_x_tol=0.01),
+        multistart=20,
+        parallel,
+    )
+    term_cond = BOSS.IterLimit(iters)
 
     # Run BOSS:
     boss!(problem; model_fitter, acq_maximizer, term_cond, options)

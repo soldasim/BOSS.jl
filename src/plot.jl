@@ -99,6 +99,8 @@ function plot_y_slice(opt::PlotOptions, problem::OptimizationProblem, dim::Int)
         opt.Plots.scatter!(p, vec(problem.data.X), vec(problem.data.Y[dim,:]); label="data", color=:yellow, markersize=2.)
     end
 
+    add = maximum(abs.(ylims)) / 10.
+    ylims = ylims[1]-add, ylims[2]+add
     opt.Plots.plot!(p; ylims)
     return p
 end
