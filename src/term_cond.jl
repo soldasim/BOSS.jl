@@ -1,4 +1,10 @@
+"""
+Terminates the BOSS algorithm after predefined number of iterations.
 
+Use the constructor `IterLimit(iter_max)` to set the iterations limit to `iter_max`.
+
+See also: [`BOSS.boss!`](@ref)
+"""
 mutable struct IterLimit <: TermCond
     iter::Int
     iter_max::Int

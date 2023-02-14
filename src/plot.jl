@@ -1,3 +1,31 @@
+"""
+    BOSS.plot_problem(opt, problem)
+
+Plot the current state of the given optimization problem.
+
+Only works with 1-dimensional input domain, but supports multidimensional output domain.
+
+The module `Plots` of the Plots.jl library has to be passed via the `opt` argument.
+This is done so that BOSS does not depend on Plots and is kept more lightweight.
+
+The plot includes the collected data and the fitted model contained within the `problem` argument.
+
+The current model fit is plotted if the parameters were found via a MLE optimizer.
+The model samples and an averaged model is plotted if the parameters where sampled via a BI sampler.
+
+Additional information including the true objective function, the acquisition function
+and the acquisition function maximum (found by the acquisition maximizer)
+is plotted if passed via the `opt` argument.
+
+Additional settings can be modified using the `opt` argument as well.
+
+See also: [`BOSS.PlotOptions`](@ref), [`BOSS.OptimizationProblem`](@ref)
+
+# Example
+```
+BOSS.plot_problem(PlotOptions(Plots; f_true, acquisition, acq_opt), problem)
+```
+"""
 function plot_problem(opt::PlotOptions, problem::OptimizationProblem)
     @assert x_dim(problem) == 1
 
@@ -13,6 +41,10 @@ function plot_problem(opt::PlotOptions, problem::OptimizationProblem)
     return p
 end
 
+```
+Create a plot of a single ``y`` dimension containing the gathered data, objective function,
+constraints on ``y`` and the fitted model.
+```
 function plot_y_slice(opt::PlotOptions, problem::OptimizationProblem, dim::Int)
     @assert x_dim(problem) == 1
     lb, ub = first.(get_bounds(problem.domain))
@@ -71,6 +103,9 @@ function plot_y_slice(opt::PlotOptions, problem::OptimizationProblem, dim::Int)
     return p
 end
 
+```
+Create the acquisition function plot.
+```
 function plot_acquisition(opt::PlotOptions, problem::OptimizationProblem)
     @assert x_dim(problem) == 1
     lb, ub = first.(get_bounds(problem.domain))
@@ -97,7 +132,9 @@ function update_ylims(ylims, y_points)
     min(ymin, ylims[1]), max(ymax, ylims[2])
 end
 
-# Return points distributed evenly over a given logarithmic range.
+```
+Return points distributed evenly over a given logarithmic range.
+```
 function log_range(a, b, len)
     a = log10.(a)
     b = log10.(b)

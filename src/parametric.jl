@@ -20,8 +20,14 @@ Base.convert(::Type{NonlinModel}, model::LinModel) =
     NonlinModel(
         (x, θ) -> model(x, θ),
         model.param_priors,
-        model.param_count,
+        model.discrete,
     )
+
+# TODO: Implement a solution for parametric model discretization.
+"""
+Not implemented yet for `BOSS.Parametric` models.
+"""
+make_discrete(m::Parametric, discrete::AbstractArray{<:Bool}) = m
 
 model_posterior(model::Parametric, data::ExperimentDataMLE) =
     model_posterior(model, data.θ, data.noise_vars)
@@ -29,6 +35,12 @@ model_posterior(model::Parametric, data::ExperimentDataMLE) =
 model_posterior(model::Parametric, data::ExperimentDataBI) = 
     model_posterior.(Ref(model), eachcol(data.θ), eachcol(data.noise_vars))
 
+"""
+Return the posterior predictive distribution of the model.
+
+The posterior is a function `mean, var = predict(x)`
+which gives the mean and variance of the predictive distribution as a function of `x`.
+"""
 model_posterior(
     model::Parametric,
     θ::AbstractVector{NUM},
@@ -36,14 +48,20 @@ model_posterior(
 ) where {NUM<:Real} =
     predict(x) = model(x, θ), noise_vars
 
-# Log-likelihood of model parameters and noise variance.
+"""
+Return the log-likelihood of the model parameters and the noise variance
+as a function `ll = loglike(θ, noise_vars)`.
+"""
 function model_loglike(model::Parametric, noise_var_priors::AbstractArray, data::ExperimentData)
     params_loglike = model_params_loglike(model, data.X, data.Y)
     noise_loglike(noise_vars) = mapreduce(p -> logpdf(p...), +, zip(noise_var_priors, noise_vars))
     loglike(θ, noise_vars) = params_loglike(θ, noise_vars) + noise_loglike(noise_vars)
 end
 
-# Log-likelihood of model parameters.
+"""
+Return the log-likelihood of the model parameters (without the likelihood of the noise variance)
+as a function `ll = loglike(θ, noise_vars)`.
+"""
 function model_params_loglike(model::Parametric, X::AbstractMatrix{NUM}, Y::AbstractMatrix{NUM}) where {NUM<:Real}
     function params_loglike(θ, noise_vars)
         ll_datum(x, y) = logpdf(MvNormal(model(x, θ), noise_vars), y)

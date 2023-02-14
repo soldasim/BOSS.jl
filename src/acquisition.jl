@@ -1,6 +1,13 @@
+using Distributions
 
+"""
+Return random deviations ϵ by sampling from a standard normal distribution.
+"""
 sample_ϵs(y_dim::Int, sample_count::Int) = rand(Distributions.Normal(), (y_dim, sample_count))
 
+"""
+Construct the acquistion function which is maximized to find the optimal next evaluation point x. 
+"""
 acquisition(fitness::Fitness, posterior::Base.Callable, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
     acq(x) = 0.
 
@@ -23,10 +30,17 @@ function acquisition(fitness::Fitness, posteriors::AbstractArray{<:Base.Callable
     acq(x) = mapreduce(a -> a(x), +, acqs) / length(acqs)
 end
 
+"""
+Compute the probability that the feasibility constraints on `y` will be satisfied
+if the objective function `y=f(x)` is evaluated at `x`.
+"""
 feas_prob(x::AbstractVector{<:Real}, posterior, constraints) = feas_prob(posterior(x)..., constraints)
 feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::Nothing) = 1.
 feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::AbstractVector{<:Real}) = prod(cdf.(Distributions.Normal.(mean, var), constraints))
 
+"""
+Compute the Expected Improvement in fitness achieved by evaluating the objective function at `x`.
+"""
 EI(x::AbstractVector{<:Real}, fitness::Fitness, posterior, ϵ_samples::AbstractArray{<:Real}; best_yet) = EI(posterior(x)..., fitness, ϵ_samples; best_yet)
 
 EI(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, fitness::LinFitness, ϵ_samples::AbstractArray{<:Real}; best_yet) = EI(mean, var, fitness; best_yet)

@@ -4,6 +4,22 @@ using ForwardDiff
 
 const MIN_PARAM_VALUE = 1e-6
 
+"""
+Construct a `BOSS.Nonparametric` model by adding the given mean function an existing nonparametric model.
+"""
+add_mean(m::Nonparametric{Nothing}, mean::Base.Callable) =
+    Nonparametric(mean, m.kernel, m.length_scale_priors)
+
+"""
+Construct a new `BOSS.Nonparametric` model by wrapping its `kernel` in `BOSS.DiscreteKernel`
+to define some dimensions as discrete.
+"""
+make_discrete(m::Nonparametric, discrete::AbstractArray{<:Bool}) =
+    Nonparametric(m.mean, make_discrete(m.kernel, discrete), m.length_scale_priors)
+
+make_discrete(k::Kernel, discrete::AbstractArray{<:Bool}) = DiscreteKernel(k, discrete)
+make_discrete(k::DiscreteKernel, discrete::AbstractArray{<:Bool}) = k
+
 # A workaround: https://discourse.julialang.org/t/zygote-gradient-does-not-work-with-abstractgps-custommean/87815/7
 struct CustomMean{Tf} <: AbstractGPs.MeanFunction
     f::Tf
@@ -20,7 +36,13 @@ It is used as a wrapper around any other `AbstractGPs.Kernel`.
 The field `dims` can be used to specify only some dimension as discrete.
 All dimensions are considered as discrete if `dims == nothing`.
 
-## Examples:
+This function is used internally by the BOSS algorithm.
+Use the `discrete` field of the `BOSS.OptimizationProblem` structure
+to define discrete dimension instead of this structure.
+
+See also: `BOSS.OptimizationProblem`(@ref)
+
+# Examples:
 ```julia-repl
 julia> DiscreteKernel(Matern52Kernel())
 DiscreteKernel(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), nothing)
@@ -62,6 +84,12 @@ model_posterior(model::Nonparametric, data::ExperimentDataMLE) =
 model_posterior(model::Nonparametric, data::ExperimentDataBI) =
     model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.length_scales, eachcol(data.noise_vars))
 
+"""
+Return the posterior predictive distribution of the Gaussian Process.
+
+The posterior is a function `mean, var = predict(x)`
+which gives the mean and variance of the predictive distribution as a function of `x`.
+"""
 function model_posterior(
     model::Nonparametric,
     X::AbstractMatrix{NUM},
@@ -90,6 +118,9 @@ function model_posterior(
     posterior(x) = first.(mean_and_var(posterior_gp(hcat(x))))
 end
 
+"""
+Construct a finite GP via the AbstractGPs.jl library.
+"""
 function finite_gp(
     X::AbstractMatrix{<:Real},
     mean::Nothing,
@@ -123,14 +154,20 @@ function finite_gp(
     GP(CustomMean(mean), kernel)(X, noise)
 end
 
-# Log-likelihood of GP hyperparameters and noise variance.
+"""
+Return the log-likelihood of the GP hyperparameters and the noise variance
+as a function `ll = loglike(length_scales, noise_vars)`.
+"""
 function model_loglike(model::Nonparametric, noise_var_priors::AbstractArray, data::ExperimentData)
     params_loglike = model_params_loglike(model, data.X, data.Y)
     noise_loglike(noise_vars) = mapreduce(p -> logpdf(p...), +, zip(noise_var_priors, noise_vars))
     loglike(length_scales, noise_vars) = params_loglike(length_scales, noise_vars) + noise_loglike(noise_vars)
 end
 
-# Log-likelihood of GP hyperparameters.
+"""
+Return the log-likelihood of the GP hyperparameters (without the likelihood of the noise variance)
+as a function `ll = loglike(length_scales, noise_vars)`.
+"""
 function model_params_loglike(model::Nonparametric, X::AbstractMatrix{NUM}, Y::AbstractMatrix{NUM}) where {NUM<:Real}
     y_dim = size(Y)[1]
     means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]

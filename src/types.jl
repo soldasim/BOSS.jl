@@ -5,17 +5,26 @@ const AbstractBounds = Tuple{<:AbstractArray{<:Real}, <:AbstractArray{<:Real}}
 
 # - - - - - - - - Fitness Function - - - - - - - -
 
+"""
+An abstract type for a fitness function
+measuring the quality of an output `y` of the objective function.
+
+See also: [`BOSS.LinFitness`](@ref), [`BOSS.NonlinFitness`](@ref)
+"""
 abstract type Fitness end
 
 """
-Used to define a linear fitness function.
+Used to define a linear fitness function 
+measuring the quality of an output `y` of the objective function.
 
-Provides better performance than using the more general `NonlinFitness`.
+Provides better performance than using the more general `BOSS.NonlinFitness`.
+
+See also: [`BOSS.NonlinFitness`](@ref)
 
 # Example
-A fitness function 'f(y) = y[1] + a * y[2] + b * y[3]' can be defined as:
+A fitness function `f(y) = y[1] + a * y[2] + b * y[3]` can be defined as:
 ```julia-repl
-julia> LinFitness([1., a, b])
+julia> BOSS.LinFitness([1., a, b])
 ```
 """
 struct LinFitness{
@@ -26,9 +35,12 @@ end
 (f::LinFitness)(y) = f.coefs' * y
 
 """
-Used to define a fitness function.
+Used to define a fitness function
+measuring the quality of an output `y` of the objective function.
 
-If your fitness function is linear, use `LinFitness` for better performance.
+If your fitness function is linear, use `BOSS.LinFitness` for better performance.
+
+See also: [`BOSS.LinFitness`](@ref)
 
 # Example
 ```julia-repl
@@ -45,17 +57,33 @@ end
 
 # - - - - - - - - Surrogate Model - - - - - - - -
 
+"""
+An abstract type for a surrogate model approximating the objective function.
+
+See also:
+[`BOSS.LinModel`](@ref), [`BOSS.NonlinModel`](@ref),
+[`BOSS.Nonparametric`](@ref),
+[`BOSS.Semiparametric`](@ref)
+"""
 abstract type SurrogateModel end
 
+"""
+An abstract type for parametric surrogate models.
+
+See also: [`BOSS.LinModel`](@ref), [`BOSS.NonlinModel`](@ref)
+"""
 abstract type Parametric <: SurrogateModel end
 
+"""
+Return the number of model parameters of the given model.
+"""
 param_count(model::Parametric) = length(model.param_priors)
 
 """
-Used to define a linear parametric surrogate model.
+Used to define a parametric surrogate model linear in its parameters.
 
-This model definition will provide better performance than the more general 'NonlinModel' in the future.
-This feature is not implemented yet so it is equivalent to using `NonlinModel` for now.
+This model definition will provide better performance than the more general 'BOSS.NonlinModel' in the future.
+This feature is not implemented yet so it is equivalent to using `BOSS.NonlinModel` for now.
 
 The linear model is defined as
     ϕs = lift(x)
@@ -67,9 +95,8 @@ where
     ϕs = [ϕ₁, ..., ϕₘ], ϕᵢ = [ϕᵢ₁, ..., ϕᵢₚ]
      n, m, p ∈ R.
 
-# Fields
-  - lift:           A function `x::Vector{Float64} -> ϕs::Vector{Vector{Float64}}`
-  - param_priors:   A vector of priors for all params [θ₁₁,θ₁₂,...,θ₁ₚ, θ₂₁,θ₂₂,...,θ₂ₚ, ..., θₘ₁,θₘ₂,...,θₘₚ].
+Define the `lift` function according to the model definition above.
+Provide the model parameter priors in the `param_priors` field as an array of distributions.
 """
 struct LinModel{
     L<:Base.Callable,
@@ -86,11 +113,10 @@ LinModel(;
 """
 Used to define a parametric surrogate model.
 
-If your model is linear, you can use `LinModel` which will provide better performance in the future. (Not yet implemented.)
+If your model is linear, you can use `BOSS.LinModel` which will provide better performance in the future. (Not yet implemented.)
 
-# Fields
-  - predict:        A function `x::Vector{Float64}, params::Vector{Float64} -> y::Vector{Float64}`
-  - param_priors:   A vector of priors for each model parameter.
+Define the `predict` funtion as `y = predict(x,θ)` where `θ` are the model parameters.
+Provide the model parameter priors in the `param_priors` field as an array of distributions.
 """
 struct NonlinModel{
     P<:Base.Callable,
@@ -107,20 +133,23 @@ NonlinModel(;
 """
 Used to define a nonparametric surrogate model (Gaussian Process).
 
-# Fields
-  - mean:                   A function `x::Vector{Float64} -> y::Vector{Float64}`. Zero-mean is used if mean is nothing.
-  - kernel:                 An instance of `AbstractGPs.Kernel`.
-  - length_scale_priors:    An array of length `y_dim` containing multivariate prior distributions of size `x_dim`.
+The `mean` function is used as the mean of the GP.
+Zero-mean is used if `mean` is nothing.
 
-TODO: length_scale_priors have to be MvLogNormal with NUTS (for now)
+You can select a custom kernel via the `kernel` field.
+
+The length scale priors of the GP have to be provided
+as an array of `y_dim` multivariate distributions of dimension `x_dim`
+where `x_dim` and `y_dim` are the dimensions of the input and output spaces respectively.
+
+Only `MvLogNormal` length scale priors are supported with the `Turing.NUTS` sampler for now.
 """
 struct Nonparametric{
     M<:Union{Nothing, Base.Callable},
-    K<:Kernel,
     D<:AbstractArray,
 } <: SurrogateModel
     mean::M
-    kernel::K
+    kernel::Kernel
     length_scale_priors::D
 end
 Nonparametric(;
@@ -130,11 +159,10 @@ Nonparametric(;
 ) = Nonparametric(mean, kernel, length_scale_priors)
 
 """
-Used to define a semiparametric surrogate model (combination of a parametric model and GP).
+Used to define a semiparametric surrogate model (a combination of a parametric model and GP).
 
-# Fields
-  - parametric:         An instance of `Parametric` model.
-  - nonparametric:      An instance of `Nonparametric` model with zero-mean. (The parametric model is used as mean.)
+The parametric model is used as the mean of the Gaussian Process.
+The provided nonparametric mustn't have mean. (Its `mean` field must be set to `nothing`.)
 """
 struct Semiparametric{
     P<:Parametric,
@@ -152,12 +180,16 @@ end
 
 # - - - - - - - - Model-Fit Algorithms - - - - - - - -
 
+"""
+An abstract type used to differentiate between
+MLE (Maximum Likelihood Estimation) optimizers and BI (Bayesian Inference) samplers.
+"""
 abstract type ModelFit end
 struct MLE <: ModelFit end
 struct BI <: ModelFit end
 
 """
-Specifies the library/algorithm is used to estimate the model parameters.
+Specifies the library/algorithm used for model parameter estimation.
 
 Inherit this type to define a custom model-fitting algorithms.
 
@@ -167,12 +199,15 @@ Structures derived from this type have to implement the following method:
 `estimate_parameters(model_fitter::CustomFitter, problem::OptimizationProblem; info::Bool)`.
 
 This method should return a named tuple `(θ = ..., length_scales = ..., noise_vars = ...)`
-with either MLE model parameters (if `CustomAlg <: ModelFitter{MLE}`) or model parameter samples (if `CustomAlg <: ModelFitter{BI}`). 
+with either MLE model parameters (if `CustomAlg <: ModelFitter{MLE}`)
+or model parameter samples (if `CustomAlg <: ModelFitter{BI}`).
 
 Additionally, if the custom algorithm is of type `ModelFitter{BI}`, it has to implement the method
 `sample_count(::CustomAlg)` giving the number of parameter samples returned from `estimate_parameters`.
 
-See '\\src\\algorithms' for some implementations of `ModelFitter`.
+See '\\src\\algorithms' for concrete implementations of `ModelFitter`.
+
+See also: [`BOSS.OptimMLE`](@ref), [`BOSS.TuringBI`](@ref)
 """
 abstract type ModelFitter{T<:ModelFit} end
 
@@ -194,7 +229,9 @@ This method should return the point of the input domain which maximizes the give
 
 Also, a corresponding `Domain` should be defined for the custom acquisition maximizer.
 
-See '\\src\\algorithms' for some implementations of `AcquisitionMaximizer`.
+See '\\src\\algorithms' for concrete implementations of `AcquisitionMaximizer`.
+
+See also: [`BOSS.Domain`](@ref), [`BOSS.OptimMaximizer`](@ref)
 """
 abstract type AcquisitionMaximizer end
 
@@ -205,9 +242,11 @@ Specifies the optimization domain. (The constraints on the input.)
 
 Extend this type to define the domain for your custom `AcquisitionMaximizer`.
 
-To work with plotting, your domain type should also implement
+To work with plotting, your domain type should optionally implement
 the method `get_bounds(::CustomDomain)` which returns a tuple giving the bounds of the domain
-and the method `in_domain(::CustomDomain, ::AbstractArray{<:Real})` which returns true if the given point belongs to the domain.
+and the method `in_domain(::CustomDomain, ::AbstractArray{<:Real})` which returns true iff the given point belongs to the domain.
+
+See also: [`BOSS.AcquisitionMaximizer`](@ref), [`BOSS.OptimDomain`](@ref)
 """
 abstract type Domain end
 
@@ -224,7 +263,10 @@ Example: `struct CustomCond <: TermCond ... end`
 Structures derived from this type have to implement the following method:
 `(cond::CustomCond)(problem::OptimizationProblem) where {CustomCond <: TermCond}`
 
-This method should return true to keep the optimization running and return false once the optimization is to be terminated.
+This method should return true to keep the optimization running
+and return false once the optimization is to be terminated.
+
+See also: [`BOSS.IterLimit`](@ref)
 """
 abstract type TermCond end
 
@@ -236,12 +278,21 @@ abstract type TermCond end
 """
 The structures deriving this type contain all the data collected during the optimization
 as well as the parameters and hyperparameters of the model.
+
+See also: [`BOSS.ExperimentDataPrior`](@ref), [`BOSS.ExperimentDataPost`](@ref)
 """
 abstract type ExperimentData{NUM<:Real} end
 
 Base.length(data::ExperimentData) = size(data.X)[2]
 Base.isempty(data::ExperimentData) = isempty(data.X)
 
+"""
+Contains the initial data matrices `X`,`Y`.
+
+The data points are stored in the columns of these matrices.
+
+See also: [`BOSS.ExperimentDataPost`](@ref)
+"""
 mutable struct ExperimentDataPrior{
     NUM<:Real,
     T<:AbstractMatrix{NUM},
@@ -253,8 +304,29 @@ end
 # TODO: Implement an options to pass empty data to BOSS and let it automatically sample few initial samples.
 # empty_data(x_dim::Int, y_dim::Int, type::Type=Float64) = ExperimentDataPrior(Array{type}(undef, x_dim, 0), Array{type}(undef, y_dim, 0))
 
+"""
+An abstract type for data which contain the fitted model parameters
+in addition to the data matrices `X`,`Y`.
+
+See also: [`BOSS.ExperimentDataPrior`](@ref), [`BOSS.ExperimentDataMLE`](@ref), [`BOSS.ExperimentDataBI`](@ref)
+"""
 abstract type ExperimentDataPost{T<:ModelFit, NUM<:Real} <: ExperimentData{NUM} end
 
+"""
+Contains the data matrices `X`,`Y` as well as the optimized model parameters and hyperparameters.
+
+The data points are stored in the columns of the `X`,`Y` matrices.
+
+The field `θ` contains the MLE parameters of the parametric model
+(or nothing if the model is nonparametric).
+
+The field `length_scales` contains the MLE length scales of the GP
+(or nothing if the model is parametric) as a `x_dim`×`y_dim` matrix.
+
+The field `noise_vars` contains the MLE noise variances for each `y` dimension.
+
+See also: [`BOSS.ExperimentDataBI`](@ref)
+"""
 mutable struct ExperimentDataMLE{
     NUM<:Real,
     T<:AbstractMatrix{NUM},
@@ -269,6 +341,22 @@ mutable struct ExperimentDataMLE{
     noise_vars::N
 end
 
+"""
+Contains the data matrices `X`,`Y` as well as the sampled model parameters and hyperparameters.
+
+The data points are stored in the columns of the `X`,`Y` matrices.
+
+The field `θ` contains the samples of the parameters of the parametric model
+as a matrix with column-wise stored samples (or nothing if the model is nonparametric).
+
+The field `length_scales` contains samples of the GP length scales
+as an array of matrices (or nothing if the model is parametric).
+
+The field `noise_vars` contains samples of noise variances for each `y` dimension
+as a matrix with column-wise stored samples.
+
+See also: [`BOSS.ExperimentDataBI`](@ref)
+"""
 mutable struct ExperimentDataBI{
     NUM<:Real,
     T<:AbstractMatrix{NUM},
@@ -287,7 +375,22 @@ end
 # - - - - - - - - Optimization Problem - - - - - - - -
 
 """
-This structure defines the whole optimization problem.
+This structure defines the whole optimization problem for the BOSS algorithm.
+
+The problem is defined as follows:
+
+There is some (possibly noisy) blackbox function `y = f(x) = f_true(x) + ϵ` where `ϵ ~ Normal`.
+
+We have some surrogate model `y = model(x) ≈ f_true(x)`
+describing our limited knowledge about the blackbox function.
+
+We wish to find `x ∈ domain` such that `fitness(f(x))` is maximized
+while satisfying the constraints `f(x) < cons`.
+
+The `noise_var_priors` describe the prior distribution over the noise variance of each `y` dimension.
+They are defined as an array of `y_dim` distributions where `y_dim` is the dimension of the output space.
+
+See also: [`BOSS.boss!`](@ref), [`BOSS.Fitness`](@ref), [`BOSS.Surrogate`](@ref), [`BOSS.Domain`](@ref)
 """
 mutable struct OptimizationProblem{
     NUM<:Real,
@@ -319,14 +422,32 @@ OptimizationProblem(;
     data,
 ) = OptimizationProblem(fitness, f, cons, domain, discrete, model, noise_var_priors, data)
 
+"""
+Return the dimension of the input space.
+"""
 x_dim(problem::OptimizationProblem) = length(problem.discrete)
+"""
+Return the dimension of the output space.
+"""
 y_dim(problem::OptimizationProblem) = length(problem.cons)
 
 
 # - - - - - - - - Boss Options - - - - - - - -
 
-# TODO: doc
-# mention Plots
+"""
+Is used to pass the `Plots` module to the plotting function `BOSS.plot_problem`
+as well as pass any additional information to be plotted and to set other plot hyperparameters.
+
+The `f_true` field can be used to add the true objective function to the plot.
+The `acquisition` field can be used to add the acquisition function to the plot.
+The `acq_opt` field can be used to add the acquisition maximization result to the plot.
+
+The `points` hyperparameter can be used to change the resolution of the plots.
+The `xaxis` and `yaxis` hyperparameters can be used to change the axis scales.
+The `title` hyperparameter can be used to change the plot title.
+
+See also: [`BOSS.OptimizationProblem`](@ref), [`BOSS.plot_problem`](@ref)
+"""
 struct PlotOptions{
     F<:Union{Nothing, Function},
     A<:Union{Nothing, Function},
@@ -352,7 +473,22 @@ PlotOptions(Plots::Module;
 ) = PlotOptions(Plots, f_true, acquisition, acq_opt, points, xaxis, yaxis, title)
 
 
-# TODO: doc
+"""
+Used to pass hyperparameters and miscellaneous settings to the BOSS algorithm.
+
+The `info` can be set to false to silence the algorithm.
+
+The `ϵ_samples` hyperparameter controls how many samples are used to approximate
+the posterior predictions of the model. Note that this hyperparameter only has
+an effect if a MLE optimizer is used to fit the model parameters.
+The number of `ϵ_samples` is matched to the number of samples drawn
+by the BI sampler if a BI sampler is used to sample the model parameters.
+
+The `BOSS.PlotOptions` structure can be passed in the `plot_options` field
+to turn on plotting and modify its settings.
+
+See also: [`BOSS.boss!`](@ref), [`BOSS.PlotOptions`](@ref)
+"""
 struct BossOptions{
     P<:Union{Nothing, PlotOptions},
 }
