@@ -62,8 +62,8 @@ end
 # TODO: Refactor this or at least generalize for more distributions.
 # Needed for `arraydist` to work with multivariate distributions.
 # Is needed with `NUTS` but not with `PG`.
-Bijectors.bijector(d::VectorOfMultivariate{Distributions.Continuous, <:Distributions.AbstractMvLogNormal}) = Bijectors.Log{2}()
-Bijectors.bijector(d::VectorOfMultivariate{Distributions.Continuous, <:AbstractGPs.FiniteGP}) = Bijectors.Identity{2}()
+# Bijectors.bijector(d::VectorOfMultivariate{Distributions.Continuous, <:Distributions.AbstractMvLogNormal}) = Bijectors.Log{2}()
+# Bijectors.bijector(d::VectorOfMultivariate{Distributions.Continuous, <:AbstractGPs.FiniteGP}) = Bijectors.Identity{2}()
 
 Turing.@model function turing_model(
     model::Parametric,
