@@ -55,7 +55,7 @@ TuringBI(;
 sample_count(turing::TuringBI) = turing.chain_count * turing.samples_in_chain
 
 function estimate_parameters(turing::TuringBI, problem::OptimizationProblem; info::Bool)
-    θ, length_scales, noise_vars = sample_params(turing, problem.model, problem.noise_var_priors, problem.data.X, problem.data.Y; x_dim=x_dim(problem), y_dim=y_dim(problem))
+    θ, length_scales, noise_vars = sample_params(turing, problem.model, problem.noise_var_priors, problem.data.X, problem.data.Y)
     return (θ=θ, length_scales=length_scales, noise_vars=noise_vars)
 end
 
@@ -69,9 +69,7 @@ Turing.@model function turing_model(
     model::Parametric,
     noise_var_priors::AbstractArray,
     X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real};
-    x_dim::Int,
-    y_dim::Int,
+    Y::AbstractMatrix{<:Real},
 )
     noise_vars ~ arraydist(noise_var_priors)
     θ ~ arraydist(model.param_priors)
@@ -84,10 +82,10 @@ Turing.@model function turing_model(
     model::Nonparametric,
     noise_var_priors::AbstractArray,
     X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real};
-    x_dim::Int,
-    y_dim::Int,
+    Y::AbstractMatrix{<:Real},
 )
+    y_dim = size(Y)[1]
+
     noise_vars ~ arraydist(noise_var_priors)
     length_scales ~ arraydist(model.length_scale_priors)
     
@@ -100,10 +98,10 @@ Turing.@model function turing_model(
     model::Semiparametric,
     noise_var_priors::AbstractArray,
     X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real};
-    x_dim::Int,
-    y_dim::Int,
+    Y::AbstractMatrix{<:Real},
 )
+    y_dim = size(Y)[1]
+
     noise_vars ~ arraydist(noise_var_priors)
     θ ~ arraydist(model.parametric.param_priors)
     length_scales ~ arraydist(model.nonparametric.length_scale_priors)
@@ -115,8 +113,10 @@ Turing.@model function turing_model(
     Yt ~ arraydist(gps)
 end
 
-function sample_params(turing::TuringBI, model::Parametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; x_dim::Int, y_dim::Int)
-    tm = turing_model(model, noise_var_priors, X, Y; x_dim, y_dim)
+function sample_params(turing::TuringBI, model::Parametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real})
+    x_dim, y_dim = size(X)[1], size(Y)[1]
+    
+    tm = turing_model(model, noise_var_priors, X, Y)
     param_symbols = vcat(
         [Symbol("noise_vars[$i]") for i in 1:y_dim],
         [Symbol("θ[$i]") for i in 1:param_count(model)],
@@ -127,8 +127,10 @@ function sample_params(turing::TuringBI, model::Parametric, noise_var_priors::Ab
     θ = reduce(vcat, transpose.(samples[y_dim+1:end]))
     return θ, nothing, noise_vars
 end
-function sample_params(turing::TuringBI, model::Nonparametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; x_dim::Int, y_dim::Int)    
-    tm = turing_model(model, noise_var_priors, X, Y; x_dim, y_dim)
+function sample_params(turing::TuringBI, model::Nonparametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real})    
+    x_dim, y_dim = size(X)[1], size(Y)[1]
+    
+    tm = turing_model(model, noise_var_priors, X, Y)
     param_symbols = vcat(
         [Symbol("noise_vars[$i]") for i in 1:y_dim],
         [[Symbol("length_scales[$j,$i]") for j in 1:x_dim] for i in 1:y_dim] |> x->reduce(vcat,x),
@@ -139,10 +141,11 @@ function sample_params(turing::TuringBI, model::Nonparametric, noise_var_priors:
     length_scales = reshape.(eachcol(reduce(vcat, transpose.(samples[y_dim+1:end]))), Ref(x_dim), Ref(y_dim))
     return nothing, length_scales, noise_vars
 end
-function sample_params(turing::TuringBI, model::Semiparametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; x_dim::Int, y_dim::Int)    
+function sample_params(turing::TuringBI, model::Semiparametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real})    
     θ_len = param_count(model.parametric)
+    x_dim, y_dim = size(X)[1], size(Y)[1]
     
-    tm = turing_model(model, noise_var_priors, X, Y; x_dim, y_dim)
+    tm = turing_model(model, noise_var_priors, X, Y)
     param_symbols = vcat(
         [Symbol("noise_vars[$i]") for i in 1:y_dim],
         [Symbol("θ[$i]") for i in 1:θ_len],

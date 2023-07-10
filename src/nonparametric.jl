@@ -4,14 +4,10 @@ using ForwardDiff
 
 const MIN_PARAM_VALUE = 1e-6
 
-# A workaround: https://discourse.julialang.org/t/zygote-gradient-does-not-work-with-abstractgps-custommean/87815/7
-struct CustomMean{Tf} <: AbstractGPs.MeanFunction
-    f::Tf
-end
-
-AbstractGPs._map_meanfunction(m::CustomMean, x::ColVecs) = map(m.f, eachcol(x.X))
-AbstractGPs._map_meanfunction(m::CustomMean, x::RowVecs) = map(m.f, eachrow(x.X))
-AbstractGPs._map_meanfunction(m::CustomMean, x::AbstractVector) = map(m.f, x)
+# Workaround: https://discourse.julialang.org/t/zygote-gradient-does-not-work-with-abstractgps-custommean/87815/7
+AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::ColVecs) = map(m.f, eachcol(x.X))
+AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::RowVecs) = map(m.f, eachrow(x.X))
+AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::AbstractVector) = map(m.f, x)
 
 """
 A kernel for dealing with discrete variables.
@@ -151,7 +147,7 @@ function finite_gp(
     noise = noise_var + min_noise
 
     kernel = with_lengthscale(kernel, params)
-    GP(CustomMean(mean), kernel)(X, noise)
+    GP(mean, kernel)(X, noise)
 end
 
 """

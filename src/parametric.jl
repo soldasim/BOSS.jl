@@ -27,7 +27,10 @@ Base.convert(::Type{NonlinModel}, model::LinModel) =
 """
 Not implemented yet for `BOSS.Parametric` models.
 """
-make_discrete(m::Parametric, discrete::AbstractArray{<:Bool}) = m
+function make_discrete(m::Parametric, discrete::AbstractArray{<:Bool})
+    @warn "Model discretization not implemented yet for `Parametric` models!"
+    return m
+end
 
 model_posterior(model::Parametric, data::ExperimentDataMLE) =
     model_posterior(model, data.θ, data.noise_vars)

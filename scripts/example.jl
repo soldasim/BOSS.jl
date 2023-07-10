@@ -49,7 +49,8 @@ function bad_parametric_model()
 end
 
 # Our prediction about the noise and GP length scales.
-noise_var_priors() = fill(LogNormal(-2.3, 1.), 2)
+noise_var_priors() = fill(LogNormal(-2.3, 1.), 2)  # noise variance prior
+# noise_var_priors() = fill(Dirac(0.1), 2)           # predefined noise variance value
 length_scale_priors() = fill(MvLogNormal(0.1*ones(1), 1.0*ones(1)), 2)
 
 # Generate some initial data.
