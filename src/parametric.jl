@@ -79,5 +79,4 @@ function partial_sums(array::AbstractArray)
     isempty(array) && return empty(array)
     s = zero(first(array))
     sums = [(s += val) for val in array]
-    return sums
 end

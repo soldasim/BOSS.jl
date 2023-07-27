@@ -193,7 +193,7 @@ Specifies the library/algorithm used for model parameter estimation.
 
 Inherit this type to define a custom model-fitting algorithms.
 
-Example: `struct CustomAlg <: ModelFitter{MLE} ... end` or `struct CustomAlg <: ModelFitter{BI} ... end`
+Example: `struct CustomFitter <: ModelFitter{MLE} ... end` or `struct CustomFitter <: ModelFitter{BI} ... end`
 
 Structures derived from this type have to implement the following method:
 `estimate_parameters(model_fitter::CustomFitter, problem::OptimizationProblem; info::Bool)`.
@@ -227,28 +227,13 @@ Structures derived from this type have to implement the following method:
 `maximize_acquisition(acq_maximizer::CustomAlg, problem::OptimizationProblem, acq::Base.Callable; info::Bool)`
 This method should return the point of the input domain which maximizes the given acquisition function `acq`.
 
-Also, a corresponding `Domain` should be defined for the custom acquisition maximizer.
-
 See '\\src\\algorithms' for concrete implementations of `AcquisitionMaximizer`.
 
-See also: [`BOSS.Domain`](@ref), [`BOSS.OptimMaximizer`](@ref)
+See also: [`BOSS.OptimMaximizer`](@ref)
 """
 abstract type AcquisitionMaximizer end
 
 # Specific implementations of `AcquisitionMaximizer` are in '\src\algorithms'.
-
-"""
-Specifies the optimization domain. (The constraints on the input.)
-
-Extend this type to define the domain for your custom `AcquisitionMaximizer`.
-
-To work with plotting, your domain type should optionally implement
-the method `get_bounds(::CustomDomain)` which returns a tuple giving the bounds of the domain
-and the method `in_domain(::CustomDomain, ::AbstractArray{<:Real})` which returns true iff the given point belongs to the domain.
-
-See also: [`BOSS.AcquisitionMaximizer`](@ref), [`BOSS.OptimDomain`](@ref)
-"""
-abstract type Domain end
 
 
 # - - - - - - - - Termination Conditions - - - - - - - -
@@ -397,7 +382,7 @@ mutable struct OptimizationProblem{
     Q<:Fitness,
     F<:Base.Callable,
     C<:AbstractArray{NUM},
-    D<:Domain,
+    D<:AbstractBounds,
     I<:AbstractArray{<:Bool},
     M<:SurrogateModel,
     N<:AbstractArray,

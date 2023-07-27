@@ -1,9 +1,10 @@
 using BOSS
-using Distributions
-using Optim
-using Turing
 using Plots
+using Distributions
 using Random
+
+using Turing
+using OptimizationOptimJL
 
 Random.seed!(555)
 
@@ -62,8 +63,8 @@ end
 
 # The problem defined as `BOSS.OptimizationProblem`.
 function opt_problem(init_data=4)
-    bounds = ([0.], [20.])
-    data = gen_data(init_data, bounds)
+    domain = ([0.], [20.])
+    data = gen_data(init_data, domain)
 
     # Try changing the parametric model here.
     model = BOSS.Semiparametric(
@@ -76,7 +77,7 @@ function opt_problem(init_data=4)
         fitness = BOSS.LinFitness([1, 0]),
         f = blackbox,
         cons = [Inf, 0.],
-        domain = BOSS.OptimDomain(bounds),
+        domain,
         discrete = [false],
         model,
         noise_var_priors = noise_var_priors(),
@@ -97,23 +98,23 @@ function example_mle(problem=opt_problem(4), iters=3;
     options=default_options,
 )
     # Algorithm selection and hyperparameters:
-    model_fitter = BOSS.OptimMLE(;
+    model_fitter = BOSS.OptimizationMLE(;
         algorithm=NelderMead(),
-        options=Optim.Options(; outer_x_tol=0.01),
         multistart=200,
         parallel,
     )
-    acq_maximizer = BOSS.OptimMaximizer(;
+    acq_maximizer = BOSS.OptimizationAM(;
         algorithm=Fminbox(LBFGS()),
-        options=Optim.Options(; outer_x_tol=0.01),
         multistart=200,
         parallel,
+        outer_x_tol=0.01,
     )
     term_cond = BOSS.IterLimit(iters)
 
     # Run BOSS:
     boss!(problem; model_fitter, acq_maximizer, term_cond, options)
 end
+
 """
 An example usage of the BOSS algorithm with a BI algorithm.
 """
@@ -130,11 +131,11 @@ function example_bi(problem=opt_problem(4), iters=3;
         leap_size=5,
         parallel,
     )
-    acq_maximizer = BOSS.OptimMaximizer(;
+    acq_maximizer = BOSS.OptimizationAM(;
         algorithm=Fminbox(LBFGS()),
-        options=Optim.Options(; outer_x_tol=0.01),
         multistart=20,
         parallel,
+        outer_x_tol=0.01,
     )
     term_cond = BOSS.IterLimit(iters)
 

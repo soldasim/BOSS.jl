@@ -117,6 +117,16 @@ function best_yet(fitness::Fitness, Y::AbstractMatrix{<:Real}, cons::AbstractVec
 end
 
 """
+Return true iff x belongs to the optimization domain.
+"""
+function in_domain(domain::AbstractBounds, x::AbstractVector)
+    lb, ub = domain
+    any(x .< lb) && return false
+    any(x .> ub) && return false
+    return true
+end
+
+"""
 Return true iff `y` satisfies the given constraints.
 """
 is_feasible(y::AbstractVector{<:Real}, cons::AbstractVector{<:Real}) = all(y .< cons)
@@ -135,7 +145,11 @@ cond_round(x, b::Bool) = b ? round(x) : x
 """
 Update `θ`,`length_scales`,`noise_vars`, keep `X`,`Y` and return as `BOSS.ExperimentDataPost`.
 """
-function update_parameters!(::Type{MLE}, data::ExperimentDataPrior; θ, length_scales, noise_vars)
+function update_parameters!(::Type{MLE}, data::ExperimentDataPrior;
+    θ=nothing,
+    length_scales=nothing,
+    noise_vars=nothing,
+)
     return ExperimentDataMLE(
         data.X,
         data.Y,
@@ -144,7 +158,11 @@ function update_parameters!(::Type{MLE}, data::ExperimentDataPrior; θ, length_s
         noise_vars,
     )
 end
-function update_parameters!(::Type{BI}, data::ExperimentDataPrior; θ, length_scales, noise_vars)
+function update_parameters!(::Type{BI}, data::ExperimentDataPrior;
+    θ=nothing,
+    length_scales=nothing,
+    noise_vars=nothing,
+)
     return ExperimentDataBI(
         data.X,
         data.Y,
@@ -153,7 +171,11 @@ function update_parameters!(::Type{BI}, data::ExperimentDataPrior; θ, length_sc
         noise_vars,
     )
 end
-function update_parameters!(::Type{T}, data::ExperimentDataPost{T}; θ, length_scales, noise_vars) where {T<:ModelFit}
+function update_parameters!(::Type{T}, data::ExperimentDataPost{T};
+    θ=nothing,
+    length_scales=nothing,
+    noise_vars=nothing,
+) where {T<:ModelFit}
     data.θ = θ
     data.length_scales = length_scales
     data.noise_vars = noise_vars

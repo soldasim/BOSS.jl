@@ -59,12 +59,6 @@ function estimate_parameters(turing::TuringBI, problem::OptimizationProblem; inf
     return (θ=θ, length_scales=length_scales, noise_vars=noise_vars)
 end
 
-# TODO: Refactor this or at least generalize for more distributions.
-# Needed for `arraydist` to work with multivariate distributions.
-# Is needed with `NUTS` but not with `PG`.
-# Bijectors.bijector(d::VectorOfMultivariate{Distributions.Continuous, <:Distributions.AbstractMvLogNormal}) = Bijectors.Log{2}()
-# Bijectors.bijector(d::VectorOfMultivariate{Distributions.Continuous, <:AbstractGPs.FiniteGP}) = Bijectors.Identity{2}()
-
 Turing.@model function turing_model(
     model::Parametric,
     noise_var_priors::AbstractArray,
@@ -172,17 +166,4 @@ function sample_params_turing(turing::TuringBI, turing_model, param_symbols; adb
     end
 
     samples = [reduce(vcat, eachrow(chains[s][(turing.n_adapts+turing.leap_size):turing.leap_size:end,:])) for s in param_symbols]
-end
-
-
-
-
-
-
-
-
-# TODO unused
-function sample_params_vi(model, samples; alg=ADVI{Turing.AdvancedVI.ForwardDiffAD{0}}(10, 1000))
-    posterior = vi(model, alg)
-    rand(posterior, samples) |> eachrow |> collect
 end
