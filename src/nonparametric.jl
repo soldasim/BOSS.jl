@@ -47,9 +47,8 @@ end
 (dk::DiscreteKernel)(x1, x2::ForwardDiff.Dual) = dk(x1, x2.value)
 (dk::DiscreteKernel)(x1::ForwardDiff.Dual, x2::ForwardDiff.Dual) = dk(x1.value, x2.value)
 
-discrete_round() = x -> round.(x)
-discrete_round(::Nothing) = discrete_round()
-discrete_round(dims::AbstractArray{<:Bool}) = x -> cond_round.(x, dims)
+discrete_round(::Nothing) = x -> round.(x)
+discrete_round(dims::AbstractArray{<:Bool}) = x -> cond_func(round).(dims, x)
 
 function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscale::Real)
     return DiscreteKernel(with_lengthscale(dk.kernel, lengthscale), dk.dims)

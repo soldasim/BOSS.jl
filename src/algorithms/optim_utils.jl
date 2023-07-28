@@ -1,9 +1,18 @@
 using LatinHypercubeSampling
-
-middle(domain::AbstractBounds) = [mean((l,u)) for (l,u) in zip(domain...)]
+using Distributions
 
 # Activation function to ensure positive optimization arguments.
 softplus(x) = log(one(x) + exp(x))
+inv_softplus(x) = log(exp(x) - one(x))
+
+middle(domain::AbstractBounds) = [mean((l,u)) for (l,u) in zip(domain...)]
+
+function random_start(bounds::AbstractBounds)
+    lb, ub = bounds
+    dim = length(lb)
+    start = rand(dim) .* (ub .- lb) .+ lb
+    return start
+end
 
 function generate_starts_LHC(bounds::AbstractBounds, count::Int)
     @assert count > 1  # `randomLHC(count, dim)` returns NaNs if `count == 1`
@@ -13,71 +22,57 @@ function generate_starts_LHC(bounds::AbstractBounds, count::Int)
     return starts
 end
 
-function random_start(bounds::AbstractBounds)
-    lb, ub = bounds
-    dim = length(lb)
-    start = rand(dim) .* (ub .- lb) .+ lb
-    return start
-end
-
-function sample_params_vec(model::Parametric, noise_var_priors::AbstractArray; softplus_noise_vars=false)
+"""
+Sample all model parameters and noise variances from their respective prior distributions
+and return all values as one vector.
+"""
+function sample_params_vec(model::Parametric, noise_var_priors::AbstractArray)
     θ = rand.(model.param_priors)
     noise_vars = rand.(noise_var_priors)
-    
-    softplus_noise_vars && (noise_vars = softplus.(noise_vars))
     return vcat(θ, noise_vars)
 end
-function sample_params_vec(model::Nonparametric, noise_var_priors::AbstractArray; softplus_noise_vars=false)
+function sample_params_vec(model::Nonparametric, noise_var_priors::AbstractArray)
     λ = rand.(model.length_scale_priors)
     noise_vars = rand.(noise_var_priors)
-    
-    softplus_noise_vars && (noise_vars = softplus.(noise_vars))
     return vcat(reduce(vcat, λ), noise_vars)
 end
-function sample_params_vec(model::Semiparametric, noise_var_priors::AbstractArray; softplus_noise_vars=false)
+function sample_params_vec(model::Semiparametric, noise_var_priors::AbstractArray)
     θ = rand.(model.parametric.param_priors)
     λ = rand.(model.nonparametric.length_scale_priors)
     noise_vars = rand.(noise_var_priors)
-    
-    softplus_noise_vars && (noise_vars = softplus.(noise_vars))
     return vcat(θ, reduce(vcat, λ), noise_vars)
 end
 
-function split_model_params(model::Parametric, params::AbstractArray{<:Real}; softplus_noise_vars=false)
-    θ_len = length(model.param_priors)
-
-    θ = params[1:θ_len]
-    noise_vars = params[θ_len+1:end]
-
-    softplus_noise_vars && (noise_vars = softplus.(noise_vars))
+"""
+Split the vectorized model parameters and noise variances back into separate vectors/matrices.
+"""
+function split_model_params(model::Parametric, params::AbstractArray{<:Real})
+    θ_len_ = θ_len(model)
+    
+    θ = params[1:θ_len_]
+    noise_vars = params[θ_len_+1:end]
     return (θ=θ, noise_vars=noise_vars)
 end
-function split_model_params(model::Nonparametric, params::AbstractArray{<:Real}; softplus_noise_vars=false)
-    x_dim = length(first(model.length_scale_priors))
-    y_dim = length(model.length_scale_priors)
-    λ_len = y_dim * x_dim
+function split_model_params(model::Nonparametric, params::AbstractArray{<:Real})
+    x_dim_, y_dim_, λ_len_ = x_dim(model), y_dim(model), λ_len(model)
     
-    length_scales = reshape(params[1:λ_len], x_dim, y_dim)
-    noise_vars = params[λ_len+1:end]
-    
-    softplus_noise_vars && (noise_vars = softplus.(noise_vars))
+    length_scales = reshape(params[1:λ_len_], x_dim_, y_dim_)
+    noise_vars = params[λ_len_+1:end]
     return (length_scales=length_scales, noise_vars=noise_vars)
 end
-function split_model_params(model::Semiparametric, params::AbstractArray{<:Real}; softplus_noise_vars=false)
-    x_dim = length(first(model.nonparametric.length_scale_priors))
-    y_dim = length(model.nonparametric.length_scale_priors)
-    θ_len = length(model.parametric.param_priors)
-    λ_len = y_dim * x_dim
+function split_model_params(model::Semiparametric, params::AbstractArray{<:Real})
+    x_dim_, y_dim_, θ_len_, λ_len_ = x_dim(model), y_dim(model), θ_len(model), λ_len(model)
     
-    θ = params[1:θ_len]
-    length_scales = reshape(params[θ_len+1:θ_len+λ_len], x_dim, y_dim)
-    noise_vars = params[θ_len+λ_len+1:end]
-    
-    softplus_noise_vars && (noise_vars = softplus.(noise_vars))
+    θ = params[1:θ_len_]
+    length_scales = reshape(params[θ_len_+1:θ_len_+λ_len_], x_dim_, y_dim_)
+    noise_vars = params[θ_len_+λ_len_+1:end]
     return (θ=θ, length_scales=length_scales, noise_vars=noise_vars)
 end
 
-# Maximize the given objective function with restarts.
+"""
+Run the optimization procedure contained within the `optimize` argument multiple times
+and return the best local optimum found this way.
+"""
 function optimize_multistart(
     optimize::Base.Callable,  # arg, val = optimize(start)
     starts::AbstractMatrix{<:Real},

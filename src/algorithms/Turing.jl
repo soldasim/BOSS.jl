@@ -113,7 +113,7 @@ function sample_params(turing::TuringBI, model::Parametric, noise_var_priors::Ab
     tm = turing_model(model, noise_var_priors, X, Y)
     param_symbols = vcat(
         [Symbol("noise_vars[$i]") for i in 1:y_dim],
-        [Symbol("θ[$i]") for i in 1:param_count(model)],
+        [Symbol("θ[$i]") for i in 1:θ_len(model)],
     )
 
     samples = sample_params_turing(turing, tm, param_symbols)
@@ -136,20 +136,20 @@ function sample_params(turing::TuringBI, model::Nonparametric, noise_var_priors:
     return nothing, length_scales, noise_vars
 end
 function sample_params(turing::TuringBI, model::Semiparametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real})    
-    θ_len = param_count(model.parametric)
+    θ_len_ = θ_len(model)
     x_dim, y_dim = size(X)[1], size(Y)[1]
     
     tm = turing_model(model, noise_var_priors, X, Y)
     param_symbols = vcat(
         [Symbol("noise_vars[$i]") for i in 1:y_dim],
-        [Symbol("θ[$i]") for i in 1:θ_len],
+        [Symbol("θ[$i]") for i in 1:θ_len_],
         [[Symbol("length_scales[$j,$i]") for j in 1:x_dim] for i in 1:y_dim] |> x->reduce(vcat,x),
     )
 
     samples = sample_params_turing(turing, tm, param_symbols)
     noise_vars = reduce(vcat, transpose.(samples[1:y_dim]))
-    θ = reduce(vcat, transpose.(samples[y_dim+1:y_dim+θ_len]))
-    length_scales = reshape.(eachcol(reduce(vcat, transpose.(samples[y_dim+θ_len+1:end]))), Ref(x_dim), Ref(y_dim))
+    θ = reduce(vcat, transpose.(samples[y_dim+1:y_dim+θ_len_]))
+    length_scales = reshape.(eachcol(reduce(vcat, transpose.(samples[y_dim+θ_len_+1:end]))), Ref(x_dim), Ref(y_dim))
     return θ, length_scales, noise_vars
 end
 

@@ -3,6 +3,7 @@ module BOSS
 export boss!
 
 include("types.jl")
+include("utils.jl")
 include("parametric.jl")
 include("nonparametric.jl")
 include("semiparametric.jl")
@@ -86,7 +87,7 @@ function maximize_acquisition(problem::OptimizationProblem, model_fitter::ModelF
 
     acq = acquisition(problem.fitness, predict, problem.cons, ϵ_samples, b)
     x = maximize_acquisition(acq_maximizer, problem, acq; info=options.info)
-    x = cond_round.(x, problem.discrete)
+    x = cond_func(round).(problem.discrete, x)
     return x, acq
 end
 
@@ -117,30 +118,10 @@ function best_yet(fitness::Fitness, Y::AbstractMatrix{<:Real}, cons::AbstractVec
 end
 
 """
-Return true iff x belongs to the optimization domain.
-"""
-function in_domain(domain::AbstractBounds, x::AbstractVector)
-    lb, ub = domain
-    any(x .< lb) && return false
-    any(x .> ub) && return false
-    return true
-end
-
-"""
-Return true iff `y` satisfies the given constraints.
-"""
-is_feasible(y::AbstractVector{<:Real}, cons::AbstractVector{<:Real}) = all(y .< cons)
-
-"""
 Return how many ϵ samples should be drawn. (ϵ represents a random deviation from the model mean.)
 """
 ϵ_sample_count(model_fitter::ModelFitter{MLE}, options::BossOptions) = options.ϵ_samples
 ϵ_sample_count(model_fitter::ModelFitter{BI}, options::BossOptions) = sample_count(model_fitter)
-
-"""
-Round `x` is `b` is true. Otherwise return `x` unchanged. (Useful with broadcasting.)
-"""
-cond_round(x, b::Bool) = b ? round(x) : x
 
 """
 Update `θ`,`length_scales`,`noise_vars`, keep `X`,`Y` and return as `BOSS.ExperimentDataPost`.

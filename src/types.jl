@@ -75,11 +75,6 @@ See also: [`BOSS.LinModel`](@ref), [`BOSS.NonlinModel`](@ref)
 abstract type Parametric <: SurrogateModel end
 
 """
-Return the number of model parameters of the given model.
-"""
-param_count(model::Parametric) = length(model.param_priors)
-
-"""
 Used to define a parametric surrogate model linear in its parameters.
 
 This model definition will provide better performance than the more general 'BOSS.NonlinModel' in the future.
@@ -176,7 +171,6 @@ struct Semiparametric{
         new{typeof(p), typeof(n)}(p, n)
     end
 end
-
 
 # - - - - - - - - Model-Fit Algorithms - - - - - - - -
 
@@ -406,15 +400,6 @@ OptimizationProblem(;
     noise_var_priors,
     data,
 ) = OptimizationProblem(fitness, f, cons, domain, discrete, model, noise_var_priors, data)
-
-"""
-Return the dimension of the input space.
-"""
-x_dim(problem::OptimizationProblem) = length(problem.discrete)
-"""
-Return the dimension of the output space.
-"""
-y_dim(problem::OptimizationProblem) = length(problem.cons)
 
 
 # - - - - - - - - Boss Options - - - - - - - -
