@@ -1,9 +1,8 @@
 using LatinHypercubeSampling
 using Distributions
 
-# Activation function to ensure positive optimization arguments.
-softplus(x) = log(one(x) + exp(x))
-inv_softplus(x) = log(exp(x) - one(x))
+
+# - - - GENERATING OPTIMIZATION STARTING POINTS - - - - -
 
 middle(domain::AbstractBounds) = [mean((l,u)) for (l,u) in zip(domain...)]
 
@@ -23,44 +22,85 @@ function generate_starts_LHC(bounds::AbstractBounds, count::Int)
 end
 
 """
-Sample all model parameters and noise variances from their respective prior distributions
-and return all values as one vector.
+Sample all model parameters and noise variances from their respective prior distributions.
 """
-function sample_params_vec(model::Parametric, noise_var_priors::AbstractArray)
+function sample_params(model::Parametric, noise_var_priors::AbstractArray)
     θ = rand.(model.param_priors)
+    λ = Float64[;;]
     noise_vars = rand.(noise_var_priors)
-    return vcat(θ, noise_vars)
+    return (θ=θ, λ=λ, noise_vars=noise_vars)
 end
-function sample_params_vec(model::Nonparametric, noise_var_priors::AbstractArray)
-    λ = rand.(model.length_scale_priors)
+function sample_params(model::Nonparametric, noise_var_priors::AbstractArray)
+    θ = Float64[]
+    λ = reduce(hcat, rand.(model.length_scale_priors))
     noise_vars = rand.(noise_var_priors)
-    return vcat(reduce(vcat, λ), noise_vars)
+    return (θ=θ, λ=λ, noise_vars=noise_vars)
 end
-function sample_params_vec(model::Semiparametric, noise_var_priors::AbstractArray)
+function sample_params(model::Semiparametric, noise_var_priors::AbstractArray)
     θ = rand.(model.parametric.param_priors)
-    λ = rand.(model.nonparametric.length_scale_priors)
+    λ = reduce(hcat, rand.(model.nonparametric.length_scale_priors))
     noise_vars = rand.(noise_var_priors)
-    return vcat(θ, reduce(vcat, λ), noise_vars)
+    return (θ=θ, λ=λ, noise_vars=noise_vars)
 end
 
+
+# - - - PARAMETER TRANSFORMATIONS - - - - -
+
 """
-Split the vectorized model parameters and noise variances back into separate vectors/matrices.
+Transform all model parameters and noise variances into one parameter vector.
+""" 
+function vectorize_params(
+    θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_vars::AbstractVector{<:Real},
+    activation_function::Function,
+    activation_mask::AbstractVector{Bool},
+    skip_mask::AbstractVector{Bool},
+)
+    params = vectorize_params(θ, λ, noise_vars)
+    params .= cond_func(inverse(activation_function)).(activation_mask, params)
+    params = params[skip_mask]
+    return params
+end
+
+vectorize_params(θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_vars::AbstractVector{<:Real}) =
+    vcat(θ, reduce(vcat, eachcol(λ)), noise_vars)
+
 """
-function split_model_params(model::Parametric, params::AbstractArray{<:Real})
+Transformed the parameter vector back into separate vectors/matrices.
+"""
+function devectorize_params(
+    model::SurrogateModel,
+    params::AbstractVector{<:Real},
+    activation_function::Function,
+    activation_mask::AbstractVector{Bool},
+    skipped_values::AbstractVector{<:Real},
+    skip_mask::AbstractVector{Bool},
+)
+    # @assert length(skipped_values) == length(skip_mask)
+    params_ = params
+    params = similar(params, length(skip_mask))   
+    params[skip_mask] .= params_
+    params[.!skip_mask] .= skipped_values
+
+    params .= cond_func(activation_function).(activation_mask .& skip_mask, params)
+
+    return devectorize_params(model, params)
+end
+
+function devectorize_params(model::Parametric, params::AbstractVector{<:Real})
     θ_len_ = θ_len(model)
     
     θ = params[1:θ_len_]
     noise_vars = params[θ_len_+1:end]
     return (θ=θ, noise_vars=noise_vars)
 end
-function split_model_params(model::Nonparametric, params::AbstractArray{<:Real})
+function devectorize_params(model::Nonparametric, params::AbstractVector{<:Real})
     x_dim_, y_dim_, λ_len_ = x_dim(model), y_dim(model), λ_len(model)
     
     length_scales = reshape(params[1:λ_len_], x_dim_, y_dim_)
     noise_vars = params[λ_len_+1:end]
     return (length_scales=length_scales, noise_vars=noise_vars)
 end
-function split_model_params(model::Semiparametric, params::AbstractArray{<:Real})
+function devectorize_params(model::Semiparametric, params::AbstractVector{<:Real})
     x_dim_, y_dim_, θ_len_, λ_len_ = x_dim(model), y_dim(model), θ_len(model), λ_len(model)
     
     θ = params[1:θ_len_]
@@ -68,6 +108,93 @@ function split_model_params(model::Semiparametric, params::AbstractArray{<:Real}
     noise_vars = params[θ_len_+λ_len_+1:end]
     return (θ=θ, length_scales=length_scales, noise_vars=noise_vars)
 end
+
+"""
+Create a binary mask describing to which positions of the vectorized parameters will the activation function be applied.
+
+Set `mask_noisevar_and_lengthscales` to true to apply the activation function to all noise variances and GP length-scales.
+
+Provide a binary vector to `mask_theta` to define to which parameters of the parametric model should the activation function be applied.
+"""
+create_activation_mask(
+    problem::OptimizationProblem,
+    mask_noisevar_and_lengthscales::Bool,
+    mask_theta::Union{<:AbstractVector{Bool}, Nothing},
+) = create_activation_mask(param_count(problem.model) + y_dim(problem), θ_len(problem.model), mask_noisevar_and_lengthscales, mask_theta)
+
+function create_activation_mask(
+    params_total::Int,
+    θ_len::Int,
+    mask_noisevar_and_lengthscales::Bool,
+    mask_theta::Union{<:AbstractVector{Bool}, Nothing},
+)
+    mask = fill(false, params_total)
+    if !isnothing(mask_theta)
+        mask[1:θ_len] .= mask_theta
+    end
+    if mask_noisevar_and_lengthscales
+        mask[θ_len+1:end] .= true
+    end
+    return mask
+end
+
+"""
+Create a binary mask to skip all parameters with Dirac priors from the optimization parameters.
+
+Return the binary skip mask and a vector of the skipped Dirac values.
+"""
+create_dirac_skip_mask(problem::OptimizationProblem) =
+    create_dirac_skip_mask(problem.model, problem.noise_var_priors)
+
+create_dirac_skip_mask(model::Parametric, noise_var_priors::AbstractArray) =
+    create_dirac_skip_mask(model.param_priors, [], noise_var_priors)
+create_dirac_skip_mask(model::Nonparametric, noise_var_priors::AbstractArray) =
+    create_dirac_skip_mask([], model.length_scale_priors, noise_var_priors)
+create_dirac_skip_mask(model::Semiparametric, noise_var_priors::AbstractArray) =
+    create_dirac_skip_mask(model.parametric.param_priors, model.nonparametric.length_scale_priors, noise_var_priors)
+
+function create_dirac_skip_mask(
+    θ_priors::AbstractArray,
+    λ_priors::AbstractArray,
+    noise_var_priors::AbstractArray,
+)    
+    priors = Any[]
+    # θ
+    append!(priors, θ_priors)
+    # λ
+    for md in λ_priors
+        if md isa Product
+            append!(priors, md.v)
+        else
+            append!(priors, (nothing for _ in 1:length(md)))
+        end
+    end
+    # noise_vars
+    append!(priors, noise_var_priors)
+    
+    params_total = length(priors)
+    skip_mask = fill(true, params_total)
+    skipped_values = Float64[]
+
+    for i in eachindex(priors)
+        if priors[i] isa Dirac
+            skip_mask[i] = false
+            push!(skipped_values, priors[i].value)
+        end
+    end
+
+    return skip_mask, skipped_values
+end
+
+# Activation function to ensure positive optimization arguments.
+softplus(x) = log(one(x) + exp(x))
+inv_softplus(x) = log(exp(x) - one(x))
+
+inverse(::typeof(softplus)) = inv_softplus
+inverse(::typeof(inv_softplus)) = softplus
+
+
+# - - - PARALLEL OPTIMIZATION WITH RESTARTS - - - - -
 
 """
 Run the optimization procedure contained within the `optimize` argument multiple times

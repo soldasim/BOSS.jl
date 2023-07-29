@@ -32,24 +32,19 @@ function OptimizationMLE(;
 end
 
 function estimate_parameters(optimization::OptimizationMLE, problem::OptimizationProblem; info::Bool)
-    softplus_mask = activation_function_mask(param_count(problem.model) + y_dim(problem), θ_len(problem.model), optimization.apply_softplus, optimization.softplus_params)
-    
+    # Prepare necessary parameter transformations.
+    softplus_mask = create_activation_mask(problem, optimization.apply_softplus, optimization.softplus_params)
+    skip_mask, skipped_values = create_dirac_skip_mask(problem)
+    vectorize = (params) -> vectorize_params(params..., softplus, softplus_mask, skip_mask)
+    devectorize = (params) -> devectorize_params(problem.model, params, softplus, softplus_mask, skipped_values, skip_mask)
+
     # Generate optimization starts.
-    starts = reduce(hcat, (sample_params_vec(problem.model, problem.noise_var_priors) for _ in 1:optimization.multistart))
+    starts = reduce(hcat, (vectorize(sample_params(problem.model, problem.noise_var_priors)) for _ in 1:optimization.multistart))
     (optimization.multistart == 1) && (starts = starts[:,:])  # make sure `starts` is a `Matrix`
-    if any(softplus_mask)
-        for i in 1:optimization.multistart
-            starts[:,i] .= cond_func(inv_softplus).(softplus_mask, starts[:,i])
-        end
-    end
 
     # Define the optimization objective.
     loglike = model_loglike(problem.model, problem.noise_var_priors, problem.data)
-    if any(softplus_mask)
-        loglike_vec = (params) -> loglike(split_model_params(problem.model, cond_func(softplus).(softplus_mask, params))...)
-    else
-        loglike_vec = (params) -> loglike(split_model_params(problem.model, params)...)
-    end
+    loglike_vec = (params) -> loglike(devectorize(params)...)
     
     # Construct the optimization problem.
     optimization_function = Optimization.OptimizationFunction((params, _)->(-loglike_vec(params)), AutoForwardDiff())
@@ -62,26 +57,7 @@ function estimate_parameters(optimization::OptimizationMLE, problem::Optimizatio
         return params, ll
     end
     best_params, _ = optimize_multistart(optimize, starts, optimization.parallel, info)
-    
-    # Return parameters maximizing the likelihood.
-    best_params .= cond_func(softplus).(softplus_mask, best_params)
-    return split_model_params(problem.model, best_params)
-end
-
-function activation_function_mask(
-    params_total::Int,
-    θ_len::Int,
-    mask_noisevar_and_lengthscales::Bool,
-    mask_theta::Union{Vector{Bool}, Nothing},
-)
-    mask = fill(false, params_total)
-    if !isnothing(mask_theta)
-        mask[1:θ_len] .= mask_theta
-    end
-    if mask_noisevar_and_lengthscales
-        mask[θ_len+1:end] .= true
-    end
-    return mask
+    return devectorize(best_params)
 end
 
 # TODO: doc
