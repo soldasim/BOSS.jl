@@ -1,6 +1,7 @@
+using Distributions
 using AbstractGPs
 
-const AbstractBounds = Tuple{<:AbstractArray{<:Real}, <:AbstractArray{<:Real}}
+const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 
 
 # - - - - - - - - Fitness Function - - - - - - - -
@@ -28,7 +29,7 @@ julia> BOSS.LinFitness([1., a, b])
 ```
 """
 struct LinFitness{
-    C<:AbstractArray{<:Real},
+    C<:AbstractVector{<:Real},
 } <: Fitness
     coefs::C
 end
@@ -47,10 +48,8 @@ See also: [`BOSS.LinFitness`](@ref)
 julia> NonlinFitness(y -> cos(y[1]) + sin(y[2]))
 ```
 """
-struct NonlinFitness{
-    F<:Base.Callable,
-} <: Fitness
-    fitness::F
+struct NonlinFitness <: Fitness
+    fitness::Function
 end
 (f::NonlinFitness)(y) = f.fitness(y)
 
@@ -94,11 +93,10 @@ Define the `lift` function according to the model definition above.
 Provide the model parameter priors in the `param_priors` field as an array of distributions.
 """
 struct LinModel{
-    L<:Base.Callable,
-    D<:AbstractArray{<:Any},
+    P<:AbstractVector{<:UnivariateDistribution},
 } <: Parametric
-    lift::L
-    param_priors::D
+    lift::Function
+    param_priors::P
 end
 LinModel(;
     lift,
@@ -114,16 +112,17 @@ Define the `predict` funtion as `y = predict(x,θ)` where `θ` are the model par
 Provide the model parameter priors in the `param_priors` field as an array of distributions.
 """
 struct NonlinModel{
-    P<:Base.Callable,
-    D<:AbstractArray,
+    P<:AbstractVector{<:UnivariateDistribution},
 } <: Parametric
-    predict::P
-    param_priors::D
+    predict::Function
+    param_priors::P
 end
 NonlinModel(;
     predict,
     param_priors,
 ) = NonlinModel(predict, param_priors)
+
+(m::ZeroMean)(x::AbstractVector{<:Real}) = zeros(eltype(x), m.y_dim)
 
 """
 Used to define a nonparametric surrogate model (Gaussian Process).
@@ -140,12 +139,12 @@ where `x_dim` and `y_dim` are the dimensions of the input and output spaces resp
 Only `MvLogNormal` length scale priors are supported with the `Turing.NUTS` sampler for now.
 """
 struct Nonparametric{
-    M<:Union{Nothing, Base.Callable},
-    D<:AbstractArray,
+    M<:Union{Nothing, Function},
+    P<:AbstractVector{<:MultivariateDistribution},
 } <: SurrogateModel
     mean::M
     kernel::Kernel
-    length_scale_priors::D
+    length_scale_priors::P
 end
 Nonparametric(;
     mean=nothing,
@@ -161,15 +160,10 @@ The provided nonparametric mustn't have mean. (Its `mean` field must be set to `
 """
 struct Semiparametric{
     P<:Parametric,
-    N<:Nonparametric,
+    N<:Nonparametric{Nothing},
 } <: SurrogateModel
     parametric::P
     nonparametric::N
-
-    function Semiparametric(p::Parametric, n::Nonparametric)
-        @assert isnothing(n.mean)
-        new{typeof(p), typeof(n)}(p, n)
-    end
 end
 
 # - - - - - - - - Model-Fit Algorithms - - - - - - - -
@@ -218,7 +212,7 @@ Extend this type to define a custom acquisition maximizer.
 Example: `struct CustomAlg <: AcquisitionMaximizer ... end`
 
 Structures derived from this type have to implement the following method:
-`maximize_acquisition(acq_maximizer::CustomAlg, problem::OptimizationProblem, acq::Base.Callable; info::Bool)`
+`maximize_acquisition(acq_maximizer::CustomAlg, problem::OptimizationProblem, acq::Function; info::Bool)`
 This method should return the point of the input domain which maximizes the given acquisition function `acq`.
 
 See '\\src\\algorithms' for concrete implementations of `AcquisitionMaximizer`.
@@ -309,9 +303,9 @@ See also: [`BOSS.ExperimentDataBI`](@ref)
 mutable struct ExperimentDataMLE{
     NUM<:Real,
     T<:AbstractMatrix{NUM},
-    P<:Union{Nothing, <:AbstractArray{NUM}},
+    P<:Union{Nothing, <:AbstractVector{NUM}},
     L<:Union{Nothing, <:AbstractMatrix{NUM}},
-    N<:Union{Nothing, <:AbstractArray{NUM}},
+    N<:Union{Nothing, <:AbstractVector{NUM}},
 } <: ExperimentDataPost{MLE, NUM}
     X::T
     Y::T
@@ -340,7 +334,7 @@ mutable struct ExperimentDataBI{
     NUM<:Real,
     T<:AbstractMatrix{NUM},
     P<:Union{Nothing, <:AbstractMatrix{NUM}},
-    L<:Union{Nothing, <:AbstractArray{<:AbstractMatrix{NUM}}},
+    L<:Union{Nothing, <:AbstractVector{<:AbstractMatrix{NUM}}},
     N<:Union{Nothing, <:AbstractMatrix{NUM}},
 } <: ExperimentDataPost{BI, NUM}
     X::T
@@ -374,15 +368,14 @@ See also: [`BOSS.boss!`](@ref), [`BOSS.Fitness`](@ref), [`BOSS.Surrogate`](@ref)
 mutable struct OptimizationProblem{
     NUM<:Real,
     Q<:Fitness,
-    F<:Base.Callable,
-    C<:AbstractArray{NUM},
+    C<:AbstractVector{NUM},
     D<:AbstractBounds,
-    I<:AbstractArray{<:Bool},
+    I<:AbstractVector{<:Bool},
     M<:SurrogateModel,
-    N<:AbstractArray,
+    N<:AbstractVector{<:UnivariateDistribution},
 }
     fitness::Q
-    f::F
+    f::Function
     cons::C
     domain::D
     discrete::I
@@ -421,7 +414,7 @@ See also: [`BOSS.OptimizationProblem`](@ref), [`BOSS.plot_problem`](@ref)
 struct PlotOptions{
     F<:Union{Nothing, Function},
     A<:Union{Nothing, Function},
-    O<:Union{Nothing, AbstractArray{<:Real}},
+    O<:Union{Nothing, AbstractVector{<:Real}},
 }
     Plots::Module
     f_true::F

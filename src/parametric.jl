@@ -1,8 +1,9 @@
 using Turing
+using Distributions
 
-(model::Parametric)(θ::AbstractArray{<:Real}) = x -> model(x, θ)
+(model::Parametric)(θ::AbstractVector{<:Real}) = x -> model(x, θ)
 
-function (model::LinModel)(x::AbstractArray{<:Real}, θ::AbstractArray{<:Real})
+function (model::LinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real})
     ϕs = model.lift(x)
     m = length(ϕs)
 
@@ -13,7 +14,7 @@ function (model::LinModel)(x::AbstractArray{<:Real}, θ::AbstractArray{<:Real})
     return y
 end
 
-(m::NonlinModel)(x::AbstractArray{<:Real}, θ::AbstractArray{<:Real}) =
+(m::NonlinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real}) =
     m.predict(x, θ)
 
 Base.convert(::Type{NonlinModel}, model::LinModel) =
@@ -27,7 +28,7 @@ Base.convert(::Type{NonlinModel}, model::LinModel) =
 """
 Not implemented yet for `BOSS.Parametric` models.
 """
-function make_discrete(m::Parametric, discrete::AbstractArray{<:Bool})
+function make_discrete(m::Parametric, discrete::AbstractVector{<:Bool})
     @warn "Model discretization not implemented yet for `Parametric` models!"
     return m
 end
@@ -55,7 +56,7 @@ model_posterior(
 Return the log-likelihood of the model parameters and the noise variance
 as a function `ll = loglike(θ, noise_vars)`.
 """
-function model_loglike(model::Parametric, noise_var_priors::AbstractArray, data::ExperimentData)
+function model_loglike(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
     params_loglike = model_params_loglike(model, data.X, data.Y)
     noise_loglike(noise_vars) = mapreduce(p -> logpdf(p...), +, zip(noise_var_priors, noise_vars))
     loglike(θ, noise_vars) = params_loglike(θ, noise_vars) + noise_loglike(noise_vars)

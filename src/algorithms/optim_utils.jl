@@ -24,19 +24,19 @@ end
 """
 Sample all model parameters and noise variances from their respective prior distributions.
 """
-function sample_params(model::Parametric, noise_var_priors::AbstractArray)
+function sample_params(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution})
     θ = rand.(model.param_priors)
     λ = Float64[;;]
     noise_vars = rand.(noise_var_priors)
     return (θ=θ, λ=λ, noise_vars=noise_vars)
 end
-function sample_params(model::Nonparametric, noise_var_priors::AbstractArray)
+function sample_params(model::Nonparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution})
     θ = Float64[]
     λ = reduce(hcat, rand.(model.length_scale_priors))
     noise_vars = rand.(noise_var_priors)
     return (θ=θ, λ=λ, noise_vars=noise_vars)
 end
-function sample_params(model::Semiparametric, noise_var_priors::AbstractArray)
+function sample_params(model::Semiparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution})
     θ = rand.(model.parametric.param_priors)
     λ = reduce(hcat, rand.(model.nonparametric.length_scale_priors))
     noise_vars = rand.(noise_var_priors)
@@ -146,17 +146,17 @@ Return the binary skip mask and a vector of the skipped Dirac values.
 create_dirac_skip_mask(problem::OptimizationProblem) =
     create_dirac_skip_mask(problem.model, problem.noise_var_priors)
 
-create_dirac_skip_mask(model::Parametric, noise_var_priors::AbstractArray) =
+create_dirac_skip_mask(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
     create_dirac_skip_mask(model.param_priors, [], noise_var_priors)
-create_dirac_skip_mask(model::Nonparametric, noise_var_priors::AbstractArray) =
+create_dirac_skip_mask(model::Nonparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
     create_dirac_skip_mask([], model.length_scale_priors, noise_var_priors)
-create_dirac_skip_mask(model::Semiparametric, noise_var_priors::AbstractArray) =
+create_dirac_skip_mask(model::Semiparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
     create_dirac_skip_mask(model.parametric.param_priors, model.nonparametric.length_scale_priors, noise_var_priors)
 
 function create_dirac_skip_mask(
-    θ_priors::AbstractArray,
-    λ_priors::AbstractArray,
-    noise_var_priors::AbstractArray,
+    θ_priors::AbstractVector{<:UnivariateDistribution},
+    λ_priors::AbstractVector{<:MultivariateDistribution},
+    noise_var_priors::AbstractVector{<:UnivariateDistribution},
 )    
     priors = Any[]
     # θ
@@ -201,7 +201,7 @@ Run the optimization procedure contained within the `optimize` argument multiple
 and return the best local optimum found this way.
 """
 function optimize_multistart(
-    optimize::Base.Callable,  # arg, val = optimize(start)
+    optimize::Function,  # arg, val = optimize(start)
     starts::AbstractMatrix{<:Real},
     parallel::Bool,
     info::Bool,

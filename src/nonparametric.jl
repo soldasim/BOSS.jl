@@ -1,6 +1,7 @@
 using AbstractGPs
 using Turing
 using ForwardDiff
+using Distributions
 
 const MIN_PARAM_VALUE = 1e-6
 
@@ -32,7 +33,7 @@ DiscreteKernel(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), Bool[1, 0,
 ```
 """
 struct DiscreteKernel{T} <: Kernel where {
-    T<:Union{Nothing, AbstractArray{Bool}}
+    T<:Union{Nothing, AbstractVector{Bool}}
 }
     kernel::Kernel
     dims::T
@@ -48,7 +49,7 @@ end
 (dk::DiscreteKernel)(x1::ForwardDiff.Dual, x2::ForwardDiff.Dual) = dk(x1.value, x2.value)
 
 discrete_round(::Nothing) = x -> round.(x)
-discrete_round(dims::AbstractArray{<:Bool}) = x -> cond_func(round).(dims, x)
+discrete_round(dims::AbstractVector{<:Bool}) = x -> cond_func(round).(dims, x)
 
 function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscale::Real)
     return DiscreteKernel(with_lengthscale(dk.kernel, lengthscale), dk.dims)
@@ -60,18 +61,18 @@ end
 """
 Construct a `BOSS.Nonparametric` model by adding the given mean function an existing nonparametric model.
 """
-add_mean(m::Nonparametric{Nothing}, mean::Base.Callable) =
+add_mean(m::Nonparametric{Nothing}, mean::Function) =
     Nonparametric(mean, m.kernel, m.length_scale_priors)
 
 """
 Construct a new `BOSS.Nonparametric` model by wrapping its `kernel` in `BOSS.DiscreteKernel`
 to define some dimensions as discrete.
 """
-make_discrete(m::Nonparametric, discrete::AbstractArray{<:Bool}) =
+make_discrete(m::Nonparametric, discrete::AbstractVector{<:Bool}) =
     Nonparametric(m.mean, make_discrete(m.kernel, discrete), m.length_scale_priors)
 
-make_discrete(k::Kernel, discrete::AbstractArray{<:Bool}) = DiscreteKernel(k, discrete)
-make_discrete(k::DiscreteKernel, discrete::AbstractArray{<:Bool}) = k
+make_discrete(k::Kernel, discrete::AbstractVector{<:Bool}) = DiscreteKernel(k, discrete)
+make_discrete(k::DiscreteKernel, discrete::AbstractVector{<:Bool}) = k
 
 model_posterior(model::Nonparametric, data::ExperimentDataMLE) =
     model_posterior(model, data.X, data.Y, data.length_scales, data.noise_vars)
@@ -90,7 +91,7 @@ function model_posterior(
     X::AbstractMatrix{NUM},
     Y::AbstractMatrix{NUM},
     length_scales::AbstractMatrix{NUM},
-    noise_vars::AbstractArray{NUM},
+    noise_vars::AbstractVector{NUM},
 ) where {NUM<:Real}
     y_dim = length(noise_vars)
     means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]
@@ -102,14 +103,14 @@ function model_posterior(
 end
 
 function model_posterior(
-    mean::Union{Nothing, <:Base.Callable},
+    mean::Union{Nothing, Function},
     kernel::Kernel,
     X::AbstractMatrix{NUM},
-    y::AbstractArray{NUM},
-    length_scales::AbstractArray{NUM},
+    y::AbstractVector{NUM},
+    length_scales::AbstractVector{NUM},
     noise_var::NUM,
 ) where {NUM<:Real}
-    posterior_gp = AbstractGPs.posterior(finite_gp(X, mean, kernel, length_scales, noise_var), y)
+    posterior_gp = AbstractGPs.posterior(finite_gp(mean, kernel, X, length_scales, noise_var), y)
     posterior(x) = first.(mean_and_var(posterior_gp(hcat(x))))
 end
 
@@ -117,10 +118,10 @@ end
 Construct a finite GP via the AbstractGPs.jl library.
 """
 function finite_gp(
-    X::AbstractMatrix{<:Real},
-    mean::Nothing,
+    mean::Union{Nothing, Function},
     kernel::Kernel,
-    length_scales::AbstractArray{<:Real},
+    X::AbstractMatrix{<:Real},
+    length_scales::AbstractVector{<:Real},
     noise_var::Real;
     min_param_val::Real=MIN_PARAM_VALUE,
     min_noise::Real=MIN_PARAM_VALUE,
@@ -130,30 +131,17 @@ function finite_gp(
     noise = noise_var + min_noise
 
     kernel = with_lengthscale(kernel, params)
-    GP(kernel)(X, noise)
+    return finite_gp_(mean, kernel, X, noise)
 end
-function finite_gp(
-    X::AbstractMatrix{<:Real},
-    mean::Base.Callable,
-    kernel::Kernel,
-    length_scales::AbstractArray{<:Real},
-    noise_var::Real;
-    min_param_val::Real=MIN_PARAM_VALUE,
-    min_noise::Real=MIN_PARAM_VALUE,
-)
-    # for numerical stability
-    params = length_scales .+ min_param_val
-    noise = noise_var + min_noise
 
-    kernel = with_lengthscale(kernel, params)
-    GP(mean, kernel)(X, noise)
-end
+finite_gp_(::Nothing, kernel::Kernel, X::AbstractMatrix{<:Real}, noise::Real) = GP(kernel)(X, noise)
+finite_gp_(mean::Function, kernel::Kernel, X::AbstractMatrix{<:Real}, noise::Real) = GP(mean, kernel)(X, noise)
 
 """
 Return the log-likelihood of the GP hyperparameters and the noise variance
 as a function `ll = loglike(length_scales, noise_vars)`.
 """
-function model_loglike(model::Nonparametric, noise_var_priors::AbstractArray, data::ExperimentData)
+function model_loglike(model::Nonparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
     params_loglike = model_params_loglike(model, data.X, data.Y)
     noise_loglike(noise_vars) = mapreduce(p -> logpdf(p...), +, zip(noise_var_priors, noise_vars))
     loglike(length_scales, noise_vars) = params_loglike(length_scales, noise_vars) + noise_loglike(noise_vars)
@@ -169,7 +157,7 @@ function model_params_loglike(model::Nonparametric, X::AbstractMatrix{NUM}, Y::A
 
     function params_loglike(length_scales, noise_vars)
         function ll_data_dim(X, y, mean, length_scales, noise_var)
-            gp = finite_gp(X, mean, model.kernel, length_scales, noise_var)
+            gp = finite_gp(mean, model.kernel, X, length_scales, noise_var)
             logpdf(gp, y)
         end
 

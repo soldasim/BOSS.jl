@@ -61,7 +61,7 @@ end
 
 Turing.@model function turing_model(
     model::Parametric,
-    noise_var_priors::AbstractArray,
+    noise_var_priors::AbstractVector{<:UnivariateDistribution},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
@@ -74,7 +74,7 @@ Turing.@model function turing_model(
 end
 Turing.@model function turing_model(
     model::Nonparametric,
-    noise_var_priors::AbstractArray,
+    noise_var_priors::AbstractVector{<:UnivariateDistribution},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
@@ -83,14 +83,14 @@ Turing.@model function turing_model(
     noise_vars ~ arraydist(noise_var_priors)
     length_scales ~ arraydist(model.length_scale_priors)
     
-    gps = [finite_gp(X, nothing, model.kernel, length_scales[:,i], noise_vars[i]) for i in 1:y_dim]
+    gps = [finite_gp(model.mean, model.kernel, X, length_scales[:,i], noise_vars[i]) for i in 1:y_dim]
 
     Yt = transpose(Y)
     Yt ~ arraydist(gps)
 end
 Turing.@model function turing_model(
     model::Semiparametric,
-    noise_var_priors::AbstractArray,
+    noise_var_priors::AbstractVector{<:UnivariateDistribution},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
@@ -101,13 +101,19 @@ Turing.@model function turing_model(
     length_scales ~ arraydist(model.nonparametric.length_scale_priors)
 
     mean = model.parametric(θ)
-    gps = [finite_gp(X, x->mean(x)[i], model.nonparametric.kernel, length_scales[:,i], noise_vars[i]) for i in 1:y_dim]
+    gps = [finite_gp(x->mean(x)[i], model.nonparametric.kernel, X, length_scales[:,i], noise_vars[i]) for i in 1:y_dim]
     
     Yt = transpose(Y)
     Yt ~ arraydist(gps)
 end
 
-function sample_params(turing::TuringBI, model::Parametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real})
+function sample_params(
+    turing::TuringBI,
+    model::Parametric,
+    noise_var_priors::AbstractVector{<:UnivariateDistribution},
+    X::AbstractMatrix{<:Real},
+    Y::AbstractMatrix{<:Real},
+)
     x_dim, y_dim = size(X)[1], size(Y)[1]
     
     tm = turing_model(model, noise_var_priors, X, Y)
@@ -121,7 +127,13 @@ function sample_params(turing::TuringBI, model::Parametric, noise_var_priors::Ab
     θ = reduce(vcat, transpose.(samples[y_dim+1:end]))
     return θ, nothing, noise_vars
 end
-function sample_params(turing::TuringBI, model::Nonparametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real})    
+function sample_params(
+    turing::TuringBI,
+    model::Nonparametric,
+    noise_var_priors::AbstractVector{<:UnivariateDistribution},
+    X::AbstractMatrix{<:Real},
+    Y::AbstractMatrix{<:Real},
+)
     x_dim, y_dim = size(X)[1], size(Y)[1]
     
     tm = turing_model(model, noise_var_priors, X, Y)
@@ -135,7 +147,13 @@ function sample_params(turing::TuringBI, model::Nonparametric, noise_var_priors:
     length_scales = reshape.(eachcol(reduce(vcat, transpose.(samples[y_dim+1:end]))), Ref(x_dim), Ref(y_dim))
     return nothing, length_scales, noise_vars
 end
-function sample_params(turing::TuringBI, model::Semiparametric, noise_var_priors::AbstractArray, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real})    
+function sample_params(
+    turing::TuringBI,
+    model::Semiparametric,
+    noise_var_priors::AbstractVector{<:UnivariateDistribution},
+    X::AbstractMatrix{<:Real},
+    Y::AbstractMatrix{<:Real},
+)    
     θ_len_ = θ_len(model)
     x_dim, y_dim = size(X)[1], size(Y)[1]
     

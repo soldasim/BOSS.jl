@@ -60,7 +60,15 @@ function estimate_parameters(optimization::OptimizationMLE, problem::Optimizatio
     return devectorize(best_params)
 end
 
-# TODO: doc
+"""
+Stores hyperparameters for the acquisition function optimization.
+
+# Fields
+  - algorithm: Defines the optimization algorithm.
+  - multistart: The number of restarts.
+  - parallel: If set to true, the individual optimization runs are run in parallel.
+  - kwargs: Stores hyperparameters for the optimization algorithm.
+"""
 struct OptimizationAM{
     A<:Any,
 } <: AcquisitionMaximizer
@@ -79,7 +87,7 @@ function OptimizationAM(;
     return OptimizationAM(algorithm, multistart, parallel, kwargs)
 end
 
-function maximize_acquisition(optimization::OptimizationAM, problem::BOSS.OptimizationProblem, acq::Base.Callable; info::Bool)
+function maximize_acquisition(optimization::OptimizationAM, problem::BOSS.OptimizationProblem, acq::Function; info::Bool)
     if optimization.multistart == 1
         starts = middle(problem.domain)[:,:]
     else

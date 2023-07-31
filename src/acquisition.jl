@@ -8,16 +8,16 @@ sample_ϵs(y_dim::Int, sample_count::Int) = rand(Distributions.Normal(), (y_dim,
 """
 Construct the acquistion function which is maximized to find the optimal next evaluation point x. 
 """
-acquisition(fitness::Fitness, posterior::Base.Callable, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
+acquisition(fitness::Fitness, posterior::Function, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
     acq(x) = 0.
 
-acquisition(fitness::Fitness, posterior::Base.Callable, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
+acquisition(fitness::Fitness, posterior::Function, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
     acq(x) = feas_prob(x, posterior, constraints)
 
-acquisition(fitness::Fitness, posterior::Base.Callable, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
+acquisition(fitness::Fitness, posterior::Function, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
     acq(x) = EI(x, fitness, posterior, ϵ_samples; best_yet)
 
-acquisition(fitness::Fitness, posterior::Base.Callable, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
+acquisition(fitness::Fitness, posterior::Function, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
     function acq(x)
         mean, var = posterior(x)
         ei = EI(mean, var, fitness, ϵ_samples; best_yet)
@@ -25,7 +25,7 @@ acquisition(fitness::Fitness, posterior::Base.Callable, constraints::AbstractVec
         ei * fp
     end
 
-function acquisition(fitness::Fitness, posteriors::AbstractArray{<:Base.Callable}, constraints::AbstractArray{<:Real}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Union{Nothing, <:Real})
+function acquisition(fitness::Fitness, posteriors::AbstractVector{<:Function}, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Union{Nothing, <:Real})
     acqs = acquisition.(Ref(fitness), posteriors, Ref(constraints), eachcol(ϵ_samples), Ref(best_yet))
     acq(x) = mapreduce(a -> a(x), +, acqs) / length(acqs)
 end

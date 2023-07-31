@@ -92,8 +92,8 @@ function maximize_acquisition(problem::OptimizationProblem, model_fitter::ModelF
 end
 
 # Specialized methods of this function for different algorithms are in '\src\algorithms'.
-maximize_acquisition(acq_maximizer::AcquisitionMaximizer, problem::OptimizationProblem, acq::Base.Callable; info::Bool) =
-    throw(ErrorException("A `maximize_acquisition` method for `$(typeof(acq_maximizer))` does not exist!\nImplement `maximize_acquisition(acq_maximizer::$(typeof(acq_maximizer)), problem::OptimizationProblem, acq::Base.Callable; info::Bool)` method to fix this error."))
+maximize_acquisition(acq_maximizer::AcquisitionMaximizer, problem::OptimizationProblem, acq::Function; info::Bool) =
+    throw(ErrorException("A `maximize_acquisition` method for `$(typeof(acq_maximizer))` does not exist!\nImplement `maximize_acquisition(acq_maximizer::$(typeof(acq_maximizer)), problem::OptimizationProblem, acq::Function; info::Bool)` method to fix this error."))
 
 function eval_objective!(x::AbstractVector{NUM}, problem::OptimizationProblem{NUM}; options::BossOptions) where {NUM}
     options.info && @info "Evaluating objective function ..."
@@ -168,7 +168,7 @@ update_parameters!(::T, problem::OptimizationProblem; kwargs...) where {T<:Model
 """
 Plot the current state of the optimization process.
 """
-function make_plot(opt::PlotOptions, problem::OptimizationProblem, acquistion::Function, acq_opt::AbstractArray{<:Real}; info::Bool)
+function make_plot(opt::PlotOptions, problem::OptimizationProblem, acquistion::Function, acq_opt::AbstractVector{<:Real}; info::Bool)
     info && @info "Plotting ..."
     opt_ = PlotOptions(
         opt.Plots,
