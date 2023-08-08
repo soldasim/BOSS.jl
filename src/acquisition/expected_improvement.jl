@@ -7,16 +7,20 @@ Measures the quality of a potential evaluation point `x`
 as the expected improvement in fitness in comparison to the best-so-far achieved fitness
 if `x` was selected as the next evaluation point.
 
+The best-so-far achieved fitness is calculated as the maximum fitness
+among the means `̂yᵢ` of the model posterior at `xᵢ` for all data points `(xᵢ,yᵢ)`.
+(This is a simple way to handle evaluation noise which may not be suitable for problems with substantial noise.)
+
 In the case of constrained problem, the expected improvement is additionally weighted by the probability of feasibility.
 """
 struct ExpectedImprovement <: AcquisitionFunction end
 
 function (ei::ExpectedImprovement)(problem::OptimizationProblem, options::BossOptions)
-    predict = model_posterior(problem.model, problem.data)
-    ϵ_samples = sample_ϵs(y_dim(problem), ϵ_sample_count(predict, options))
-    b = best_yet(problem)
+    posterior = model_posterior(problem.model, problem.data)
+    ϵ_samples = sample_ϵs(y_dim(problem), ϵ_sample_count(posterior, options))
+    b = best_so_far(problem, posterior)
     options.info && isnothing(b) && @warn "No feasible solution in the dataset yet. Cannot calculate EI!"
-    ei(problem.fitness, predict, problem.cons, ϵ_samples, b)
+    ei(problem.fitness, posterior, problem.cons, ϵ_samples, b)
 end
 
 (ei::ExpectedImprovement)(fitness::Fitness, posterior::Function, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
@@ -51,8 +55,9 @@ function expected_improvement(fitness::LinFitness, mean::AbstractVector{<:Real},
     norm_ϵ = (μf - best_yet) / σf
     return (μf - best_yet) * cdf(Distributions.Normal(), norm_ϵ) + σf * pdf(Distributions.Normal(), norm_ϵ)
 end
+
 function expected_improvement(fitness::NonlinFitness, mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, ϵ_samples::AbstractMatrix{<:Real}; best_yet::Real)
-    pred_samples = [mean .+ (var .* ϵ) for ϵ in eachcol(ϵ_samples)]
+    pred_samples = (mean .+ (var .* ϵ) for ϵ in eachcol(ϵ_samples))
     return sum(max.(0, fitness.(pred_samples) .- best_yet)) / size(ϵ_samples)[2]
 end
 function expected_improvement(fitness::NonlinFitness, mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, ϵ::AbstractVector{<:Real}; best_yet::Real)
@@ -65,10 +70,13 @@ end
 
 sample_ϵs(y_dim::Int, sample_count::Int) = rand(Normal(), (y_dim, sample_count))
 
-best_yet(problem::OptimizationProblem) = best_yet(problem.fitness, problem.data.Y, problem.cons)
-function best_yet(fitness::Fitness, Y::AbstractMatrix{<:Real}, cons::AbstractVector{<:Real})
-    isempty(Y) && return nothing
-    feasible = is_feasible.(eachcol(Y), Ref(cons))
+best_so_far(problem::OptimizationProblem, posterior::Function) =
+    best_so_far(problem.fitness, problem.data.X, problem.cons, posterior)
+
+function best_so_far(fitness::Fitness, X::AbstractMatrix{<:Real}, cons::AbstractVector{<:Real}, posterior::Function)
+    isempty(X) && return nothing
+    Y_hat = mapreduce(x -> posterior(x)[1], hcat, eachcol(X))
+    feasible = is_feasible.(eachcol(Y_hat), Ref(cons))
     any(feasible) || return nothing
-    maximum([fitness(Y[:,i]) for i in 1:size(Y)[2] if feasible[i]])
+    maximum((fitness(Y_hat[:,i]) for i in 1:size(Y_hat)[2] if feasible[i]))
 end
