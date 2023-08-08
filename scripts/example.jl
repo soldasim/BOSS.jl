@@ -109,10 +109,11 @@ function example_mle(problem=opt_problem(4), iters=3;
         parallel,
         outer_x_tol=0.01,
     )
+    acquisition = BOSS.ExpectedImprovement()
     term_cond = BOSS.IterLimit(iters)
 
     # Run BOSS:
-    boss!(problem; model_fitter, acq_maximizer, term_cond, options)
+    boss!(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)
 end
 
 """
@@ -137,8 +138,9 @@ function example_bi(problem=opt_problem(4), iters=3;
         parallel,
         outer_x_tol=0.01,
     )
+    acquisition = BOSS.ExpectedImprovement()
     term_cond = BOSS.IterLimit(iters)
 
     # Run BOSS:
-    boss!(problem; model_fitter, acq_maximizer, term_cond, options)
+    boss!(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)
 end

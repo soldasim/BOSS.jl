@@ -193,16 +193,14 @@ or model parameter samples (if `CustomAlg <: ModelFitter{BI}`).
 Additionally, if the custom algorithm is of type `ModelFitter{BI}`, it has to implement the method
 `sample_count(::CustomAlg)` giving the number of parameter samples returned from `estimate_parameters`.
 
-See '\\src\\algorithms' for concrete implementations of `ModelFitter`.
-
 See also: [`BOSS.OptimMLE`](@ref), [`BOSS.TuringBI`](@ref)
 """
 abstract type ModelFitter{T<:ModelFit} end
 
-# Specific implementations of `ModelFitter` are in '\src\algorithms'.
+# Specific implementations of `ModelFitter` are in '\src\model_fitter'.
 
 
-# - - - - - - - - EI Maximization - - - - - - - -
+# - - - - - - - - Acquisition Maximization - - - - - - - -
 
 """
 Specifies the library/algorithm used for acquisition function optimization.
@@ -215,13 +213,33 @@ Structures derived from this type have to implement the following method:
 `maximize_acquisition(acq_maximizer::CustomAlg, problem::OptimizationProblem, acq::Function; info::Bool)`
 This method should return the point of the input domain which maximizes the given acquisition function `acq`.
 
-See '\\src\\algorithms' for concrete implementations of `AcquisitionMaximizer`.
-
 See also: [`BOSS.OptimMaximizer`](@ref)
 """
 abstract type AcquisitionMaximizer end
 
-# Specific implementations of `AcquisitionMaximizer` are in '\src\algorithms'.
+# Specific implementations of `AcquisitionMaximizer` are in '\src\acquisition_maximizer'.
+
+
+# - - - - - - - - Acquisition Functions - - - - - - - -
+
+"""
+Specifies the acquisition function describing the "quality" of a potential next evaluation point.
+
+Inherit this type to define a custom acquisition function.
+
+Example: `struct CustomAcq <: AcquisitionFunction ... end`
+
+Structures derived from this type have to implement the following method:
+`(acquisition::CustomAcq)(problem::OptimizationProblem, options::BossOptions)`
+
+This method should return a function `acq(x::AbstractVector{<:Real}) = val::Real`,
+which is maximized to select the next evaluation function of blackbox function in each iteration.
+
+See also: [`BOSS.ExpectedImprovement`](@ref)
+"""
+abstract type AcquisitionFunction end
+
+# Specific implementations of `AcquisitionFunction` are in '\src\acquisition'.
 
 
 # - - - - - - - - Termination Conditions - - - - - - - -
