@@ -4,10 +4,8 @@ export boss!
 
 include("types.jl")
 include("utils.jl")
-include("parametric.jl")
-include("nonparametric.jl")
-include("semiparametric.jl")
-include("acquisition/include.jl")
+include("models/include.jl")
+include("acquisition_function/include.jl")
 include("acquisition_maximizer/include.jl")
 include("model_fitter/include.jl")
 include("term_cond.jl")
