@@ -9,7 +9,8 @@ if `x` was selected as the next evaluation point.
 
 The best-so-far achieved fitness is calculated as the maximum fitness
 among the means `̂yᵢ` of the model posterior at `xᵢ` for all data points `(xᵢ,yᵢ)`.
-(This is a simple way to handle evaluation noise which may not be suitable for problems with substantial noise.)
+This is a simple way to handle evaluation noise which may not be suitable for problems with substantial noise.
+In case of Bayesian Inference, an averaged posterior of the posterior samples is used.
 
 In the case of constrained problem, the expected improvement is additionally weighted by the probability of feasibility.
 """
@@ -69,6 +70,9 @@ end
 ϵ_sample_count(predict::AbstractVector{<:Function}, options::BossOptions) = length(predict)
 
 sample_ϵs(y_dim::Int, sample_count::Int) = rand(Normal(), (y_dim, sample_count))
+
+best_so_far(problem::OptimizationProblem, posteriors::AbstractVector{<:Function}) =
+    best_so_far(problem, average_posteriors(posteriors))
 
 best_so_far(problem::OptimizationProblem, posterior::Function) =
     best_so_far(problem.fitness, problem.data.X, problem.cons, posterior)
