@@ -21,18 +21,15 @@ function (ei::ExpectedImprovement)(problem::OptimizationProblem, options::BossOp
     ϵ_samples = sample_ϵs(y_dim(problem), ϵ_sample_count(posterior, options))
     b = best_so_far(problem, posterior)
     options.info && isnothing(b) && @warn "No feasible solution in the dataset yet. Cannot calculate EI!"
-    ei(problem.fitness, posterior, problem.cons, ϵ_samples, b)
+    ei(problem.fitness, posterior, problem.y_max, ϵ_samples, b)
 end
 
 (ei::ExpectedImprovement)(fitness::Fitness, posterior::Function, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
     x -> 0.
-
 (ei::ExpectedImprovement)(fitness::Fitness, posterior::Function, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
-    x -> feas_prob(x, posterior, constraints)
-
+    x -> feas_prob(posterior(x)..., constraints)
 (ei::ExpectedImprovement)(fitness::Fitness, posterior::Function, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
     x -> expected_improvement(fitness, posterior(x)..., ϵ_samples; best_yet)
-
 (ei::ExpectedImprovement)(fitness::Fitness, posterior::Function, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
     function acq(x)
         mean, var = posterior(x)
@@ -75,12 +72,12 @@ best_so_far(problem::OptimizationProblem, posteriors::AbstractVector{<:Function}
     best_so_far(problem, average_posteriors(posteriors))
 
 best_so_far(problem::OptimizationProblem, posterior::Function) =
-    best_so_far(problem.fitness, problem.data.X, problem.cons, posterior)
+    best_so_far(problem.fitness, problem.data.X, problem.y_max, posterior)
 
-function best_so_far(fitness::Fitness, X::AbstractMatrix{<:Real}, cons::AbstractVector{<:Real}, posterior::Function)
+function best_so_far(fitness::Fitness, X::AbstractMatrix{<:Real}, y_max::AbstractVector{<:Real}, posterior::Function)
     isempty(X) && return nothing
     Y_hat = mapreduce(x -> posterior(x)[1], hcat, eachcol(X))
-    feasible = is_feasible.(eachcol(Y_hat), Ref(cons))
+    feasible = is_feasible.(eachcol(Y_hat), Ref(y_max))
     any(feasible) || return nothing
     maximum((fitness(Y_hat[:,i]) for i in 1:size(Y_hat)[2] if feasible[i]))
 end

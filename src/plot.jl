@@ -77,7 +77,7 @@ constraints on ``y`` and the fitted model.
 ```
 function plot_y_slice(opt::PlotOptions, problem::OptimizationProblem, dim::Int)
     @assert x_dim(problem) == 1
-    lb, ub = first.(problem.domain)
+    lb, ub = first.(problem.domain.bounds)
 
     p = opt.Plots.plot(; ylabel="y$dim", xaxis=opt.xaxis, yaxis=opt.yaxis)
     ylims = Inf, -Inf
@@ -112,8 +112,8 @@ function plot_y_slice(opt::PlotOptions, problem::OptimizationProblem, dim::Int)
     end
 
     # constraint
-    if !isinf(problem.cons[dim])
-        opt.Plots.plot!(p, x->problem.cons[dim], lb, ub; label="constraint", color=CONSTRAINT_COLOR, linestyle=CONSTRAINT_STYLE, thickness_scaling=3, points=opt.points)
+    if !isinf(problem.y_max[dim])
+        opt.Plots.plot!(p, x->problem.y_max[dim], lb, ub; label="constraint", color=CONSTRAINT_COLOR, linestyle=CONSTRAINT_STYLE, thickness_scaling=3, points=opt.points)
     end
 
     # f
@@ -140,12 +140,12 @@ Create the acquisition function plot.
 ```
 function plot_acquisition(opt::PlotOptions, problem::OptimizationProblem)
     @assert x_dim(problem) == 1
-    lb, ub = first.(problem.domain)
+    lb, ub = first.(problem.domain.bounds)
 
     p = opt.Plots.plot(; ylabel="acquisition", xaxis=opt.xaxis, yaxis=opt.yaxis)
 
     if !isnothing(opt.acquisition)
-        acq(x) = in_domain(problem.domain, [x]) ? opt.acquisition([x]) : 0.
+        acq(x) = in_bounds(problem.domain.bounds, [x]) ? opt.acquisition([x]) : 0.
         x_points = (opt.xaxis == :log) ? log_range(lb, ub, opt.points) : collect(LinRange(lb, ub, opt.points))
         y_points = acq.(x_points)
         opt.Plots.plot!(p, x_points, y_points; label="acquisition", color=ACQUISITION_COLOR)

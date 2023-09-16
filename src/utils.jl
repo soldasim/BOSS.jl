@@ -3,10 +3,19 @@
 cond_func(f::Function) = (b, x) -> b ? f(x) : x
 
 """
-Return true iff x belongs to the optimization domain.
+Return true iff x belongs to the domain.
 """
-function in_domain(domain::AbstractBounds, x::AbstractVector)
-    lb, ub = domain
+function in_domain(domain::Domain, x::AbstractVector{<:Real})
+    in_bounds(domain.bounds, x) || return false
+    isnothing(domain.cons) && return true
+    return all(domain.cons(x) .>= 0.)
+end
+
+"""
+Return true iff x belongs to the given bounds.
+"""
+function in_bounds(bounds::AbstractBounds, x::AbstractVector{<:Real})
+    lb, ub = bounds
     any(x .< lb) && return false
     any(x .> ub) && return false
     return true
@@ -15,15 +24,16 @@ end
 """
 Return true iff `y` satisfies the given constraints.
 """
-is_feasible(y::AbstractVector{<:Real}, cons::AbstractVector{<:Real}) = all(y .< cons)
+is_feasible(y::AbstractVector{<:Real}, cons::AbstractVector{<:Real}) = all(y .<= cons)
 
 x_dim(model::Nonparametric) = length(first(model.length_scale_priors))
 x_dim(model::Semiparametric) = length(first(model.nonparametric.length_scale_priors))
-x_dim(problem::OptimizationProblem) = length(problem.discrete)
+x_dim(domain::Domain) = length(domain.discrete)
+x_dim(problem::OptimizationProblem) = length(problem.domain.discrete)
 
 y_dim(model::Nonparametric) = length(model.length_scale_priors)
 y_dim(model::Semiparametric) = length(model.nonparametric.length_scale_priors)
-y_dim(problem::OptimizationProblem) = length(problem.cons)
+y_dim(problem::OptimizationProblem) = length(problem.y_max)
 
 θ_len(model::Parametric) = length(model.param_priors)
 θ_len(model::Nonparametric) = 0

@@ -1,6 +1,8 @@
 using Distributions
 using AbstractGPs
 
+# TODO: Simplify types
+
 const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 
 
@@ -91,17 +93,23 @@ where
 
 Define the `lift` function according to the model definition above.
 Provide the model parameter priors in the `param_priors` field as an array of distributions.
+
+The field `discrete` describes which dimensions are discrete.
+This field can be safely ignored as it is automatically filled according to the domain definition.
 """
 struct LinModel{
     P<:AbstractVector{<:UnivariateDistribution},
+    D<:Union{Nothing, AbstractVector{<:Bool}},
 } <: Parametric
     lift::Function
     param_priors::P
+    discrete::D
 end
 LinModel(;
     lift,
     param_priors,
-) = LinModel(lift, param_priors)
+    discrete=nothing,
+) = LinModel(lift, param_priors, discrete)
 
 """
 Used to define a parametric surrogate model.
@@ -110,17 +118,23 @@ If your model is linear, you can use `BOSS.LinModel` which will provide better p
 
 Define the `predict` funtion as `y = predict(x,θ)` where `θ` are the model parameters.
 Provide the model parameter priors in the `param_priors` field as an array of distributions.
+
+The field `discrete` describes which dimensions are discrete.
+This field can be safely ignored as it is automatically filled according to the domain definition.
 """
 struct NonlinModel{
     P<:AbstractVector{<:UnivariateDistribution},
+    D<:Union{Nothing, AbstractVector{<:Bool}},
 } <: Parametric
     predict::Function
     param_priors::P
+    discrete::D
 end
 NonlinModel(;
     predict,
     param_priors,
-) = NonlinModel(predict, param_priors)
+    discrete=nothing,
+) = NonlinModel(predict, param_priors, discrete)
 
 (m::ZeroMean)(x::AbstractVector{<:Real}) = zeros(eltype(x), m.y_dim)
 
@@ -366,6 +380,36 @@ end
 # - - - - - - - - Optimization Problem - - - - - - - -
 
 """
+Describes the optimization domain.
+
+The mandatory field `bounds` describes the basic box-constrains on `x`.
+
+The field `discrete` can be used to designate some dimensions of the domain as discrete.
+
+Arbitrary non-linear constraints can be defined via the `cons` field
+as a function which satisfies `cons(x) .>= 0.` for all feasible points.
+An appropriate acquisition maximizer which can handle constraints has to be used
+if `cons` is provided. (See [`BOSS.AcquisitionMaximizer`](@ref).)
+"""
+struct Domain{
+    B<:AbstractBounds,
+    D<:AbstractVector{<:Bool},
+    C<:Union{Nothing, Function},
+}
+    bounds::B
+    discrete::D
+    cons::C
+end
+function Domain(;
+    bounds,
+    discrete=fill(false, length(first(bounds))),
+    cons=nothing,
+)
+    @assert length(bounds[1]) == length(bounds[2]) == length(discrete)
+    return Domain(bounds, discrete, cons)
+end
+
+"""
 This structure defines the whole optimization problem for the BOSS algorithm.
 
 The problem is defined as follows:
@@ -376,7 +420,7 @@ We have some surrogate model `y = model(x) ≈ f_true(x)`
 describing our limited knowledge about the blackbox function.
 
 We wish to find `x ∈ domain` such that `fitness(f(x))` is maximized
-while satisfying the constraints `f(x) < cons`.
+while satisfying the constraints `f(x) <= y_max`.
 
 The `noise_var_priors` describe the prior distribution over the noise variance of each `y` dimension.
 They are defined as an array of `y_dim` distributions where `y_dim` is the dimension of the output space.
@@ -387,30 +431,25 @@ mutable struct OptimizationProblem{
     NUM<:Real,
     Q<:Fitness,
     C<:AbstractVector{NUM},
-    D<:AbstractBounds,
-    I<:AbstractVector{<:Bool},
-    M<:SurrogateModel,
     N<:AbstractVector{<:UnivariateDistribution},
 }
     fitness::Q
     f::Function
-    cons::C
-    domain::D
-    discrete::I
-    model::M
+    domain::Domain
+    y_max::C
+    model::SurrogateModel
     noise_var_priors::N
     data::ExperimentData
 end
 OptimizationProblem(;
     fitness,
     f,
-    cons,
     domain,
-    discrete,
+    y_max,
     model,
     noise_var_priors,
     data,
-) = OptimizationProblem(fitness, f, cons, domain, discrete, model, noise_var_priors, data)
+) = OptimizationProblem(fitness, f, domain, y_max, model, noise_var_priors, data)
 
 
 # - - - - - - - - Boss Options - - - - - - - -

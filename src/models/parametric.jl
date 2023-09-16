@@ -4,6 +4,8 @@ using Distributions
 (model::Parametric)(θ::AbstractVector{<:Real}) = x -> model(x, θ)
 
 function (model::LinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real})
+    x = discrete_round(model.discrete, x)
+
     ϕs = model.lift(x)
     m = length(ϕs)
 
@@ -15,7 +17,7 @@ function (model::LinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real}
 end
 
 (m::NonlinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real}) =
-    m.predict(x, θ)
+    m.predict(discrete_round(m.discrete, x), θ)
 
 Base.convert(::Type{NonlinModel}, model::LinModel) =
     NonlinModel(
@@ -24,14 +26,10 @@ Base.convert(::Type{NonlinModel}, model::LinModel) =
         model.discrete,
     )
 
-# TODO: Implement a solution for parametric model discretization.
-"""
-Not implemented yet for `BOSS.Parametric` models.
-"""
-function make_discrete(m::Parametric, discrete::AbstractVector{<:Bool})
-    @warn "Model discretization not implemented yet for `Parametric` models!"
-    return m
-end
+make_discrete(m::LinModel, discrete::AbstractVector{<:Bool}) =
+    LinModel(m.lift, m.param_priors, discrete)
+make_discrete(m::NonlinModel, discrete::AbstractVector{<:Bool}) =
+    NonlinModel(m.predict, m.param_priors, discrete)
 
 model_posterior(model::Parametric, data::ExperimentDataMLE) =
     model_posterior(model, data.θ, data.noise_vars)

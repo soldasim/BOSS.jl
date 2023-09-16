@@ -57,7 +57,7 @@ end
 Perform necessary actions on the input arguments before initiating the optimization.
 """
 function initialize!(problem::OptimizationProblem)
-    any(problem.discrete) && (problem.model = make_discrete(problem.model, problem.discrete))
+    any(problem.domain.discrete) && (problem.model = make_discrete(problem.model, problem.domain.discrete))
 end
 
 """
@@ -81,7 +81,7 @@ function maximize_acquisition(problem::OptimizationProblem, acquisition::Acquisi
     options.info && @info "Maximizing acquisition function ..."
     acq = acquisition(problem, options)
     x = maximize_acquisition(acq_maximizer, problem, acq; info=options.info)
-    x = cond_func(round).(problem.discrete, x)
+    x = cond_func(round).(problem.domain.discrete, x)
     return x, acq
 end
 

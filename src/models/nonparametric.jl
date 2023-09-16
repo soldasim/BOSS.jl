@@ -32,24 +32,21 @@ julia> DiscreteKernel(Matern52Kernel(), [true, false, false])
 DiscreteKernel(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), Bool[1, 0, 0])
 ```
 """
-struct DiscreteKernel{T} <: Kernel where {
-    T<:Union{Nothing, AbstractVector{Bool}}
+struct DiscreteKernel{D} <: Kernel where {
+    D<:Union{Missing, AbstractVector{Bool}}
 }
     kernel::Kernel
-    dims::T
+    dims::D
 end
-DiscreteKernel(kernel::Kernel) = DiscreteKernel(kernel, nothing)
+DiscreteKernel(kernel::Kernel) = DiscreteKernel(kernel, missing)
 
 function (dk::DiscreteKernel)(x1, x2)
-    r = discrete_round(dk.dims)
+    r(x) = discrete_round(dk.dims, x)
     dk.kernel(r(x1), r(x2))
 end
 (dk::DiscreteKernel)(x1::ForwardDiff.Dual, x2) = dk(x1.value, x2)
 (dk::DiscreteKernel)(x1, x2::ForwardDiff.Dual) = dk(x1, x2.value)
 (dk::DiscreteKernel)(x1::ForwardDiff.Dual, x2::ForwardDiff.Dual) = dk(x1.value, x2.value)
-
-discrete_round(::Nothing) = x -> round.(x)
-discrete_round(dims::AbstractVector{<:Bool}) = x -> cond_func(round).(dims, x)
 
 function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscale::Real)
     return DiscreteKernel(with_lengthscale(dk.kernel, lengthscale), dk.dims)
@@ -72,7 +69,7 @@ make_discrete(m::Nonparametric, discrete::AbstractVector{<:Bool}) =
     Nonparametric(m.mean, make_discrete(m.kernel, discrete), m.length_scale_priors)
 
 make_discrete(k::Kernel, discrete::AbstractVector{<:Bool}) = DiscreteKernel(k, discrete)
-make_discrete(k::DiscreteKernel, discrete::AbstractVector{<:Bool}) = k
+make_discrete(k::DiscreteKernel, discrete::AbstractVector{<:Bool}) = make_discrete(k.kernel, discrete)
 
 model_posterior(model::Nonparametric, data::ExperimentDataMLE) =
     model_posterior(model, data.X, data.Y, data.length_scales, data.noise_vars)

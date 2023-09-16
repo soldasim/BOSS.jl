@@ -31,9 +31,9 @@ function good_parametric_model()
     z(x, θ) = 0.
     predict(x, θ) = [y(x, θ), z(x, θ)]
 
-    θ_priors = fill(Normal(0., 1.), 3)
+    param_priors = fill(Normal(0., 1.), 3)
 
-    BOSS.NonlinModel(predict, θ_priors)
+    BOSS.NonlinModel(; predict, param_priors)
 end
 # You can also try how the Parametric and Semiparametric models behave
 # when we provide a completely wrong parametric model.
@@ -44,9 +44,9 @@ function bad_parametric_model()
     z(x, θ) = 0.
     predict(x, θ) = [y(x, θ), z(x, θ)]
 
-    θ_priors = fill(Normal(0., 1.), 3)
+    param_priors = fill(Normal(0., 1.), 3)
 
-    BOSS.NonlinModel(predict, θ_priors)
+    BOSS.NonlinModel(predict, param_priors)
 end
 
 # Our prediction about the noise and GP length scales.
@@ -63,8 +63,12 @@ end
 
 # The problem defined as `BOSS.OptimizationProblem`.
 function opt_problem(init_data=4)
-    domain = ([0.], [20.])
-    data = gen_data(init_data, domain)
+    domain = BOSS.Domain(;
+        bounds = ([0.], [20.]),
+        # discrete = [true,]
+        # cons = x -> [15. - x[1]],
+    )
+    data = gen_data(init_data, domain.bounds)
 
     # Try changing the parametric model here.
     model = BOSS.Semiparametric(
@@ -76,9 +80,8 @@ function opt_problem(init_data=4)
     BOSS.OptimizationProblem(;
         fitness = BOSS.LinFitness([1, 0]),
         f = blackbox,
-        cons = [Inf, 0.],
         domain,
-        discrete = [false],
+        y_max = [Inf, 0.],
         model,
         noise_var_priors = noise_var_priors(),
         data = BOSS.ExperimentDataPrior(data...),
@@ -103,12 +106,26 @@ function example_mle(problem=opt_problem(4), iters=3;
         multistart=200,
         parallel,
     )
-    acq_maximizer = BOSS.OptimizationAM(;
-        algorithm=Fminbox(LBFGS()),
+
+    # TODO: DOES NOT WORK (Optimization stops at start.)
+    # acq_maximizer = BOSS.OptimizationAM(;
+    #     algorithm=Fminbox(LBFGS()),
+    #     multistart=200,
+    #     parallel,
+    #     outer_x_tol=0.01,
+    # )
+    # acq_maximizer = BOSS.GridAM(;
+    #     problem,
+    #     steps=[0.01],
+    #     parallel,
+    # )
+    acq_maximizer = BOSS.NLoptAM(;
+        algorithm=:LN_COBYLA,
         multistart=200,
         parallel,
-        outer_x_tol=0.01,
+        xtol_abs = 1e-8,
     )
+
     acquisition = BOSS.ExpectedImprovement()
     term_cond = BOSS.IterLimit(iters)
 
@@ -132,12 +149,26 @@ function example_bi(problem=opt_problem(4), iters=3;
         leap_size=5,
         parallel,
     )
-    acq_maximizer = BOSS.OptimizationAM(;
-        algorithm=Fminbox(LBFGS()),
-        multistart=20,
+
+    # TODO: DOES NOT WORK: see above mle
+    # acq_maximizer = BOSS.OptimizationAM(;
+    #     algorithm=LBFGS(),
+    #     multistart=20,
+    #     parallel,
+    #     x_tol=0.01,
+    # )
+    # acq_maximizer = BOSS.GridAM(;
+    #     problem,
+    #     steps=[0.01],
+    #     parallel,
+    # )
+    acq_maximizer = BOSS.NLoptAM(;
+        algorithm=:LN_COBYLA,
+        multistart=200,
         parallel,
-        outer_x_tol=0.01,
+        xtol_abs = 1e-8,
     )
+
     acquisition = BOSS.ExpectedImprovement()
     term_cond = BOSS.IterLimit(iters)
 

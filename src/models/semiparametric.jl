@@ -5,7 +5,7 @@ Construct a new `BOSS.Semiparametric` model by wrapping its `kernel` in `BOSS.Di
 to define some dimensions as discrete.
 """
 make_discrete(m::Semiparametric, discrete::AbstractVector{<:Bool}) =
-    Semiparametric(m.parametric, make_discrete(m.nonparametric, discrete))
+    Semiparametric(make_discrete(m.parametric, discrete), make_discrete(m.nonparametric, discrete))
 
 model_posterior(model::Semiparametric, data::ExperimentDataMLE) =
     model_posterior(model, data.X, data.Y, data.θ, data.length_scales, data.noise_vars)

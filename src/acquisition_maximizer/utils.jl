@@ -21,6 +21,26 @@ function generate_starts_LHC(bounds::AbstractBounds, count::Int)
     return starts
 end
 
+# # TODO: unused
+# """
+# Moves the points to the interior of the given bounds.
+# """
+# function move_to_interior!(points::AbstractMatrix{<:Float64}, bounds::AbstractBounds; gap=0.)
+#     for dim in size(points)[1]
+#         points[dim,:] .= move_to_interior.(points[dim,:], Ref((bounds[1][dim], bounds[2][dim])); gap)
+#     end
+#     return points
+# end
+# function move_to_interior!(point::AbstractVector{<:Float64}, bounds::AbstractBounds; gap=0.)
+#     dim = length(point)
+#     point .= move_to_interior.(point, ((bounds[1][i], bounds[2][i]) for i in 1:dim); gap)
+# end
+# function move_to_interior(point::Float64, bounds::Tuple{<:Float64, <:Float64}; gap=0.)
+#     (bounds[2] - point >= gap) || (point = bounds[2] - gap)
+#     (point - bounds[1] >= gap) || (point = bounds[1] + gap)
+#     return point
+# end
+
 """
 Sample all model parameters and noise variances from their respective prior distributions.
 """
@@ -147,9 +167,9 @@ create_dirac_skip_mask(problem::OptimizationProblem) =
     create_dirac_skip_mask(problem.model, problem.noise_var_priors)
 
 create_dirac_skip_mask(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
-    create_dirac_skip_mask(model.param_priors, [], noise_var_priors)
+    create_dirac_skip_mask(model.param_priors, MultivariateDistribution[], noise_var_priors)
 create_dirac_skip_mask(model::Nonparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
-    create_dirac_skip_mask([], model.length_scale_priors, noise_var_priors)
+    create_dirac_skip_mask(UnivariateDistribution[], model.length_scale_priors, noise_var_priors)
 create_dirac_skip_mask(model::Semiparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
     create_dirac_skip_mask(model.parametric.param_priors, model.nonparametric.length_scale_priors, noise_var_priors)
 
@@ -197,7 +217,7 @@ inverse(::typeof(inv_softplus)) = softplus
 # - - - PARALLEL OPTIMIZATION WITH RESTARTS - - - - -
 
 """
-Run the optimization procedure contained within the `optimize` argument multiple times
+Run the optimization (maximization) procedure contained within the `optimize` argument multiple times
 and return the best local optimum found this way.
 """
 function optimize_multistart(
