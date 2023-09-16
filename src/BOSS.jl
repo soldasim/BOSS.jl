@@ -4,6 +4,7 @@ export boss!
 
 include("types.jl")
 include("utils.jl")
+include("domain.jl")
 include("models/include.jl")
 include("acquisition_function/include.jl")
 include("acquisition_maximizer/include.jl")
@@ -57,7 +58,10 @@ end
 Perform necessary actions on the input arguments before initiating the optimization.
 """
 function initialize!(problem::OptimizationProblem)
-    any(problem.domain.discrete) && (problem.model = make_discrete(problem.model, problem.domain.discrete))
+    if any(problem.domain.discrete)
+        problem.domain = make_discrete(problem.domain)
+        problem.model = make_discrete(problem.model, problem.domain.discrete)
+    end
 end
 
 """

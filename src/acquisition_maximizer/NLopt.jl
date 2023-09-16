@@ -53,7 +53,7 @@ function construct_opt(optimizer::NLoptAM, domain::Domain, acq::Function, start:
     opt = Opt(optimizer.algorithm, x_dim(domain))
     opt.max_objective = (x, g) -> acq(x)
     opt.lower_bounds, opt.upper_bounds = domain.bounds
-    add_constraints!(opt, domain.cons, start; tol=optimizer.cons_tol)
+    add_constraints!(opt, domain.cons, start, optimizer.cons_tol)
 
     for (s, v) in optimizer.kwargs
         setproperty!(opt, s, v)
@@ -61,11 +61,11 @@ function construct_opt(optimizer::NLoptAM, domain::Domain, acq::Function, start:
     return opt
 end
 
-function add_constraints!(opt::Opt, cons::Function, start::AbstractVector{<:Real}; tol::Real)
+function add_constraints!(opt::Opt, cons::Function, start::AbstractVector{<:Real}, tol::Real)
     c_dim = length(cons(start))
     for i in 1:c_dim
-        inequality_constraint!(opt, (x, g) -> cons(x)[i], tol)
+        inequality_constraint!(opt, (x, g) -> -cons(x)[i], tol)
     end
     return opt
 end
-add_constraints!(opt::Opt, cons::Nothing, start::AbstractVector{<:Real}; tol::Real) = opt
+add_constraints!(opt::Opt, cons::Nothing, start::AbstractVector{<:Real}, tol::Real) = opt
