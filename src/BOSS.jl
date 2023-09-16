@@ -44,7 +44,7 @@ function boss!(problem::OptimizationProblem;
     term_cond::TermCond=IterLimit(1),
     options::BossOptions=BossOptions(),
 )
-    initialize!(problem)
+    initialize!(problem; info=options.info)
     while term_cond(problem)
         estimate_parameters!(problem, model_fitter; options)
         x, acq = maximize_acquisition(problem, acquisition, acq_maximizer; options)
@@ -57,11 +57,13 @@ end
 """
 Perform necessary actions on the input arguments before initiating the optimization.
 """
-function initialize!(problem::OptimizationProblem)
+function initialize!(problem::OptimizationProblem; info::Bool)
     if any(problem.domain.discrete)
         problem.domain = make_discrete(problem.domain)
         problem.model = make_discrete(problem.model, problem.domain.discrete)
     end
+
+    problem.data.X, problem.data.Y = exclude_exterior_points(problem.domain, problem.data.X, problem.data.Y; info)
 end
 
 """

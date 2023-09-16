@@ -21,11 +21,6 @@ function generate_starts_LHC(bounds::AbstractBounds, count::Int)
     return starts
 end
 
-# TODO: unused
-# function exclude_exterior_starts(domain::Domain, starts::AbstractMatrix{<:Real})
-#     return reduce(hcat, (s for s in eachcol(starts) if in_domain(domain, s)))
-# end
-
 # # TODO: unused
 # """
 # Moves the points to the interior of the given bounds.

@@ -44,3 +44,18 @@ y_dim(problem::OptimizationProblem) = length(problem.y_max)
 λ_len(model::Semiparametric) = y_dim(model) * x_dim(model)
 
 param_count(model::SurrogateModel) = θ_len(model) + λ_len(model)
+
+function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; info::Bool)
+    @assert size(X)[2] == size(Y)[2]
+    datasize = size(X)[2]
+
+    exterior = fill(false, datasize)
+    for i in 1:datasize
+        in_domain(domain, X[:,i]) || (exterior[i] = true)
+    end
+
+    info && any(exterior) && @warn "Some points from the initial data are exterior to the domain and will be discarded!"
+    X_ = reduce(hcat, (X[:,i] for i in 1:datasize if !exterior[i]))
+    Y_ = reduce(hcat, (Y[:,i] for i in 1:datasize if !exterior[i]))
+    return X_, Y_
+end
