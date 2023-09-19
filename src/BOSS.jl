@@ -4,6 +4,7 @@ export boss!
 
 include("types.jl")
 include("utils.jl")
+include("optim_utils.jl")
 include("domain.jl")
 include("models/include.jl")
 include("acquisition_function/include.jl")
