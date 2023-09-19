@@ -112,18 +112,18 @@ function example_mle(problem=opt_problem(4), iters=3;
     #     algorithm=Fminbox(LBFGS()),
     #     multistart=200,
     #     parallel,
-    #     outer_x_tol=0.01,
+    #     outer_x_tol=1e-2,
     # )
     # acq_maximizer = BOSS.GridAM(;
     #     problem,
-    #     steps=[0.01],
+    #     steps=[1e-2],
     #     parallel,
     # )
     acq_maximizer = BOSS.NLoptAM(;
         algorithm=:LN_COBYLA,
         multistart=200,
         parallel,
-        xtol_abs = 1e-8,
+        xtol_abs = 1e-2,
     )
 
     acquisition = BOSS.ExpectedImprovement()
@@ -155,18 +155,18 @@ function example_bi(problem=opt_problem(4), iters=3;
     #     algorithm=LBFGS(),
     #     multistart=20,
     #     parallel,
-    #     x_tol=0.01,
+    #     x_tol=1e-2,
     # )
     # acq_maximizer = BOSS.GridAM(;
     #     problem,
-    #     steps=[0.01],
+    #     steps=[1e-2],
     #     parallel,
     # )
     acq_maximizer = BOSS.NLoptAM(;
         algorithm=:LN_COBYLA,
         multistart=200,
         parallel,
-        xtol_abs = 1e-8,
+        xtol_abs = 1e-2,
     )
 
     acquisition = BOSS.ExpectedImprovement()
