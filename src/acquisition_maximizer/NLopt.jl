@@ -1,9 +1,15 @@
 using NLopt
 
+# TODO: support gradient-based methods
+# Something like: https://github.com/JuliaOpt/NLopt.jl/issues/128#issuecomment-1040488184
+# Then update the doc below.
+
 """
 Maximizes the acquisition function using the NLopt.jl library.
 
 Can handle constraints on `x` if according optimization algorithm is selected.
+
+Gradient-based methods are not supported yet.
 
 # Fields
   - algorithm: Defines the optimization algorithm.
@@ -54,18 +60,23 @@ function construct_opt(optimizer::NLoptAM, domain::Domain, acq::Function, start:
     opt.max_objective = (x, g) -> acq(x)
     opt.lower_bounds, opt.upper_bounds = domain.bounds
     add_constraints!(opt, domain.cons, start, optimizer.cons_tol)
-
-    for (s, v) in optimizer.kwargs
-        setproperty!(opt, s, v)
-    end
+    add_kwargs!(opt, optimizer.kwargs)
     return opt
 end
 
 function add_constraints!(opt::Opt, cons::Function, start::AbstractVector{<:Real}, tol::Real)
     c_dim = length(cons(start))
-    for i in 1:c_dim
-        inequality_constraint!(opt, (x, g) -> -cons(x)[i], tol)
+    function f_cons(res, x, g)
+        res .= cons(x)
     end
+    inequality_constraint!(opt, f_cons, fill(tol, c_dim))
     return opt
 end
 add_constraints!(opt::Opt, cons::Nothing, start::AbstractVector{<:Real}, tol::Real) = opt
+
+function add_kwargs!(opt::Opt, kwargs::Base.Pairs{Symbol, <:Any})
+    for (s, v) in kwargs
+        setproperty!(opt, s, v)
+    end
+    return opt
+end
