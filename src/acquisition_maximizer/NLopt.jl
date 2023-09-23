@@ -35,7 +35,7 @@ function NLoptAM(;
     return NLoptAM(algorithm, multistart, parallel, cons_tol, kwargs)
 end
 
-function maximize_acquisition(optimizer::NLoptAM, problem::BOSS.OptimizationProblem, acq::Function; info::Bool)
+function maximize_acquisition(optimizer::NLoptAM, problem::BOSS.OptimizationProblem, acq::Function, options::BossOptions)
     domain = problem.domain
     
     if optimizer.multistart == 1
@@ -47,11 +47,11 @@ function maximize_acquisition(optimizer::NLoptAM, problem::BOSS.OptimizationProb
     function acq_optimize(start)
         opt = construct_opt(optimizer, domain, acq, start)
         val, arg, ret = NLopt.optimize(opt, start)
-        info && (ret == :FORCED_STOP) && @warn "NLopt optimization terminated with `:FORCED_STOP`!"
+        options.info && (ret == :FORCED_STOP) && @warn "NLopt optimization terminated with `:FORCED_STOP`!"
         return arg, val
     end
     
-    best_x, _ = optimize_multistart(acq_optimize, starts, optimizer.parallel, info)
+    best_x, _ = optimize_multistart(acq_optimize, starts, optimizer.parallel, options)
     return best_x
 end
 

@@ -54,7 +54,7 @@ TuringBI(;
 
 sample_count(turing::TuringBI) = turing.chain_count * turing.samples_in_chain
 
-function estimate_parameters(turing::TuringBI, problem::OptimizationProblem; info::Bool)
+function estimate_parameters(turing::TuringBI, problem::OptimizationProblem, options::BossOptions)
     θ, length_scales, noise_vars = sample_params(turing, problem.model, problem.noise_var_priors, problem.data.X, problem.data.Y)
     return (θ=θ, length_scales=length_scales, noise_vars=noise_vars)
 end

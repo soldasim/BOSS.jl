@@ -493,6 +493,8 @@ Used to pass hyperparameters and miscellaneous settings to the BOSS algorithm.
 
 The `info` can be set to false to silence the algorithm.
 
+The `debug` can be set to true to print stacktraces of caught errors.
+
 The `ϵ_samples` hyperparameter controls how many samples are used to approximate
 the posterior predictions of the model.
 Note that this hyperparameter only has an effect
@@ -510,11 +512,13 @@ struct BossOptions{
     P<:Union{Nothing, PlotOptions},
 }
     info::Bool
+    debug::Bool
     ϵ_samples::Int  # only for MLE, in case of BI ϵ_samples == sample_count(ModelFitterBI)
     plot_options::P
 end
 BossOptions(;
     info=true,
+    debug=false,
     ϵ_samples=200,
     plot_options=nothing,
-) = BossOptions(info, ϵ_samples, plot_options)
+) = BossOptions(info, debug, ϵ_samples, plot_options)

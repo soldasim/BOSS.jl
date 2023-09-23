@@ -23,7 +23,7 @@ function GridAM(;
     return GridAM(points, steps, parallel)
 end
 
-function maximize_acquisition(optimizer::GridAM, problem::BOSS.OptimizationProblem, acq::Function; info::Bool)
+function maximize_acquisition(optimizer::GridAM, problem::BOSS.OptimizationProblem, acq::Function, options::BossOptions)
     if optimizer.parallel
         args = Vector{Vector{Float64}}(undef, Threads.nthreads())
         vals = fill(0., Threads.nthreads())

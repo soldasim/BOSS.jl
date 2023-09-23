@@ -75,12 +75,12 @@ Estimate the model parameters & hyperparameters using the given `model_fitter` a
 function estimate_parameters!(problem::OptimizationProblem, model_fitter::ModelFitter{T}; options::BossOptions) where {T}
     options.info && @info "Estimating model parameters ..."
 
-    params = estimate_parameters(model_fitter, problem; info=options.info)
+    params = estimate_parameters(model_fitter, problem, options)
     problem.data = update_parameters!(T, problem.data; params...)
 end
 
 # Specialized methods of this function for different algorithms are in '\src\model_fitter'.
-estimate_parameters(model_fitter::ModelFitter, problem::OptimizationProblem; info::Bool) =
+estimate_parameters(model_fitter::ModelFitter, problem::OptimizationProblem, options::BossOptions) =
     throw(ErrorException("An `estimate_parameters` method for `$(typeof(model_fitter))` does not exist!\nImplement `estimate_parameters(model_fitter::$(typeof(model_fitter)), problem::OptimizationProblem; info::Bool)` method to fix this error."))
 
 """
@@ -89,7 +89,7 @@ Maximize the acquisition via the given `acq_maximizer` algorithm to find the opt
 function maximize_acquisition(problem::OptimizationProblem, acquisition::AcquisitionFunction, acq_maximizer::AcquisitionMaximizer; options::BossOptions)
     options.info && @info "Maximizing acquisition function ..."
     acq = acquisition(problem, options)
-    x = maximize_acquisition(acq_maximizer, problem, acq; info=options.info)
+    x = maximize_acquisition(acq_maximizer, problem, acq, options)
     x = cond_func(round).(problem.domain.discrete, x)
     return x, acq
 end
@@ -99,7 +99,7 @@ end
     throw(ErrorException("Acquisition function for `$(typeof(acquisition))` does not exist!\nImplement `(::$(typeof(acquisition)))(problem::OptimizationProblem)` function to fix this error."))
 
 # Specialized methods of this function for different algorithms are in '\src\acquisition_maximizer'.
-maximize_acquisition(acq_maximizer::AcquisitionMaximizer, problem::OptimizationProblem, acq::Function; info::Bool) =
+maximize_acquisition(acq_maximizer::AcquisitionMaximizer, problem::OptimizationProblem, acq::Function, options::BossOptions) =
     throw(ErrorException("A `maximize_acquisition` method for `$(typeof(acq_maximizer))` does not exist!\nImplement `maximize_acquisition(acq_maximizer::$(typeof(acq_maximizer)), problem::OptimizationProblem, acq::Function; info::Bool)` method to fix this error."))
 
 function eval_objective!(x::AbstractVector{<:Real}, problem::OptimizationProblem; options::BossOptions)
