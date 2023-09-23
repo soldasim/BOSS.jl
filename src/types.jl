@@ -494,10 +494,12 @@ Used to pass hyperparameters and miscellaneous settings to the BOSS algorithm.
 The `info` can be set to false to silence the algorithm.
 
 The `ϵ_samples` hyperparameter controls how many samples are used to approximate
-the posterior predictions of the model. Note that this hyperparameter only has
-an effect if a MLE optimizer is used to fit the model parameters.
-The number of `ϵ_samples` is matched to the number of samples drawn
-by the BI sampler if a BI sampler is used to sample the model parameters.
+the posterior predictions of the model.
+Note that this hyperparameter only has an effect
+if a MLE model fitter is used and a nonlinear fitness function is used.
+If a BI model fitter is used, the number of `ϵ_samples`
+is matched to the number of samples drawn by the BI sampler.
+If a linear fitness function is used, the acquisition function is computed analytically.
 
 The `BOSS.PlotOptions` structure can be passed in the `plot_options` field
 to turn on plotting and modify its settings.

@@ -10,6 +10,7 @@ Can handle constraints on `x` if according optimization algorithm is selected.
   - algorithm: Defines the optimization algorithm.
   - multistart: The number of restarts.
   - parallel: If set to true, the individual optimization runs are run in parallel.
+  - autodiff: The automatic differentiation module passed to `Optimization.OptimizationFunction`.
   - kwargs: Stores hyperparameters for the optimization algorithm.
 """
 struct OptimizationAM{
@@ -18,16 +19,18 @@ struct OptimizationAM{
     algorithm::A
     multistart::Int
     parallel::Bool
+    autodiff::SciMLBase.AbstractADType
     kwargs::Base.Pairs{Symbol, <:Any}
 end
 function OptimizationAM(;
     algorithm,
     multistart=200,
     parallel=true,
+    autodiff=AutoForwardDiff(),
     kwargs...
 )
     ((:lb in keys(kwargs)) || (:ub in keys(kwargs))) && @warn "The provided `:lb` and `:ub` kwargs of `BOSS.OptimizationAM` are ignored!\nUse the `domain` field of the `BOSS.OptimizationProblem` instead."
-    return OptimizationAM(algorithm, multistart, parallel, kwargs)
+    return OptimizationAM(algorithm, multistart, parallel, autodiff, kwargs)
 end
 
 function maximize_acquisition(optimizer::OptimizationAM, problem::BOSS.OptimizationProblem, acq::Function; info::Bool)
@@ -42,7 +45,7 @@ function maximize_acquisition(optimizer::OptimizationAM, problem::BOSS.Optimizat
     acq_func = (x, p) -> -acq(x)
     cons_func = isnothing(domain.cons) ? nothing : (res, x, p) -> (res .= domain.cons(x))
     
-    acq_objective = Optimization.OptimizationFunction(acq_func, AutoForwardDiff(); cons=cons_func)
+    acq_objective = Optimization.OptimizationFunction(acq_func, optimizer.autodiff; cons=cons_func)
     acq_problem(start) = Optimization.OptimizationProblem(acq_objective, start, nothing;
         lb=domain.bounds[1],
         ub=domain.bounds[2],
