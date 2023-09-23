@@ -101,13 +101,13 @@ function example_mle(problem=opt_problem(4), iters=3;
     # Algorithm selection and hyperparameters:
     model_fitter = BOSS.OptimizationMLE(;
         algorithm=NelderMead(),
-        multistart=200,
+        multistart=20,
         parallel,
     )
 
     acq_maximizer = BOSS.OptimizationAM(;
         algorithm=LBFGS(),
-        multistart=200,
+        multistart=20,
         parallel,
         x_tol=1e-2,
     )
