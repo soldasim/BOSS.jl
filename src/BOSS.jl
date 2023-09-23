@@ -65,6 +65,8 @@ function initialize!(problem::OptimizationProblem; info::Bool)
     end
 
     problem.data.X, problem.data.Y = exclude_exterior_points(problem.domain, problem.data.X, problem.data.Y; info)
+
+    problem.y_max = [isinf(c) ? Infinity() : c for c in problem.y_max]
 end
 
 """
@@ -100,7 +102,7 @@ end
 maximize_acquisition(acq_maximizer::AcquisitionMaximizer, problem::OptimizationProblem, acq::Function; info::Bool) =
     throw(ErrorException("A `maximize_acquisition` method for `$(typeof(acq_maximizer))` does not exist!\nImplement `maximize_acquisition(acq_maximizer::$(typeof(acq_maximizer)), problem::OptimizationProblem, acq::Function; info::Bool)` method to fix this error."))
 
-function eval_objective!(x::AbstractVector{NUM}, problem::OptimizationProblem{NUM}; options::BossOptions) where {NUM}
+function eval_objective!(x::AbstractVector{<:Real}, problem::OptimizationProblem; options::BossOptions)
     options.info && @info "Evaluating objective function ..."
     
     y = problem.f(x)

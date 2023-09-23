@@ -65,8 +65,6 @@ end
 function opt_problem(init_data=4)
     domain = BOSS.Domain(;
         bounds = ([0.], [20.]),
-        # discrete = [true,]
-        # cons = x -> [15. - x[1]],
     )
     data = gen_data(init_data, domain.bounds)
 
@@ -107,23 +105,11 @@ function example_mle(problem=opt_problem(4), iters=3;
         parallel,
     )
 
-    # TODO: DOES NOT WORK (Optimization stops at start.)
-    # acq_maximizer = BOSS.OptimizationAM(;
-    #     algorithm=Fminbox(LBFGS()),
-    #     multistart=200,
-    #     parallel,
-    #     outer_x_tol=1e-2,
-    # )
-    # acq_maximizer = BOSS.GridAM(;
-    #     problem,
-    #     steps=[1e-2],
-    #     parallel,
-    # )
-    acq_maximizer = BOSS.NLoptAM(;
-        algorithm=:LN_COBYLA,
+    acq_maximizer = BOSS.OptimizationAM(;
+        algorithm=LBFGS(),
         multistart=200,
         parallel,
-        xtol_abs = 1e-2,
+        x_tol=1e-2,
     )
 
     acquisition = BOSS.ExpectedImprovement()
@@ -150,23 +136,11 @@ function example_bi(problem=opt_problem(4), iters=3;
         parallel,
     )
 
-    # TODO: DOES NOT WORK: see above mle
-    # acq_maximizer = BOSS.OptimizationAM(;
-    #     algorithm=LBFGS(),
-    #     multistart=20,
-    #     parallel,
-    #     x_tol=1e-2,
-    # )
-    # acq_maximizer = BOSS.GridAM(;
-    #     problem,
-    #     steps=[1e-2],
-    #     parallel,
-    # )
-    acq_maximizer = BOSS.NLoptAM(;
-        algorithm=:LN_COBYLA,
+    acq_maximizer = BOSS.OptimizationAM(;
+        algorithm=LBFGS(),
         multistart=200,
         parallel,
-        xtol_abs = 1e-2,
+        x_tol=1e-2,
     )
 
     acquisition = BOSS.ExpectedImprovement()

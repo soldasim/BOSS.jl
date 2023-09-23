@@ -1,7 +1,7 @@
 using Distributions
 using AbstractGPs
 
-# TODO: Simplify types
+# TODO: refactor types
 
 const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 
@@ -427,18 +427,13 @@ They are defined as an array of `y_dim` distributions where `y_dim` is the dimen
 
 See also: [`BOSS.boss!`](@ref), [`BOSS.Fitness`](@ref), [`BOSS.Surrogate`](@ref), [`BOSS.Domain`](@ref)
 """
-mutable struct OptimizationProblem{
-    NUM<:Real,
-    Q<:Fitness,
-    C<:AbstractVector{NUM},
-    N<:AbstractVector{<:UnivariateDistribution},
-}
-    fitness::Q
+mutable struct OptimizationProblem
+    fitness::Fitness
     f::Function
     domain::Domain
-    y_max::C
+    y_max::AbstractVector{<:Real}
     model::SurrogateModel
-    noise_var_priors::N
+    noise_var_priors::AbstractVector{<:UnivariateDistribution}
     data::ExperimentData
 end
 OptimizationProblem(;

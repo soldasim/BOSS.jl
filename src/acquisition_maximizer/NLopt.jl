@@ -57,20 +57,32 @@ end
 
 function construct_opt(optimizer::NLoptAM, domain::Domain, acq::Function, start::AbstractVector{<:Real})
     opt = Opt(optimizer.algorithm, x_dim(domain))
-    opt.max_objective = (x, g) -> acq(x)
     opt.lower_bounds, opt.upper_bounds = domain.bounds
+    add_objective!(opt, acq)
     add_constraints!(opt, domain.cons, start, optimizer.cons_tol)
     add_kwargs!(opt, optimizer.kwargs)
     return opt
 end
 
+function add_objective!(opt::Opt, acq::Function)
+    function f_obj(x, g)
+        if length(g) > 0
+            ForwardDiff.gradient!(g, acq, x)
+        end
+        return acq(x)
+    end
+    opt.max_objective = f_obj
+end
+
 function add_constraints!(opt::Opt, cons::Function, start::AbstractVector{<:Real}, tol::Real)
     c_dim = length(cons(start))
     function f_cons(res, x, g)
+        if length(g) > 0
+            ForwardDiff.jacobian!(g, cons, x)
+        end
         res .= cons(x)
     end
     inequality_constraint!(opt, f_cons, fill(tol, c_dim))
-    return opt
 end
 add_constraints!(opt::Opt, cons::Nothing, start::AbstractVector{<:Real}, tol::Real) = opt
 
@@ -78,5 +90,4 @@ function add_kwargs!(opt::Opt, kwargs::Base.Pairs{Symbol, <:Any})
     for (s, v) in kwargs
         setproperty!(opt, s, v)
     end
-    return opt
 end

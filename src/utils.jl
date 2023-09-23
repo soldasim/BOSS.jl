@@ -1,3 +1,5 @@
+using InteractiveUtils
+using Distributions
 
 # Useful with broadcasting.
 cond_func(f::Function) = (b, x) -> b ? f(x) : x
@@ -58,4 +60,19 @@ function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::A
     X_ = reduce(hcat, (X[:,i] for i in 1:datasize if !exterior[i]))
     Y_ = reduce(hcat, (Y[:,i] for i in 1:datasize if !exterior[i]))
     return X_, Y_
+end
+
+"""
+An auxiliary type to allow dispatch on infinity.
+"""
+struct Infinity <: Real end
+
+Base.isinf(::Infinity) = true
+Base.convert(::Type{F}, ::Infinity) where {F<:AbstractFloat} = F(Inf)
+Base.promote_rule(::Type{F}, ::Type{Infinity}) where {F<:AbstractFloat} = F
+
+# This method is a workaround to avoid NaNs returned from autodiff.
+# See: https://github.com/Sheld5/BOSS.jl/issues/2
+for D in subtypes(UnivariateDistribution)
+    @eval Distributions.cdf(::$D, ::Infinity) = 1.
 end

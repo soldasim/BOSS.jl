@@ -31,11 +31,11 @@ end
 (ei::ExpectedImprovement)(fitness::Fitness, posterior::Function, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
     x -> feas_prob(posterior(x)..., constraints)
 (ei::ExpectedImprovement)(fitness::Fitness, posterior::Function, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
-    x -> expected_improvement(fitness, posterior(x)..., ϵ_samples; best_yet)
+    x -> expected_improvement(fitness, posterior(x)..., ϵ_samples, best_yet)
 (ei::ExpectedImprovement)(fitness::Fitness, posterior::Function, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real) =
     function acq(x)
         mean, var = posterior(x)
-        ei_ = expected_improvement(fitness, mean, var, ϵ_samples; best_yet)
+        ei_ = expected_improvement(fitness, mean, var, ϵ_samples, best_yet)
         fp_ = feas_prob(mean, var, constraints)
         return ei_ * fp_
     end
@@ -45,10 +45,7 @@ function (ei::ExpectedImprovement)(fitness::Fitness, posteriors::AbstractVector{
     x -> mapreduce(a_ -> a_(x), +, acqs) / length(acqs)
 end
 
-feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::Nothing) = 1.
-feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::AbstractVector{<:Real}) = prod(cdf.(Distributions.Normal.(mean, var), constraints))
-
-function expected_improvement(fitness::LinFitness, mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}; best_yet::Real)
+function expected_improvement(fitness::LinFitness, mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
     # https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7352306 Eq(44)
     μf = fitness.coefs' * mean
     σf = sqrt((fitness.coefs .^ 2)' * var)
@@ -56,14 +53,17 @@ function expected_improvement(fitness::LinFitness, mean::AbstractVector{<:Real},
     return (μf - best_yet) * cdf(Distributions.Normal(), norm_ϵ) + σf * pdf(Distributions.Normal(), norm_ϵ)
 end
 
-function expected_improvement(fitness::NonlinFitness, mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, ϵ_samples::AbstractMatrix{<:Real}; best_yet::Real)
+function expected_improvement(fitness::NonlinFitness, mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Real)
     pred_samples = (mean .+ (var .* ϵ) for ϵ in eachcol(ϵ_samples))
     return sum(max.(0, fitness.(pred_samples) .- best_yet)) / size(ϵ_samples)[2]
 end
-function expected_improvement(fitness::NonlinFitness, mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, ϵ::AbstractVector{<:Real}; best_yet::Real)
+function expected_improvement(fitness::NonlinFitness, mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, ϵ::AbstractVector{<:Real}, best_yet::Real)
     pred_sample = mean .+ (var .* ϵ)
     return max(0, fitness(pred_sample) - best_yet)
 end
+
+feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::Nothing) = 1.
+feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::AbstractVector{<:Real}) = prod(cdf.(Distributions.Normal.(mean, var), constraints))
 
 ϵ_sample_count(predict::Function, options::BossOptions) = options.ϵ_samples
 ϵ_sample_count(predict::AbstractVector{<:Function}, options::BossOptions) = length(predict)
