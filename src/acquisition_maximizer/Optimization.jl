@@ -44,7 +44,12 @@ function maximize_acquisition(optimizer::OptimizationAM, problem::BOSS.Optimizat
     
     acq_objective = Optimization.OptimizationFunction(acq_func, AutoForwardDiff(); cons=cons_func)
     acq_problem(start) = Optimization.OptimizationProblem(acq_objective, start, nothing;
-        lb=domain.bounds[1], ub=domain.bounds[2], lcons=fill(0., x_dim(problem)))
+        lb=domain.bounds[1],
+        ub=domain.bounds[2],
+        lcons=fill(0., x_dim(problem)),
+        int=domain.discrete,
+        # `sense` kwarg does not work! (https://github.com/SciML/Optimization.jl/issues/8)
+    )
 
     function acq_optimize(start)
         x = Optimization.solve(acq_problem(start), optimizer.algorithm; optimizer.kwargs...)
