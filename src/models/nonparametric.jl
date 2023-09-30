@@ -3,7 +3,7 @@ using Turing
 using ForwardDiff
 using Distributions
 
-const MIN_PARAM_VALUE = 1e-6
+const MIN_PARAM_VALUE = 1e-18
 
 # Workaround: https://discourse.julialang.org/t/zygote-gradient-does-not-work-with-abstractgps-custommean/87815/7
 AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::ColVecs) = map(m.f, eachcol(x.X))
@@ -15,7 +15,7 @@ A kernel for dealing with discrete variables.
 It is used as a wrapper around any other `AbstractGPs.Kernel`.
 
 The field `dims` can be used to specify only some dimension as discrete.
-All dimensions are considered as discrete if `dims == nothing`.
+All dimensions are considered as discrete if `dims == missing`.
 
 This function is used internally by the BOSS algorithm.
 Use the `discrete` field of the `BOSS.OptimizationProblem` structure
@@ -26,10 +26,10 @@ See also: `BOSS.OptimizationProblem`(@ref)
 # Examples:
 ```julia-repl
 julia> DiscreteKernel(Matern52Kernel())
-DiscreteKernel(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), nothing)
+DiscreteKernel{Missing}(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), missing)
 
 julia> DiscreteKernel(Matern52Kernel(), [true, false, false])
-DiscreteKernel(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), Bool[1, 0, 0])
+DiscreteKernel{Vector{Bool}}(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), Bool[1, 0, 0])
 ```
 """
 struct DiscreteKernel{D} <: Kernel where {
@@ -44,16 +44,16 @@ function (dk::DiscreteKernel)(x1, x2)
     r(x) = discrete_round(dk.dims, x)
     dk.kernel(r(x1), r(x2))
 end
-(dk::DiscreteKernel)(x1::ForwardDiff.Dual, x2) = dk(x1.value, x2)
-(dk::DiscreteKernel)(x1, x2::ForwardDiff.Dual) = dk(x1, x2.value)
-(dk::DiscreteKernel)(x1::ForwardDiff.Dual, x2::ForwardDiff.Dual) = dk(x1.value, x2.value)
 
-function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscale::Real)
-    return DiscreteKernel(with_lengthscale(dk.kernel, lengthscale), dk.dims)
-end
-function KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscales::AbstractVector{<:Real})
-    return DiscreteKernel(with_lengthscale(dk.kernel, lengthscales), dk.dims)
-end
+KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscale::Real) =
+    DiscreteKernel(with_lengthscale(dk.kernel, lengthscale), dk.dims)
+KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscales::AbstractVector{<:Real}) =
+    DiscreteKernel(with_lengthscale(dk.kernel, lengthscales), dk.dims)
+
+# Necessary to make `DiscreteKernel` work with ForwardDiff.jl.
+# See: https://github.com/Sheld5/BOSS.jl/issues/4
+KernelFunctions.kernelmatrix_diag(dk::DiscreteKernel, x::AbstractVector) =
+    kernelmatrix_diag(dk.kernel, discrete_round.(Ref(dk.dims), x))
 
 """
 Construct a `BOSS.Nonparametric` model by adding the given mean function an existing nonparametric model.
