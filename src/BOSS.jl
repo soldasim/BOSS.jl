@@ -65,6 +65,7 @@ function initialize!(problem::OptimizationProblem; info::Bool)
     end
 
     problem.data.X, problem.data.Y = exclude_exterior_points(problem.domain, problem.data.X, problem.data.Y; info)
+    isempty(problem.data.X) && throw(ErrorException("Cannot start with empty dataset! Provide at least one interior initial point."))
 
     problem.y_max = [isinf(c) ? Infinity() : c for c in problem.y_max]
 end
