@@ -76,11 +76,13 @@ end
 
 function add_constraints!(opt::Opt, cons::Function, start::AbstractVector{<:Real}, tol::Real)
     c_dim = length(cons(start))
+    cons_neg(x) = (-1.).*cons(x)
+
     function f_cons(res, x, g)
         if length(g) > 0
-            ForwardDiff.jacobian!(g, cons, x)
+            ForwardDiff.jacobian!(g, cons_neg, x)
         end
-        res .= cons(x)
+        res .= cons_neg(x)
     end
     inequality_constraint!(opt, f_cons, fill(tol, c_dim))
 end
