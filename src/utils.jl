@@ -7,8 +7,8 @@ cond_func(f::Function) = (b, x) -> b ? f(x) : x
 """
 Return true iff x belongs to the domain.
 """
-function in_domain(domain::Domain, x::AbstractVector{<:Real})
-    in_bounds(domain.bounds, x) || return false
+function in_domain(x::AbstractVector{<:Real}, domain::Domain)
+    in_bounds(x, domain.bounds) || return false
     isnothing(domain.cons) && return true
     return all(domain.cons(x) .>= 0.)
 end
@@ -16,7 +16,7 @@ end
 """
 Return true iff x belongs to the given bounds.
 """
-function in_bounds(bounds::AbstractBounds, x::AbstractVector{<:Real})
+function in_bounds(x::AbstractVector{<:Real}, bounds::AbstractBounds)
     lb, ub = bounds
     any(x .< lb) && return false
     any(x .> ub) && return false
@@ -53,7 +53,7 @@ function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::A
 
     exterior = fill(false, datasize)
     for i in 1:datasize
-        in_domain(domain, X[:,i]) || (exterior[i] = true)
+        in_domain(X[:,i], domain) || (exterior[i] = true)
     end
 
     info && any(exterior) && @warn "Some data are exterior to the domain and will be discarded!"

@@ -19,7 +19,7 @@ function GridAM(;
 )
     domain = problem.domain
     ranges = [domain.bounds[1][i]:steps[i]:domain.bounds[2][i] for i in 1:x_dim(problem)]
-    points = [[x...] for x in Iterators.product(ranges...) if in_domain(domain, [x...])]
+    points = [[x...] for x in Iterators.product(ranges...) if in_domain([x...], domain)]
     return GridAM(points, steps, parallel)
 end
 

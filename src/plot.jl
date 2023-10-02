@@ -145,7 +145,7 @@ function plot_acquisition(opt::PlotOptions, problem::OptimizationProblem)
     p = opt.Plots.plot(; ylabel="acquisition", xaxis=opt.xaxis, yaxis=opt.yaxis)
 
     if !isnothing(opt.acquisition)
-        acq(x) = in_bounds(problem.domain.bounds, [x]) ? opt.acquisition([x]) : 0.
+        acq(x) = in_domain([x], problem.domain) ? opt.acquisition([x]) : 0.
         x_points = (opt.xaxis == :log) ? log_range(lb, ub, opt.points) : collect(LinRange(lb, ub, opt.points))
         y_points = acq.(x_points)
         opt.Plots.plot!(p, x_points, y_points; label="acquisition", color=ACQUISITION_COLOR)
