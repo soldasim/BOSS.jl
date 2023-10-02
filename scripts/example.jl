@@ -46,7 +46,7 @@ function bad_parametric_model()
 
     param_priors = fill(Normal(0., 1.), 3)
 
-    BOSS.NonlinModel(predict, param_priors)
+    BOSS.NonlinModel(; predict, param_priors)
 end
 
 # Our prediction about the noise and GP length scales.

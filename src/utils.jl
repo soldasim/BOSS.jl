@@ -59,8 +59,8 @@ function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::A
     info && any(exterior) && @warn "Some data are exterior to the domain and will be discarded!"
     all(exterior) && return eltype(X)[;;], eltype(Y)[;;]
     
-    X_ = reduce(hcat, (X[:,i] for i in 1:datasize if !exterior[i]))
-    Y_ = reduce(hcat, (Y[:,i] for i in 1:datasize if !exterior[i]))
+    X_ = reduce(hcat, (X[:,i] for i in 1:datasize if !exterior[i]))[:,:]
+    Y_ = reduce(hcat, (Y[:,i] for i in 1:datasize if !exterior[i]))[:,:]
     return X_, Y_
 end
 

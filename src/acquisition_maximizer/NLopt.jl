@@ -35,7 +35,7 @@ function NLoptAM(;
     return NLoptAM(algorithm, multistart, parallel, cons_tol, kwargs)
 end
 
-function maximize_acquisition(optimizer::NLoptAM, problem::BOSS.OptimizationProblem, acq::Function, options::BossOptions)
+function maximize_acquisition(acq::Function, optimizer::NLoptAM, problem::BOSS.OptimizationProblem, options::BossOptions)
     domain = problem.domain
     
     if optimizer.multistart == 1

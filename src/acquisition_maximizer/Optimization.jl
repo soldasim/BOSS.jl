@@ -33,7 +33,7 @@ function OptimizationAM(;
     return OptimizationAM(algorithm, multistart, parallel, autodiff, kwargs)
 end
 
-function maximize_acquisition(optimizer::OptimizationAM, problem::BOSS.OptimizationProblem, acq::Function, options::BossOptions)
+function maximize_acquisition(acq::Function, optimizer::OptimizationAM, problem::BOSS.OptimizationProblem, options::BossOptions)
     domain = problem.domain
     
     if optimizer.multistart == 1

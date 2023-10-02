@@ -11,6 +11,3 @@ average_posteriors(posteriors::AbstractVector{<:Function}) =
 discrete_round(::Nothing, x::AbstractVector{<:Real}) = x
 discrete_round(::Missing, x::AbstractVector{<:Real}) = round.(x)
 discrete_round(dims::AbstractVector{<:Bool}, x::AbstractVector{<:Real}) = cond_func(round).(dims, x)
-
-model_posterior(::SurrogateModel, ::ExperimentDataPrior) =
-    throw(ErrorException("Cannot create model posterior from `ExperimentDataPrior`."))

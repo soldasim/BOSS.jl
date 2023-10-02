@@ -14,26 +14,28 @@ include("term_cond.jl")
 include("plot.jl")
 
 """
-    boss!(problem)
-    boss!(problem; model_fitter, acq_maximizer, term_cond, options)
+    boss!(problem::OptimizationProblem; kwargs...)
 
 Solve the given optimization problem via Bayesian optimization with surrogate model.
 
-The optimization problem is defined via the `BOSS.OptimizationProblem` structure
-and passed as the sole argument of the function.
+# Arguments
 
-The underlying algorithms used for model-fitting and acquisition maximization
-can be selected/modified via the `model_fitter` and `acq_maximizer` kwargs.
+- `problem::OptimizationProblem`: Defines the optimization problem.
 
-The termination condition can be modified via the `term_cond` kwarg
-and other hyperparameters and options are selected via the `options` kwarg.
+# Keywords
 
-See the following docs for more information on the function arguments:
+- `model_fitter::ModelFitter`: Defines the algorithm used to estimate model parameters.
+- `acq_maximizer::AcquisitionMaximizer`: Defines the algorithm used to maximize the acquisition function.
+- `term_cond::TermCond`: Defines the termination condition.
+- `options::BossOptions`: Defines miscellaneous options and hyperparameters.
+
+# References
+
 [`BOSS.OptimizationProblem`](@ref),
 [`BOSS.ModelFitter`](@ref),
 [`BOSS.AcquisitionMaximizer`](@ref),
 [`BOSS.TermCond`](@ref),
-[`BOSS.Options`](@ref)
+[`BOSS.BossOptions`](@ref)
 
 # Examples
 See 'https://github.com/Sheld5/BOSS.jl/tree/master/scripts' for example usage.
@@ -50,13 +52,13 @@ function boss!(problem::OptimizationProblem;
         estimate_parameters!(problem, model_fitter; options)
         x, acq = maximize_acquisition(problem, acquisition, acq_maximizer; options)
         isnothing(options.plot_options) || make_plot(options.plot_options, problem, acq, x; info=options.info)
-        eval_objective!(x, problem; options)
+        eval_objective!(problem, x; options)
     end
     return problem
 end
 
 """
-Perform necessary actions on the input arguments before initiating the optimization.
+Perform necessary actions and check the problem definition before initiating the optimization.
 """
 function initialize!(problem::OptimizationProblem; info::Bool)
     if any(problem.domain.discrete)
@@ -80,30 +82,21 @@ function estimate_parameters!(problem::OptimizationProblem, model_fitter::ModelF
     problem.data = update_parameters!(T, problem.data; params...)
 end
 
-# Specialized methods of this function for different algorithms are in '\src\model_fitter'.
-estimate_parameters(model_fitter::ModelFitter, problem::OptimizationProblem, options::BossOptions) =
-    throw(ErrorException("An `estimate_parameters` method for `$(typeof(model_fitter))` does not exist!\nImplement `estimate_parameters(model_fitter::$(typeof(model_fitter)), problem::OptimizationProblem; info::Bool)` method to fix this error."))
-
 """
-Maximize the acquisition via the given `acq_maximizer` algorithm to find the optimal next evaluation point.
+Maximize the given `acquisition` function via the given `acq_maximizer` algorithm to find the optimal next evaluation point.
 """
 function maximize_acquisition(problem::OptimizationProblem, acquisition::AcquisitionFunction, acq_maximizer::AcquisitionMaximizer; options::BossOptions)
     options.info && @info "Maximizing acquisition function ..."
     acq = acquisition(problem, options)
-    x = maximize_acquisition(acq_maximizer, problem, acq, options)
+    x = maximize_acquisition(acq, acq_maximizer, problem, options)
     x = cond_func(round).(problem.domain.discrete, x)
     return x, acq
 end
 
-# Specialized methods of this function for different algorithms are in '\src\acquisition'.
-(acquisition::AcquisitionFunction)(problem::OptimizationProblem) =
-    throw(ErrorException("Acquisition function for `$(typeof(acquisition))` does not exist!\nImplement `(::$(typeof(acquisition)))(problem::OptimizationProblem)` function to fix this error."))
-
-# Specialized methods of this function for different algorithms are in '\src\acquisition_maximizer'.
-maximize_acquisition(acq_maximizer::AcquisitionMaximizer, problem::OptimizationProblem, acq::Function, options::BossOptions) =
-    throw(ErrorException("A `maximize_acquisition` method for `$(typeof(acq_maximizer))` does not exist!\nImplement `maximize_acquisition(acq_maximizer::$(typeof(acq_maximizer)), problem::OptimizationProblem, acq::Function; info::Bool)` method to fix this error."))
-
-function eval_objective!(x::AbstractVector{<:Real}, problem::OptimizationProblem; options::BossOptions)
+"""
+Evaluate the objective function and update the data.
+"""
+function eval_objective!(problem::OptimizationProblem, x::AbstractVector{<:Real}; options::BossOptions)
     options.info && @info "Evaluating objective function ..."
     
     y = problem.f(x)
@@ -115,7 +108,29 @@ function eval_objective!(x::AbstractVector{<:Real}, problem::OptimizationProblem
 end
 
 """
-Update `θ`,`length_scales`,`noise_vars`, keep `X`,`Y` and return as `BOSS.ExperimentDataPost`.
+Estimate the model parameters according to the current data.
+
+For examples of specialized methods see: https://github.com/Sheld5/BOSS.jl/tree/master/src/model_fitter
+"""
+function estimate_parameters(::ModelFitter, ::OptimizationProblem, ::BossOptions) end
+
+"""
+Construct the acquisition function for the given problem.
+
+For examples of specialized methods see: https://github.com/Sheld5/BOSS.jl/tree/master/src/acquisition_function
+"""
+function (::AcquisitionFunction)(::OptimizationProblem) end
+
+"""
+Maximize the given acquisition function.
+
+For examples of specialized methods see: https://github.com/Sheld5/BOSS.jl/tree/master/src/acquisition_maximizer
+"""
+function maximize_acquisition(::Function, ::AcquisitionMaximizer, ::OptimizationProblem, ::BossOptions) end
+
+
+"""
+Update model parameters.
 """
 function update_parameters!(::Type{MLE}, data::ExperimentDataPrior;
     θ=nothing,
@@ -153,6 +168,7 @@ function update_parameters!(::Type{T}, data::ExperimentDataPost{T};
     data.noise_vars = noise_vars
     return data
 end
+# TODO implement this after type refactor
 update_parameters!(::T, problem::OptimizationProblem; kwargs...) where {T<:ModelFit} =
     throw(ArgumentError("Inconsistent experiment data!\nCannot switch from MLE to BI or vice-versa."))
 
