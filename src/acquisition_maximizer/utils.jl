@@ -4,8 +4,6 @@ using Distributions
 
 # - - - GENERATING OPTIMIZATION STARTING POINTS - - - - -
 
-middle(domain::AbstractBounds) = [mean((l,u)) for (l,u) in zip(domain...)]
-
 function random_start(bounds::AbstractBounds)
     lb, ub = bounds
     dim = length(lb)

@@ -39,7 +39,7 @@ function maximize_acquisition(acq::Function, optimizer::NLoptAM, problem::BOSS.O
     domain = problem.domain
     
     if optimizer.multistart == 1
-        starts = middle(domain.bounds)[:,:]
+        starts = mean(domain.bounds)[:,:]
     else
         starts = generate_starts_LHC(domain.bounds, optimizer.multistart)
     end

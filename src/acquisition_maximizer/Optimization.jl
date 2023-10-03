@@ -35,21 +35,23 @@ end
 
 function maximize_acquisition(acq::Function, optimizer::OptimizationAM, problem::BOSS.OptimizationProblem, options::BossOptions)
     domain = problem.domain
+    c_dim = length(domain.cons(mean(domain.bounds)))
     
     if optimizer.multistart == 1
-        starts = middle(domain.bounds)[:,:]
+        starts = mean(domain.bounds)[:,:]
     else
         starts = generate_starts_LHC(domain.bounds, optimizer.multistart)
     end
 
-    acq_func = (x, p) -> -acq(x)
+    acq_func = (x, p) -> -acq(x)  # `-acq(x)` because Optimization.jl minimizes.
     cons_func = isnothing(domain.cons) ? nothing : (res, x, p) -> (res .= domain.cons(x))
     
     acq_objective = Optimization.OptimizationFunction(acq_func, optimizer.autodiff; cons=cons_func)
     acq_problem(start) = Optimization.OptimizationProblem(acq_objective, start, nothing;
         lb=domain.bounds[1],
         ub=domain.bounds[2],
-        lcons=fill(0., x_dim(problem)),
+        lcons=fill(0., c_dim),
+        ucons=fill(Inf, c_dim),  # Needed for some algs to work.
         int=domain.discrete,
         # `sense` kwarg does not work! (https://github.com/SciML/Optimization.jl/issues/8)
     )
