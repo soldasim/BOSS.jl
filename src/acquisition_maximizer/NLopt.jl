@@ -28,7 +28,7 @@ function NLoptAM(;
     algorithm,
     multistart=200,
     parallel=true,
-    cons_tol=1e-8,
+    cons_tol=1e-18,
     kwargs...
 )
     ((:lower_bounds in keys(kwargs)) || (:upper_bounds in keys(kwargs))) && @warn "The provided `:lower_bounds` and `:upper_bounds` kwargs of `BOSS.OptimizationAM` are ignored!\nUse the `domain` field of the `BOSS.OptimizationProblem` instead."
