@@ -1,15 +1,9 @@
 using NLopt
 
-# TODO: support gradient-based methods
-# Something like: https://github.com/JuliaOpt/NLopt.jl/issues/128#issuecomment-1040488184
-# Then update the doc below.
-
 """
 Maximizes the acquisition function using the NLopt.jl library.
 
 Can handle constraints on `x` if according optimization algorithm is selected.
-
-Gradient-based methods are not supported yet.
 
 # Fields
   - algorithm: Defines the optimization algorithm.
