@@ -47,6 +47,9 @@ y_dim(problem::OptimizationProblem) = length(problem.y_max)
 
 param_count(model::SurrogateModel) = θ_len(model) + λ_len(model)
 
+cons_dim(domain::Domain) = isnothing(domain.cons) ? 0 : length(domain.cons(mean(domain.bounds)))
+cons_dim(problem::OptimizationProblem) = cons_dim(problem.domain)
+
 function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; info::Bool)
     @assert size(X)[2] == size(Y)[2]
     datasize = size(X)[2]

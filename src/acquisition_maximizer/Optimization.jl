@@ -5,7 +5,7 @@ Maximizes the acquisition function using the Optimization.jl library.
 
 Can handle constraints on `x` if according optimization algorithm is selected.
 
-# Fields
+# Keywords
   - algorithm: Defines the optimization algorithm.
   - multistart: The number of restarts.
   - parallel: If set to true, the individual optimization runs are run in parallel.
@@ -34,7 +34,7 @@ end
 
 function maximize_acquisition(acq::Function, optimizer::OptimizationAM, problem::BOSS.OptimizationProblem, options::BossOptions)
     domain = problem.domain
-    c_dim = length(domain.cons(mean(domain.bounds)))
+    c_dim = cons_dim(domain)
     
     if optimizer.multistart == 1
         starts = mean(domain.bounds)[:,:]
@@ -57,8 +57,8 @@ function maximize_acquisition(acq::Function, optimizer::OptimizationAM, problem:
 
     function acq_optimize(start)
         x = Optimization.solve(acq_problem(start), optimizer.algorithm; optimizer.kwargs...)
-        a = acq(x)
-        return x, a
+        a = acq(x.u)  # because `x.objective == -acq(x.u)`
+        return x.u, a
     end
     
     best_x, _ = optimize_multistart(acq_optimize, starts, optimizer.parallel, options)

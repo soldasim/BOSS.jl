@@ -145,7 +145,7 @@ uuid = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
 version = "0.4.6"
 
 [[deps.BOSS]]
-deps = ["AbstractGPs", "Bijectors", "Distributions", "DistributionsAD", "ForwardDiff", "InteractiveUtils", "LatinHypercubeSampling", "NLopt", "Optimization", "Suppressor", "Turing", "Zygote"]
+deps = ["AbstractGPs", "Bijectors", "Distributions", "DistributionsAD", "ForwardDiff", "InteractiveUtils", "LatinHypercubeSampling", "Optimization", "Suppressor", "Turing", "Zygote"]
 path = ".."
 uuid = "15052f3f-a82a-4ca3-bbc4-f478a3bd1ae2"
 version = "0.1.0"
@@ -1080,24 +1080,6 @@ deps = ["DiffResults", "Distributed", "FiniteDiff", "ForwardDiff"]
 git-tree-sha1 = "a0b464d183da839699f4c79e7606d9d186ec172c"
 uuid = "d41bc354-129a-5804-8e4c-c37616107c6c"
 version = "7.8.3"
-
-[[deps.NLopt]]
-deps = ["NLopt_jll"]
-git-tree-sha1 = "19d2a1c8a3c5b5a459f54a10e54de630c4a05701"
-uuid = "76087f3c-5699-56af-9a33-bf431cd00edd"
-version = "1.0.0"
-
-    [deps.NLopt.extensions]
-    NLoptMathOptInterfaceExt = ["MathOptInterface"]
-
-    [deps.NLopt.weakdeps]
-    MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
-
-[[deps.NLopt_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "9b1f15a08f9d00cdb2761dcfa6f453f5d0d6f973"
-uuid = "079eb43e-fd8e-5478-9966-2cf3e3edb778"
-version = "2.7.1+0"
 
 [[deps.NNlib]]
 deps = ["Adapt", "Atomix", "ChainRulesCore", "GPUArraysCore", "KernelAbstractions", "LinearAlgebra", "Pkg", "Random", "Requires", "Statistics"]
