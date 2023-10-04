@@ -1,5 +1,4 @@
 using Optimization
-using Zygote
 
 """
 Maximizes the acquisition function using the Optimization.jl library.

@@ -1,9 +1,11 @@
-using NLopt
+# using NLopt
 
 """
 Maximizes the acquisition function using the NLopt.jl library.
 
 Can handle constraints on `x` if according optimization algorithm is selected.
+
+To use `NLoptAM` first evaluate `] add NLopt` and `using NLopt`.
 
 # Fields
   - algorithm: Defines the optimization algorithm.
