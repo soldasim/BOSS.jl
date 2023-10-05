@@ -9,21 +9,49 @@ Measures the quality of a potential evaluation point `x`
 as the expected improvement in fitness in comparison to the best-so-far achieved fitness
 if `x` was selected as the next evaluation point.
 
-The best-so-far achieved fitness is calculated as the maximum fitness
-among the means `̂yᵢ` of the model posterior at `xᵢ` for all data points `(xᵢ,yᵢ)`.
-This is a simple way to handle evaluation noise which may not be suitable for problems with substantial noise.
-In case of Bayesian Inference, an averaged posterior of the posterior samples is used.
+In case of constrained problems,
+the expected improvement is additionally weighted by the probability of feasibility.
 
-In the case of constrained problem, the expected improvement is additionally weighted by the probability of feasibility.
+If no feasible point has been observed yet,
+the probability of feasibility is used as fitness for constrained problems
+and a constant function `x -> 0.` is used for unconstrained problems.
+
+The best-so-far achieved fitness is calculated as the maximum fitness
+among the means `̂yᵢ` of the model posterior at `xᵢ` for all data points `(xᵢ,yᵢ)`
+rather than the actual measured outputs `yᵢ`.
+This is a simple way to handle evaluation noise which may not be suitable for problems with substantial noise.
+In case of Bayesian Inference, an averaged posterior of the posterior samples is used
+for the best-so-far fitness calculation.
+
+# Keywords
+- `cons_safe::Bool`: If set to true, the acquisition function `acq(x)` is made 'constraint-safe'
+    by wrapping it in `safe_acq(x) = in_domain(x, domain) ? acq(x) : 0.`.
+    Set `cons_safe` to `true` if the evaluation of the model at exterior points
+    may cause errors or is nonsensical.
+    Set `cons_safe` to `false` if the evaluation of the model at exterior points
+    can provide information to the acquisition maximizer.
+    Defaults to `false`.
 """
-struct ExpectedImprovement <: AcquisitionFunction end
+struct ExpectedImprovement <: AcquisitionFunction
+    cons_safe::Bool
+end
+function ExpectedImprovement(;
+    cons_safe=false,
+)
+    return ExpectedImprovement(cons_safe)
+end
 
 function (ei::ExpectedImprovement)(problem::OptimizationProblem, options::BossOptions)
     posterior = model_posterior(problem.model, problem.data)
     ϵ_samples = sample_ϵs(y_dim(problem), ϵ_sample_count(posterior, options))
     b = best_so_far(problem, posterior)
     options.info && isnothing(b) && @warn "No feasible solution in the dataset yet. Cannot calculate EI!"
-    ei(problem.fitness, posterior, problem.y_max, ϵ_samples, b)
+    acq = ei(problem.fitness, posterior, problem.y_max, ϵ_samples, b)
+    return ei.cons_safe ? make_safe(acq, problem.domain) : acq
+end
+
+function make_safe(acq::Function, domain::Domain)
+    return acq_safe(x) = in_domain(x, domain) ? acq(x) : 0.
 end
 
 (ei::ExpectedImprovement)(fitness::Fitness, posterior::Function, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing) =
