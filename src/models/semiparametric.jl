@@ -1,4 +1,3 @@
-using Turing
 
 make_discrete(m::Semiparametric, discrete::AbstractVector{<:Bool}) =
     Semiparametric(make_discrete(m.parametric, discrete), make_discrete(m.nonparametric, discrete))

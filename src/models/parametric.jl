@@ -1,4 +1,3 @@
-using Turing
 using Distributions
 
 (model::Parametric)(θ::AbstractVector{<:Real}) = x -> model(x, θ)

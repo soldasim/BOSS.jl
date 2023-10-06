@@ -3,7 +3,6 @@ using Plots
 using Distributions
 using Random
 
-using Turing
 using OptimizationOptimJL
 
 Random.seed!(555)
@@ -128,8 +127,8 @@ function example_bi(problem=opt_problem(4), iters=3;
 )
     # Algorithm selection and hyperparameters:
     model_fitter = BOSS.TuringBI(;
-        sampler=PG(20),
-        warmup=1000,
+        sampler=BOSS.PG(20),
+        warmup=100,
         samples_in_chain=10,
         chain_count=8,
         leap_size=5,
@@ -138,7 +137,7 @@ function example_bi(problem=opt_problem(4), iters=3;
 
     acq_maximizer = BOSS.OptimizationAM(;
         algorithm=LBFGS(),
-        multistart=200,
+        multistart=20,
         parallel,
         x_tol=1e-2,
     )

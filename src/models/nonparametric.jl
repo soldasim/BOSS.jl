@@ -1,6 +1,4 @@
 using AbstractGPs
-using Turing
-using ForwardDiff
 using Distributions
 
 const MIN_PARAM_VALUE = 1e-18

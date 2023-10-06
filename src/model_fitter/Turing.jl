@@ -1,12 +1,5 @@
 using Turing
-using Turing: Variational
-using Zygote
-using ForwardDiff
 using Distributions
-using DistributionsAD: VectorOfMultivariate
-using Bijectors
-using Suppressor
-using AbstractGPs
 
 """
     TuringBI(; kwargs...)
@@ -167,7 +160,7 @@ end
 
 # Sample parameters of the given probabilistic model (defined with Turing.jl) using parallel NUTS MC sampling.
 # Other AD backends than Zygote cause issues: https://discourse.julialang.org/t/gaussian-process-regression-with-turing-gets-stuck/86892
-function sample_params_turing(turing::TuringBI, turing_model, param_symbols; adbackend=:zygote)
+function sample_params_turing(turing::TuringBI, turing_model, param_symbols; adbackend=:forwarddiff)
     Turing.setadbackend(adbackend)
 
     samples_in_chain = turing.n_adapts + (turing.leap_size * turing.samples_in_chain)
