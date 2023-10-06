@@ -1,20 +1,27 @@
 
 """
-Maximizes the acquisition function by simply checking a fine grid of points from the domain.
+    GridAM(problem, steps; kwargs...)
+
+Maximizes the acquisition function by checking a fine grid of points from the domain.
 
 Extremely simple optimizer which can be used for simple problems or for debugging.
 Not suitable for problems with high dimensional domain.
 
 Can be used with constraints on `x`.
+
+# Arguments
+- `problem::BOSS.OptimizationProblem`: Provide your defined optimization problem.
+- `steps::Vector{Float64}`: Defines the size of the grid gaps in each `x` dimension.
+
+# Keywords
+- `parallel::Bool`: If `parallel=true` then the optimization is parallelized. Defaults to `true`.
 """
 struct GridAM <: AcquisitionMaximizer
     points::Vector{Vector{Float64}}
     steps::Vector{Float64}
     parallel::Bool
 end
-function GridAM(;
-    problem::BOSS.OptimizationProblem,
-    steps::Vector{Float64},
+function GridAM(problem::BOSS.OptimizationProblem, steps::Vector{Float64};
     parallel=true,
 )
     domain = problem.domain

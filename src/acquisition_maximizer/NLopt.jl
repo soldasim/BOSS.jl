@@ -1,6 +1,8 @@
 # using NLopt
 
 """
+    NLoptAM(NLopt::Module; kwargs...)
+
 Maximizes the acquisition function using the NLopt.jl library.
 
 Can handle constraints on `x` if according optimization algorithm is selected.
@@ -8,14 +10,16 @@ Can handle constraints on `x` if according optimization algorithm is selected.
 To use `NLoptAM` you need to evaluate `using NLopt` and pass the `NLopt` module to `NLoptAM`.
 
 # Arguments
-- `nlopt::Module`: Provide the `NLopt` module as it is note direct dependency of BOSS.
+- `nlopt::Module`: Provide the `NLopt` module as it is not a direct dependency of BOSS.
 
 # Keywords
-  - `algorithm::Symbol`: Defines the optimization algorithm.
-  - `multistart::Int`: The number of restarts.
-  - `parallel::Bool`: If set to true, the individual optimization runs are run in parallel.
-  - `cons_tol::Float64`: Absolute tolerance for the constraints.
-  - Other kwargs: Hyperparameters passed to the optimization algorithm.
+- `algorithm::Symbol`: Specifies the optimization algorithm from the NLopt algorithms.
+- `multistart::Int`: The number of restarts.
+- `parallel::Bool`: If set to true, the individual optimization restarts are run in parallel.
+- `cons_tol::Float64`: The absolute tolerance of constraint violation.
+-  `kwargs...`: Other kwargs are passed to the optimization algorithm.
+
+See also: https://github.com/JuliaOpt/NLopt.jl
 """
 struct NLoptAM <: AcquisitionMaximizer
     nlopt::Module

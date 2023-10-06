@@ -11,15 +11,19 @@ AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::RowVecs) = map(m.f, eachro
 AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::AbstractVector) = map(m.f, x)
 
 """
+    DiscreteKernel(kernel::Kernel, dims::AbstractVector{Bool})
+    DiscreteKernel(kernel::Kernel)
+
 A kernel for dealing with discrete variables.
 It is used as a wrapper around any other `AbstractGPs.Kernel`.
 
 The field `dims` can be used to specify only some dimension as discrete.
-All dimensions are considered as discrete if `dims == missing`.
+All dimensions are considered as discrete if `dims` is not provided.
 
-This function is used internally by the BOSS algorithm.
-Use the `discrete` field of the `BOSS.OptimizationProblem` structure
-to define discrete dimension instead of this structure.
+This structure is used internally by the BOSS algorithm.
+The end user of BOSS.jl is not expected to use this structure.
+Use the `BOSS.Domain` passed to the `BOSS.OptimizationProblem`
+to define discrete dimensions instead.
 
 See also: `BOSS.OptimizationProblem`(@ref)
 
@@ -55,16 +59,9 @@ KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscales::AbstractVecto
 KernelFunctions.kernelmatrix_diag(dk::DiscreteKernel, x::AbstractVector) =
     kernelmatrix_diag(dk.kernel, discrete_round.(Ref(dk.dims), x))
 
-"""
-Construct a `BOSS.Nonparametric` model by adding the given mean function an existing nonparametric model.
-"""
 add_mean(m::Nonparametric{Nothing}, mean::Function) =
     Nonparametric(mean, m.kernel, m.length_scale_priors)
 
-"""
-Construct a new `BOSS.Nonparametric` model by wrapping its `kernel` in `BOSS.DiscreteKernel`
-to define some dimensions as discrete.
-"""
 make_discrete(m::Nonparametric, discrete::AbstractVector{<:Bool}) =
     Nonparametric(m.mean, make_discrete(m.kernel, discrete), m.length_scale_priors)
 

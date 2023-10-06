@@ -5,6 +5,8 @@ using Distributions
 cond_func(f::Function) = (b, x) -> b ? f(x) : x
 
 """
+    in_domain(x, domain) -> Bool
+
 Return true iff x belongs to the domain.
 """
 function in_domain(x::AbstractVector{<:Real}, domain::Domain)
@@ -14,6 +16,8 @@ function in_domain(x::AbstractVector{<:Real}, domain::Domain)
 end
 
 """
+    in_bounds(x, bounds) -> Bool
+
 Return true iff x belongs to the given bounds.
 """
 function in_bounds(x::AbstractVector{<:Real}, bounds::AbstractBounds)
@@ -24,6 +28,8 @@ function in_bounds(x::AbstractVector{<:Real}, bounds::AbstractBounds)
 end
 
 """
+    is_feasible(y, cons) -> Bool
+
 Return true iff `y` satisfies the given constraints.
 """
 is_feasible(y::AbstractVector{<:Real}, cons::AbstractVector{<:Real}) = all(y .<= cons)
@@ -50,6 +56,10 @@ param_count(model::SurrogateModel) = θ_len(model) + λ_len(model)
 cons_dim(domain::Domain) = isnothing(domain.cons) ? 0 : length(domain.cons(mean(domain.bounds)))
 cons_dim(problem::OptimizationProblem) = cons_dim(problem.domain)
 
+"""
+Exclude points exterior to the given `x` domain from the given `X` and `Y` data matrices
+and return new matrices `X_` and `Y_`.
+"""
 function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; info::Bool)
     @assert size(X)[2] == size(Y)[2]
     datasize = size(X)[2]

@@ -1,5 +1,7 @@
 
 """
+    RandomSelectAM()
+
 Selects a random interior point instead of maximizing the acquisition function.
 Can be used for method comparison.
 

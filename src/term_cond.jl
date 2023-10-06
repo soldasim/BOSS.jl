@@ -1,7 +1,7 @@
 """
-Terminates the BOSS algorithm after predefined number of iterations.
+    IterLimit(iter_max::Int)
 
-Use the constructor `IterLimit(iter_max)` to set the iterations limit to `iter_max`.
+Terminates the BOSS algorithm after predefined number of iterations.
 
 See also: [`BOSS.boss!`](@ref)
 """

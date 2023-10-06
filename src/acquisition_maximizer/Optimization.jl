@@ -1,16 +1,19 @@
 using Optimization
 
 """
+    OptimizationAM(; kwargs...)
+
 Maximizes the acquisition function using the Optimization.jl library.
 
 Can handle constraints on `x` if according optimization algorithm is selected.
 
 # Keywords
-  - algorithm: Defines the optimization algorithm.
-  - multistart: The number of restarts.
-  - parallel: If set to true, the individual optimization runs are run in parallel.
-  - autodiff: The automatic differentiation module passed to `Optimization.OptimizationFunction`.
-  - kwargs: Stores hyperparameters for the optimization algorithm.
+- `algorithm::Any`: Defines the optimization algorithm.
+- `multistart::Int`: The number of optimization restarts.
+- `parallel::Bool`: If `parallel=true` then the individual restarts are run in parallel.
+- `autodiff:SciMLBase.AbstractADType:`: The automatic differentiation module
+        passed to `Optimization.OptimizationFunction`.
+- `kwargs...`: Other kwargs are passed to the optimization algorithm.
 """
 struct OptimizationAM{
     A<:Any,

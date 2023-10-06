@@ -15,6 +15,7 @@ function parallel_benchmark_mle()
     println("PARALLEL MLE: $par_mle")
     return seq_mle, par_mle
 end
+
 """
 A simple benchmark showcasing the speed-up achieved via parallelization with BI.
 """

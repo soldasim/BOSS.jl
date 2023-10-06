@@ -9,31 +9,27 @@ using Suppressor
 using AbstractGPs
 
 """
-Stores hyperparameters of the Turing sampler.
+    TuringBI(; kwargs...)
 
-Amount of drawn samples:    'chain_count * (warmup + leap_size * sample_count)'
-Amount of used samples:     'chain_count * sample_count'
+Samples the model parameters and hyperparameters using the Turing.jl package.
 
-# Fields
-  - sampler: The sampling algorithm used to draw the samples.
-  - n_adapts: The amount of initial unused 'warmup' samples in each chain.
-  - samples_in_chain: The amount of samples used from each chain.
-  - chain_count: The amount of independent chains sampled.
-  - leap_size: Only every `leap_size`-th sample is used from each chain. (To avoid correlated samples.)
-  - parallel: Set to false to turn off parallel sampling.
+# Keywords
+- `sampler::Any`: The sampling algorithm used to draw the samples.
+- `n_adapts::Int`: The amount of initial unused 'warmup' samples in each chain.
+- `samples_in_chain::Int`: The amount of samples used from each chain.
+- `chain_count::Int`: The amount of independent chains sampled.
+- `leap_size`: Every `leap_size`-th sample is used from each chain. (To avoid correlated samples.)
+- `parallel`: If `parallel=true` then the chains are sampled in parallel.
 
-# Sampling process
+# Sampling Process
 
 In each sampled chain;
   - The first `n_adapts` samples are discarded.
-  - From the following `leap_size * samples_in_chain` each `leap_size`-th is kept.
+  - From the following `leap_size * samples_in_chain` samples each `leap_size`-th is kept.
+Then the samples from all chains are concatenated and returned.
 
-Finally, the kept samples from all chains are concatenated and returned.
-
-In total `n_adapts + (leap_size * samples_in_chain)` samples are drawn
-of which only `samples_in_chain` samples are kept from each of the `chain_count` chains.
-
-The individual chains are sampled in parallel unless `parallel` is set to false.
+Total drawn samples:    'chain_count * (warmup + leap_size * samples_in_chain)'
+Total returned samples: 'chain_count * samples_in_chain'
 """
 struct TuringBI{S} <: ModelFitter{BI}
     sampler::S
@@ -51,8 +47,6 @@ TuringBI(;
     leap_size=5,
     parallel=true,
 ) = TuringBI(sampler, warmup, samples_in_chain, chain_count, leap_size, parallel)
-
-sample_count(turing::TuringBI) = turing.chain_count * turing.samples_in_chain
 
 function estimate_parameters(turing::TuringBI, problem::OptimizationProblem, options::BossOptions)
     θ, length_scales, noise_vars = sample_params(turing, problem.model, problem.noise_var_priors, problem.data.X, problem.data.Y)

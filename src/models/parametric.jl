@@ -16,8 +16,10 @@ function (model::LinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real}
     return y
 end
 
-(m::NonlinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real}) =
-    m.predict(discrete_round(m.discrete, x), θ)
+function (m::NonlinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real})
+    x = discrete_round(m.discrete, x)
+    return m.predict(x, θ)
+end
 
 Base.convert(::Type{NonlinModel}, model::LinModel) =
     NonlinModel(

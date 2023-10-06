@@ -1,14 +1,18 @@
 using Optimization
 
 """
-Stores hyperparameters for the MLE optimization of model parameters.
+    OptimizationMLE(; kwargs...)
 
-# Fields
-  - algorithm: Defines the optimization algorithm.
-  - multistart: The number of restarts.
-  - parallel: If set to true, the individual optimization runs are run in parallel.
-  - apply_softplus: If set to true, the softplus function is applied to noise variances and length scales of GPs to ensure positive values.
-  - softplus_params: Defines to which parameters of the parametric model should the softplus function be applied. Defaults to `nothing` equivalent to all falses.
+Finds the MLE of the model parameters and hyperparameters using the Optimization.jl package.
+
+# Keywords
+- `algorithm::Any`: Defines the optimization algorithm.
+- `multistart::Int`: The number of optimization restarts.
+- `parallel::Bool`: If `parallel=true` then the individual restarts are run in parallel.
+- `apply_softplus::Bool`: If `apply_softplus=true` then the softplus function is applied
+        to noise variances and length scales of GPs to ensure positive values during optimization.
+- `softplus_params::Union{Vector{Bool}, Nothing}`: Defines to which parameters of the parametric
+        model should the softplus function be applied. Defaults to `nothing` equivalent to all falses.
 """
 struct OptimizationMLE{
     A<:Any,

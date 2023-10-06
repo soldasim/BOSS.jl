@@ -86,7 +86,7 @@ function opt_problem(init_data=4)
     )
 end
 
-default_options = BOSS.BossOptions(;
+boss_options = BOSS.BossOptions(;
     info=true,
     plot_options=BOSS.PlotOptions(Plots, f_true=x->blackbox(x; noise=0.)),
 )
@@ -96,7 +96,7 @@ An example usage of the BOSS algorithm with a MLE algorithm.
 """
 function example_mle(problem=opt_problem(4), iters=3;
     parallel=true,
-    options=default_options,
+    options=boss_options,
 )
     # Algorithm selection and hyperparameters:
     model_fitter = BOSS.OptimizationMLE(;
@@ -124,7 +124,7 @@ An example usage of the BOSS algorithm with a BI algorithm.
 """
 function example_bi(problem=opt_problem(4), iters=3;
     parallel=true,
-    options=default_options,
+    options=boss_options,
 )
     # Algorithm selection and hyperparameters:
     model_fitter = BOSS.TuringBI(;

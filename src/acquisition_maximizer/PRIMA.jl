@@ -1,10 +1,12 @@
 # using PRIMA
 
 """
+    CobylaAM(PRIMA::Module; kwargs...)
+
 Maximizes the acquisition function using the new implementation of CobylaAM.
 
-To use `CobylaAM` you need to evaluate `using PRIMA` and pass the `PRIMA` module to `CobylaAM`.
-The PRIMA.jl algorithm is not registered yet,
+To use `CobylaAM` you need to evaluate `using PRIMA` and pass the `PRIMA` module
+to `CobylaAM`. The PRIMA.jl package is not registered yet,
 so the repo has to be added manually from https://github.com/emmt/PRIMA.jl.
 
 Eventually the new algorithm implementations from Prima will be added to Optimization.jl
@@ -14,9 +16,9 @@ making `CobylaAM` redundant. (See https://github.com/SciML/Optimization.jl/issue
 - `prima::Module`: Provide the `PRIMA` module as it is note direct dependency of BOSS.
 
 # Keywords
-  - `multistart::Int`: The number of restarts.
-  - `parallel::Bool`: If set to true, the individual optimization runs are run in parallel.
-  - Other kwargs: Hyperparameters passed to the optimization algorithm.
+  - `multistart::Int`: The number of optimization restarts.
+  - `parallel::Bool`: If `parallel=true` then the individual restarts are run in parallel.
+  - `kwargs...`: Other kwargs are passed to the optimization algorithm.
 """
 struct CobylaAM <: AcquisitionMaximizer
     prima::Module

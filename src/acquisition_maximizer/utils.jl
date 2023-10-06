@@ -4,6 +4,11 @@ using Distributions
 
 # - - - GENERATING OPTIMIZATION STARTING POINTS - - - - -
 
+"""
+    random_start(bounds) -> x
+
+Return a random point form the given bounds.
+"""
 function random_start(bounds::AbstractBounds)
     lb, ub = bounds
     dim = length(lb)
@@ -11,6 +16,11 @@ function random_start(bounds::AbstractBounds)
     return start
 end
 
+"""
+    generate_starts_LHC(bounds, count) -> X
+
+Return a matrix of latin hyper-cube vertices in the given bounds.
+"""
 function generate_starts_LHC(bounds::AbstractBounds, count::Int)
     @assert count > 1  # `randomLHC(count, dim)` returns NaNs if `count == 1`
     lb, ub = bounds
@@ -83,7 +93,7 @@ vectorize_params(θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_v
     vcat(θ, reduce(vcat, eachcol(λ); init=eltype(λ)[]), noise_vars)
 
 """
-Transformed the parameter vector back into separate vectors/matrices.
+Transform vectorized model parameters back into separate vectors/matrices.
 """
 function devectorize_params(
     model::SurrogateModel,
@@ -128,11 +138,14 @@ function devectorize_params(model::Semiparametric, params::AbstractVector{<:Real
 end
 
 """
-Create a binary mask describing to which positions of the vectorized parameters will the activation function be applied.
+Create a binary mask describing to which positions of the vectorized parameters
+will the activation function be applied.
 
-Set `mask_noisevar_and_lengthscales` to true to apply the activation function to all noise variances and GP length-scales.
+The activation function will be applited to all noise variances and GP length scales
+if `mask_noisevar_and_lengthscales=true`.
 
-Provide a binary vector to `mask_theta` to define to which parameters of the parametric model should the activation function be applied.
+Use the binary vector `mask_theta` to define to which model parameters
+will the activation function be applied as well.
 """
 create_activation_mask(
     problem::OptimizationProblem,
@@ -156,11 +169,6 @@ function create_activation_mask(
     return mask
 end
 
-"""
-Create a binary mask to skip all parameters with Dirac priors from the optimization parameters.
-
-Return the binary skip mask and a vector of the skipped Dirac values.
-"""
 create_dirac_skip_mask(problem::OptimizationProblem) =
     create_dirac_skip_mask(problem.model, problem.noise_var_priors)
 
@@ -171,6 +179,12 @@ create_dirac_skip_mask(model::Nonparametric, noise_var_priors::AbstractVector{<:
 create_dirac_skip_mask(model::Semiparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
     create_dirac_skip_mask(model.parametric.param_priors, model.nonparametric.length_scale_priors, noise_var_priors)
 
+"""
+Create a binary mask to skip all parameters with Dirac priors
+from the optimization parameters.
+
+Return the binary skip mask and a vector of the skipped Dirac values.
+"""
 function create_dirac_skip_mask(
     θ_priors::AbstractVector{<:UnivariateDistribution},
     λ_priors::AbstractVector{<:MultivariateDistribution},
