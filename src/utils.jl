@@ -28,11 +28,11 @@ function in_bounds(x::AbstractVector{<:Real}, bounds::AbstractBounds)
 end
 
 """
-    is_feasible(y, cons) -> Bool
+    is_feasible(y, y_max) -> Bool
 
 Return true iff `y` satisfies the given constraints.
 """
-is_feasible(y::AbstractVector{<:Real}, cons::AbstractVector{<:Real}) = all(y .<= cons)
+is_feasible(y::AbstractVector{<:Real}, y_max::AbstractVector{<:Real}) = all(y .<= y_max)
 
 x_dim(model::Nonparametric) = length(first(model.length_scale_priors))
 x_dim(model::Semiparametric) = length(first(model.nonparametric.length_scale_priors))
@@ -57,10 +57,36 @@ cons_dim(domain::Domain) = isnothing(domain.cons) ? 0 : length(domain.cons(mean(
 cons_dim(problem::OptimizationProblem) = cons_dim(problem.domain)
 
 """
+    result(problem) -> (x, y)
+
+Return the best found point `(x, y)`.
+
+Returns the point `(x, y)` from the dataset of the given problem
+such that `y` satisfies the constraints and `fitness(y)` is maximized.
+Returns nothing if the dataset is empty or if no feasible point is present.
+
+Does not check whether `x` belongs to the domain as no exterior points
+should be present in the dataset.
+"""
+function result(problem::OptimizationProblem)
+    X, Y = problem.data.X, problem.data.Y
+    @assert size(X)[2] == size(Y)[2]
+    isempty(X) && return nothing
+
+    feasible = is_feasible.(eachcol(Y), Ref(problem.y_max))
+    fitness = problem.fitness.(eachcol(Y))
+    fitness[.!feasible] .= -Inf
+    best = argmax(fitness)
+
+    feasible[best] || return nothing
+    return X[:,best], Y[:,best]
+end
+
+"""
 Exclude points exterior to the given `x` domain from the given `X` and `Y` data matrices
 and return new matrices `X_` and `Y_`.
 """
-function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; info::Bool)
+function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; options::BossOptions)
     @assert size(X)[2] == size(Y)[2]
     datasize = size(X)[2]
 
@@ -69,7 +95,7 @@ function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::A
         in_domain(X[:,i], domain) || (exterior[i] = true)
     end
 
-    info && any(exterior) && @warn "Some data are exterior to the domain and will be discarded!"
+    options.info && any(exterior) && @warn "Some data are exterior to the domain and will be discarded!"
     all(exterior) && return eltype(X)[;;], eltype(Y)[;;]
     
     X_ = reduce(hcat, (X[:,i] for i in 1:datasize if !exterior[i]))[:,:]

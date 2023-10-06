@@ -1,6 +1,6 @@
 module BOSS
 
-export boss!
+export boss!, result
 
 include("types.jl")
 include("utils.jl")
@@ -47,7 +47,7 @@ function boss!(problem::OptimizationProblem;
     term_cond::TermCond=IterLimit(1),
     options::BossOptions=BossOptions(),
 )
-    initialize!(problem; info=options.info)
+    initialize!(problem; options)
     while term_cond(problem)
         estimate_parameters!(problem, model_fitter; options)
         x, acq = maximize_acquisition(problem, acquisition, acq_maximizer; options)
@@ -60,13 +60,13 @@ end
 """
 Perform necessary actions and check the problem definition before initiating the optimization.
 """
-function initialize!(problem::OptimizationProblem; info::Bool)
+function initialize!(problem::OptimizationProblem; options::BossOptions)
     if any(problem.domain.discrete)
         problem.domain = make_discrete(problem.domain)
         problem.model = make_discrete(problem.model, problem.domain.discrete)
     end
 
-    problem.data.X, problem.data.Y = exclude_exterior_points(problem.domain, problem.data.X, problem.data.Y; info)
+    problem.data.X, problem.data.Y = exclude_exterior_points(problem.domain, problem.data.X, problem.data.Y; options)
     isempty(problem.data.X) && throw(ErrorException("Cannot start with empty dataset! Provide at least one interior initial point."))
 
     problem.y_max = [isinf(c) ? Infinity() : c for c in problem.y_max]
@@ -90,6 +90,7 @@ function maximize_acquisition(problem::OptimizationProblem, acquisition::Acquisi
     acq = acquisition(problem, options)
     x = maximize_acquisition(acq, acq_maximizer, problem, options)
     x = cond_func(round).(problem.domain.discrete, x)
+    options.info && !in_domain(x, problem.domain) && @warn "The acquisition maximization resulted in an exterior point $(x)!"
     return x, acq
 end
 
