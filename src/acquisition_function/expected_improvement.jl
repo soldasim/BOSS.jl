@@ -117,7 +117,7 @@ best_so_far(problem::OptimizationProblem, posterior::Function) =
 
 function best_so_far(fitness::Fitness, X::AbstractMatrix{<:Real}, y_max::AbstractVector{<:Real}, posterior::Function)
     isempty(X) && return nothing
-    Y_hat = mapreduce(x -> posterior(x)[1], hcat, eachcol(X))
+    Y_hat = mapreduce(x -> posterior(x)[1], hcat, eachcol(X))[:,:]
     feasible = is_feasible.(eachcol(Y_hat), Ref(y_max))
     any(feasible) || return nothing
     maximum((fitness(Y_hat[:,i]) for i in 1:size(Y_hat)[2] if feasible[i]))
