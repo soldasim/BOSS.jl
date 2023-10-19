@@ -5,15 +5,14 @@
 
 Maximizes the acquisition function using the new implementation of CobylaAM.
 
-To use `CobylaAM` you need to evaluate `using PRIMA` and pass the `PRIMA` module
-to `CobylaAM`. The PRIMA.jl package is not registered yet,
-so the repo has to be added manually from https://github.com/emmt/PRIMA.jl.
+To use `CobylaAM` you need to `] add PRIMA`, evaluate `using PRIMA`
+and pass the `PRIMA` module to `CobylaAM`.
 
 Eventually the new algorithm implementations from Prima will be added to Optimization.jl
 making `CobylaAM` redundant. (See https://github.com/SciML/Optimization.jl/issues/593.)
 
 # Arguments
-- `prima::Module`: Provide the `PRIMA` module as it is note direct dependency of BOSS.
+- `prima::Module`: Provide the `PRIMA` module as it is not a direct dependency of BOSS.
 
 # Keywords
   - `multistart::Int`: The number of optimization restarts.
@@ -55,11 +54,10 @@ function maximize_acquisition(acq::Function, optimizer::CobylaAM, problem::BOSS.
     xl, xu = domain.bounds
 
     function acq_optimize(start)
-        nlconstr = fill(Cdouble(0), c_dim)
         x, fx, nf, rc, cstrv = optimizer.prima.cobyla(
             (x, cx) -> objective(domain.cons, x, cx),
             start;
-            xl, xu, nlconstr, optimizer.kwargs...
+            xl, xu, nonlinear_ineq=c_dim, optimizer.kwargs...
         )
         a = acq(x)  # because `fx == -acq(x)`
         return x, a
