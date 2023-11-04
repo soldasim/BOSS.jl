@@ -32,10 +32,10 @@ an averaged posterior of the model posterior samples is used for the prediction 
 - `cons_safe::Bool`: If set to true, the acquisition function `acq(x)` is made 'constraint-safe'
         by wrapping it in `safe_acq(x) = in_domain(x, domain) ? acq(x) : 0.`.
         Set `cons_safe` to `true` if the evaluation of the model at exterior points
-        may cause errors or is nonsensical.
-        Set `cons_safe` to `false` if the evaluation of the model at exterior points
-        can provide information to the acquisition maximizer.
-        Defaults to `false`.
+        may cause errors or nonsensical values.
+        You may set `cons_safe` to `false` if the evaluation of the model at exterior points
+        can provide useful information to the acquisition maximizer and does not cause errors.
+        Defaults to `true`.
 """
 struct ExpectedImprovement <: AcquisitionFunction
     ϵ_samples::Int  # only used in case of MLE and NonlinFitness
@@ -43,7 +43,7 @@ struct ExpectedImprovement <: AcquisitionFunction
 end
 function ExpectedImprovement(;
     ϵ_samples=200,
-    cons_safe=false,
+    cons_safe=true,
 )
     return ExpectedImprovement(ϵ_samples, cons_safe)
 end
