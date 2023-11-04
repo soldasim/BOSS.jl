@@ -44,20 +44,15 @@ function maximize_acquisition(acq::Function, optimizer::CobylaAM, problem::BOSS.
         starts = generate_starts_LHC(domain.bounds, optimizer.multistart)
     end
 
-    function objective(cons::Nothing, x, cx)
-        return -acq(x)  # `-acq(x)` because PRIMA.jl minimizes
-    end
-    function objective(cons::Function, x, cx)
-        copyto!(cx, -cons(x))  # `-cons(x)` because PRIMA.jl wants `all(cons(x) .< 0.)`
-        return -acq(x)         # `-acq(x)` because PRIMA.jl minimizes
-    end
+    obj = (x) -> -acq(x)  # `-` beacuse PRIMA.jl minimizes objective
+    nonlinear_ineq = isnothing(domain.cons) ? nothing : (x) -> -domain.cons(x)  # `-` because PRIMA.jl defines `nonlinear_ineq(x) ≤ 0`
     xl, xu = domain.bounds
 
     function acq_optimize(start)
-        x, fx, nf, rc, cstrv = optimizer.prima.cobyla(
-            (x, cx) -> objective(domain.cons, x, cx),
-            start;
-            xl, xu, nonlinear_ineq=c_dim, optimizer.kwargs...
+        x, info = optimizer.prima.cobyla(obj, start;
+            xl, xu,
+            nonlinear_ineq,
+            optimizer.kwargs...
         )
         a = acq(x)  # because `fx == -acq(x)`
         return x, a
