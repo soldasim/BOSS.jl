@@ -24,26 +24,34 @@ model_posterior(
 ) where {NUM<:Real} =
     model_posterior(add_mean(model.nonparametric, model.parametric(θ)), X, Y, length_scales, noise_vars)
 
-"""
-Return the log-likelihood of the model parameters, GP hyperparameters and the noise variance
-as a function `ll = loglike(θ, length_scales, noise_vars)`.
-"""
 function model_loglike(model::Semiparametric, noise_var_priors, data::ExperimentData)
-    params_loglike = model_params_loglike(model, data.X, data.Y)
-    noise_loglike(noise_vars) = mapreduce(p -> logpdf(p...), +, zip(noise_var_priors, noise_vars))
-    loglike(θ, length_scales, noise_vars) = params_loglike(θ, length_scales, noise_vars) + noise_loglike(noise_vars)
+    function loglike(θ, length_scales, noise_vars)
+        ll_params = model_params_loglike(model, θ, length_scales)
+        ll_data = model_data_loglike(model, θ, length_scales, noise_vars, data.X, data.Y)
+        ll_noise = noise_loglike(noise_var_priors, noise_vars)
+        return ll_params + ll_data + ll_noise
+    end
 end
 
-"""
-Return the log-likelihood of the model parameters and the GP hyperparameters (without the likelihood of the noise variance)
-as a function `ll = loglike(θ, length_scales, noise_vars)`.
-"""
-function model_params_loglike(model::Semiparametric, X::AbstractMatrix{NUM}, Y::AbstractMatrix{NUM}) where {NUM<:Real}
-    parametric_loglike = model_params_loglike(model.parametric, X, Y)
+function model_params_loglike(model::Semiparametric, θ::AbstractVector{<:Real}, length_scales::AbstractMatrix{<:Real})
+    ll_param = model_params_loglike(model.parametric, θ)
+    ll_gp = model_params_loglike(model.nonparametric, length_scales)
+    return ll_param + ll_gp
+end
 
-    function semiparametric_loglike(θ, length_scales, noise_vars)
-        nonparametric_loglike = model_params_loglike(add_mean(model.nonparametric, model.parametric(θ)), X, Y)
-        
-        parametric_loglike(θ, noise_vars) + nonparametric_loglike(length_scales, noise_vars)
-    end
+function model_data_loglike(
+    model::Semiparametric,
+    θ::AbstractVector{<:Real},
+    length_scales::AbstractMatrix{<:Real},
+    noise_vars::AbstractVector{<:Real},
+    X::AbstractMatrix{<:Real},
+    Y::AbstractMatrix{<:Real},
+)
+    return model_data_loglike(
+        add_mean(model.nonparametric, model.parametric(θ)),
+        length_scales,
+        noise_vars,
+        X,
+        Y,
+    )
 end

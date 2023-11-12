@@ -56,7 +56,7 @@ function estimate_parameters(optimization::OptimizationMLE, problem::Optimizatio
 
     # Optimize with restarts.
     function optimize(start)
-        params = Optimization.solve(optimization_problem(start), optimization.algorithm; optimization.kwargs...)
+        params = Optimization.solve(optimization_problem(start), optimization.algorithm; optimization.kwargs...).u
         ll = loglike_vec(params)
         return params, ll
     end

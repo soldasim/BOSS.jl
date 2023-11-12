@@ -15,6 +15,12 @@ function (model::LinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real}
     return y
 end
 
+function partial_sums(array::AbstractArray)
+    isempty(array) && return empty(array)
+    s = zero(first(array))
+    sums = [(s += val) for val in array]
+end
+
 function (m::NonlinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real})
     x = discrete_round(m.discrete, x)
     return m.predict(x, θ)
@@ -51,32 +57,26 @@ model_posterior(
 ) where {NUM<:Real} =
     predict(x) = model(x, θ), noise_vars
 
-"""
-Return the log-likelihood of the model parameters and the noise variance
-as a function `ll = loglike(θ, noise_vars)`.
-"""
 function model_loglike(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
-    params_loglike = model_params_loglike(model, data.X, data.Y)
-    noise_loglike(noise_vars) = mapreduce(p -> logpdf(p...), +, zip(noise_var_priors, noise_vars))
-    loglike(θ, noise_vars) = params_loglike(θ, noise_vars) + noise_loglike(noise_vars)
-end
-
-"""
-Return the log-likelihood of the model parameters (without the likelihood of the noise variance)
-as a function `ll = loglike(θ, noise_vars)`.
-"""
-function model_params_loglike(model::Parametric, X::AbstractMatrix{NUM}, Y::AbstractMatrix{NUM}) where {NUM<:Real}
-    function params_loglike(θ, noise_vars)
-        ll_datum(x, y) = logpdf(MvNormal(model(x, θ), noise_vars), y)
-        
-        ll_data = mapreduce(d -> ll_datum(d...), +, zip(eachcol(X), eachcol(Y)))
-        ll_params = mapreduce(p -> logpdf(p...), +, zip(model.param_priors, θ))
-        ll_data + ll_params
+    function loglike(θ, noise_vars)
+        ll_params = model_params_loglike(model, θ)
+        ll_data = model_data_loglike(model, θ, noise_vars, data.X, data.Y)
+        ll_noise = noise_loglike(noise_var_priors, noise_vars)
+        return ll_params + ll_data + ll_noise
     end
 end
 
-function partial_sums(array::AbstractArray)
-    isempty(array) && return empty(array)
-    s = zero(first(array))
-    sums = [(s += val) for val in array]
+function model_params_loglike(model::Parametric, θ::AbstractVector{<:Real})
+    return mapreduce(p -> logpdf(p...), +, zip(model.param_priors, θ))
+end
+
+function model_data_loglike(
+    model::Parametric,
+    θ::AbstractVector{<:Real},
+    noise_vars::AbstractVector{<:Real},
+    X::AbstractMatrix{<:Real},
+    Y::AbstractMatrix{<:Real},
+)
+    ll_datum(x, y) = logpdf(MvNormal(model(x, θ), sqrt.(noise_vars)), y)
+    return mapreduce(d -> ll_datum(d...), +, zip(eachcol(X), eachcol(Y)))
 end

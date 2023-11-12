@@ -126,35 +126,34 @@ function finite_gp(
     return finite_gp_(mean, kernel, X, noise)
 end
 
-finite_gp_(::Nothing, kernel::Kernel, X::AbstractMatrix{<:Real}, noise::Real) = GP(kernel)(X, noise)
-finite_gp_(mean::Function, kernel::Kernel, X::AbstractMatrix{<:Real}, noise::Real) = GP(mean, kernel)(X, noise)
+finite_gp_(::Nothing, kernel::Kernel, X::AbstractMatrix{<:Real}, noise_var::Real) = GP(kernel)(X, noise_var)
+finite_gp_(mean::Function, kernel::Kernel, X::AbstractMatrix{<:Real}, noise_var::Real) = GP(mean, kernel)(X, noise_var)
 
-"""
-Return the log-likelihood of the GP hyperparameters and the noise variance
-as a function `ll = loglike(length_scales, noise_vars)`.
-"""
 function model_loglike(model::Nonparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
-    params_loglike = model_params_loglike(model, data.X, data.Y)
-    noise_loglike(noise_vars) = mapreduce(p -> logpdf(p...), +, zip(noise_var_priors, noise_vars))
-    loglike(length_scales, noise_vars) = params_loglike(length_scales, noise_vars) + noise_loglike(noise_vars)
+    function loglike(length_scales, noise_vars)
+        ll_params = model_params_loglike(model, length_scales)
+        ll_data = model_data_loglike(model, length_scales, noise_vars, data.X, data.Y)
+        ll_noise = noise_loglike(noise_var_priors, noise_vars)
+        return ll_params + ll_data + ll_noise
+    end
 end
 
-"""
-Return the log-likelihood of the GP hyperparameters (without the likelihood of the noise variance)
-as a function `ll = loglike(length_scales, noise_vars)`.
-"""
-function model_params_loglike(model::Nonparametric, X::AbstractMatrix{NUM}, Y::AbstractMatrix{NUM}) where {NUM<:Real}
+function model_params_loglike(model::Nonparametric, length_scales::AbstractMatrix{<:Real})
+    return mapreduce(p -> logpdf(p...), +, zip(model.length_scale_priors, eachcol(length_scales)))
+end
+
+function model_data_loglike(
+    model::Nonparametric,
+    length_scales::AbstractMatrix{<:Real},
+    noise_vars::AbstractVector{<:Real},
+    X::AbstractMatrix{<:Real},
+    Y::AbstractMatrix{<:Real},
+)
     y_dim = size(Y)[1]
     means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]
-
-    function params_loglike(length_scales, noise_vars)
-        function ll_data_dim(X, y, mean, length_scales, noise_var)
-            gp = finite_gp(mean, model.kernel, X, length_scales, noise_var)
-            logpdf(gp, y)
-        end
-
-        ll_data = mapreduce(p -> ll_data_dim(X, p...), +, zip(eachrow(Y), means, eachcol(length_scales), noise_vars))
-        ll_length_scales = mapreduce(p -> logpdf(p...), +, zip(model.length_scale_priors, eachcol(length_scales)))
-        ll_data + ll_length_scales
+    function ll_data_dim(X, y, mean, length_scales, noise_var)
+        gp = finite_gp(mean, model.kernel, X, length_scales, noise_var)
+        return logpdf(gp, y)
     end
+    return mapreduce(p -> ll_data_dim(X, p...), +, zip(eachrow(Y), means, eachcol(length_scales), noise_vars))
 end
