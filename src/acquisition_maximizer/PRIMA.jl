@@ -17,7 +17,7 @@ making `CobylaAM` redundant. (See https://github.com/SciML/Optimization.jl/issue
 # Keywords
   - `multistart::Int`: The number of optimization restarts.
   - `parallel::Bool`: If `parallel=true` then the individual restarts are run in parallel.
-  - `kwargs...`: Other kwargs are passed to the optimization algorithm.
+  - `kwargs...`: Other kwargs are passed to the optimization algorithm. See https://github.com/libprima/PRIMA.jl.
 """
 struct CobylaAM <: AcquisitionMaximizer
     prima::Module

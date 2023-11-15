@@ -90,7 +90,7 @@ function maximize_acquisition(problem::OptimizationProblem, acquisition::Acquisi
     acq = acquisition(problem, options)
     x = maximize_acquisition(acq, acq_maximizer, problem, options)
     x = cond_func(round).(problem.domain.discrete, x)
-    options.info && !in_domain(x, problem.domain) && @warn "The acquisition maximization resulted in an exterior point $(x)!"
+    options.info && !in_domain(x, problem.domain) && @warn "The acquisition maximization resulted in an exterior point!\nPoint $(x) not in bounds $(problem.domain.bounds)."
     return x, acq
 end
 
