@@ -1,5 +1,7 @@
 # BOSS (Bayesian Optimization with Semiparametric Surrogate)
 
+:warning:_BOSS.jl is a WIP and not registered yet._:warning:
+
 BOSS is a julia package for Bayesian optimization. It provides a compact way to define an optimization problem and a surrogate model and solve the problem. It allows to change the hyperparameters of the underlying algorithms and provides a simple interface to use custom algorithms for the subtasks of fitting the model parameters and optimizing the acquisition function.
 
 ## Problem Definition
@@ -14,7 +16,7 @@ We wish to find `x ∈ domain` such that `fitness(f(x))` is maximized while sati
 
 ## The Model
 
-BOSS can be used with purely parametric models (via the `BOSS.Parametric` type), Gaussian Processes (via the `BOSS.Nonparametric` type) or with a semiparametric model (via the `BOSS.Semiparametric`) which combining the two previously mentioned models by supplying the parametric model as the mean of the GP.
+BOSS can be used with purely parametric models (via the `BOSS.Parametric` type), Gaussian Processes (via the `BOSS.Nonparametric` type) or with a semiparametric model (via the `BOSS.Semiparametric`) which combines the two previously mentioned models by supplying the parametric model as the mean of the GP.
 
 ## Algorithms
 
