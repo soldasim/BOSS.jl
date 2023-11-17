@@ -158,8 +158,6 @@ function sample_params(
     return θ, length_scales, noise_vars
 end
 
-# Sample parameters of the given probabilistic model (defined with Turing.jl) using parallel NUTS MC sampling.
-# Other AD backends than Zygote cause issues: https://discourse.julialang.org/t/gaussian-process-regression-with-turing-gets-stuck/86892
 function sample_params_turing(turing::TuringBI, turing_model, param_symbols; adbackend=:forwarddiff)
     Turing.setadbackend(adbackend)
 
