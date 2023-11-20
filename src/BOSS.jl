@@ -77,7 +77,6 @@ Estimate the model parameters & hyperparameters using the given `model_fitter` a
 """
 function estimate_parameters!(problem::OptimizationProblem, model_fitter::ModelFitter{T}; options::BossOptions) where {T}
     options.info && @info "Estimating model parameters ..."
-
     params = estimate_parameters(model_fitter, problem, options)
     problem.data = update_parameters!(T, problem.data; params...)
 end
