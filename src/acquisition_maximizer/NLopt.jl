@@ -51,7 +51,8 @@ function maximize_acquisition(acq::Function, optimizer::NLoptAM, problem::BOSS.O
 
     function acq_optimize(start)
         opt = construct_opt(optimizer, domain, acq, start)
-        val, arg, ret = optimizer.nlopt.optimize(opt, start)
+        _, arg, ret = optimizer.nlopt.optimize(opt, start)
+        val = acq(arg)
         options.info && (ret == :FORCED_STOP) && @warn "NLopt optimization terminated with `:FORCED_STOP`!"
         return arg, val
     end
@@ -64,22 +65,23 @@ function construct_opt(optimizer::NLoptAM, domain::Domain, acq::Function, start:
     opt = optimizer.nlopt.Opt(optimizer.algorithm, x_dim(domain))
     opt.lower_bounds, opt.upper_bounds = domain.bounds
     add_objective!(opt, acq)
-    add_constraints!(opt, domain.cons, start, optimizer.cons_tol)
+    add_constraints!(opt, domain.cons, start, optimizer.nlopt, optimizer.cons_tol)
     add_kwargs!(opt, optimizer.kwargs)
     return opt
 end
 
 function add_objective!(opt, acq::Function)
+    obj = (x) -> -acq(x)  # `obj` is minimized
     function f_obj(x, g)
         if length(g) > 0
-            ForwardDiff.gradient!(g, acq, x)
+            ForwardDiff.gradient!(g, obj, x)
         end
-        return acq(x)
+        return obj(x)
     end
-    opt.max_objective = f_obj
+    opt.min_objective = f_obj  # `max_objective` is broken with some algorithms.
 end
 
-function add_constraints!(opt, cons::Function, start::AbstractVector{<:Real}, tol::Real)
+function add_constraints!(opt, cons::Function, start::AbstractVector{<:Real}, nlopt::Module, tol::Real)
     c_dim = length(cons(start))
     cons_neg(x) = (-1.).*cons(x)
 
@@ -89,7 +91,7 @@ function add_constraints!(opt, cons::Function, start::AbstractVector{<:Real}, to
         end
         res .= cons_neg(x)
     end
-    inequality_constraint!(opt, f_cons, fill(tol, c_dim))
+    nlopt.inequality_constraint!(opt, f_cons, fill(tol, c_dim))
 end
 add_constraints!(opt, cons::Nothing, start::AbstractVector{<:Real}, tol::Real) = opt
 
