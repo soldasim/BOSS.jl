@@ -14,15 +14,16 @@ Return the posterior predictive distribution of the model.
 The posterior is a function `mean, var = predict(x)`
 which gives the mean and variance of the predictive distribution as a function of `x`.
 """
-model_posterior(
+function model_posterior(
     model::Semiparametric,
     X::AbstractMatrix{NUM},
     Y::AbstractMatrix{NUM},
     θ::AbstractVector{NUM},
     length_scales::AbstractMatrix{NUM},
     noise_vars::AbstractVector{NUM},   
-) where {NUM<:Real} =
-    model_posterior(add_mean(model.nonparametric, model.parametric(θ)), X, Y, length_scales, noise_vars)
+) where {NUM<:Real}
+    return model_posterior(add_mean(model.nonparametric, model.parametric(θ)), X, Y, length_scales, noise_vars)
+end
 
 function model_loglike(model::Semiparametric, noise_var_priors, data::ExperimentData)
     function loglike(θ, length_scales, noise_vars)

@@ -88,6 +88,7 @@ function model_posterior(
     y_dim = length(noise_vars)
     means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]
     posts = model_posterior.(means, Ref(model.kernel), Ref(X), eachrow(Y), eachcol(length_scales), noise_vars)
+    
     function posterior(x)
         ys = map(p->p(x), posts)
         first.(ys), last.(ys)
@@ -103,7 +104,7 @@ function model_posterior(
     noise_var::NUM,
 ) where {NUM<:Real}
     posterior_gp = AbstractGPs.posterior(finite_gp(mean, kernel, X, length_scales, noise_var), y)
-    posterior(x) = first.(mean_and_var(posterior_gp(hcat(x))))
+    return (x) -> first.(mean_and_var(posterior_gp(hcat(x))))
 end
 
 """

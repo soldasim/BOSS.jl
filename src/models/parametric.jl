@@ -50,12 +50,13 @@ Return the posterior predictive distribution of the model.
 The posterior is a function `mean, var = predict(x)`
 which gives the mean and variance of the predictive distribution as a function of `x`.
 """
-model_posterior(
+function model_posterior(
     model::Parametric,
     θ::AbstractVector{NUM},
     noise_vars::AbstractVector{NUM}
-) where {NUM<:Real} =
-    predict(x) = model(x, θ), noise_vars
+) where {NUM<:Real}
+    return (x) -> model(x, θ), noise_vars
+end
 
 function model_loglike(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
     function loglike(θ, noise_vars)
