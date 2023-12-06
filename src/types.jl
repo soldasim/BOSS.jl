@@ -466,9 +466,9 @@ OptimizationProblem(;
     fitness,
     f,
     domain,
-    y_max,
     model,
     noise_var_priors,
+    y_max=fill(Inf, length(noise_var_priors)),
     data,
 ) = OptimizationProblem(fitness, f, domain, y_max, model, noise_var_priors, data)
 

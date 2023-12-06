@@ -5,19 +5,23 @@
 Sample all model parameters and noise variances from their respective prior distributions.
 """
 function sample_params(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution})
-    θ = rand.(model.param_priors)
-    λ = Float64[;;]
+    θ = isempty(model.param_priors) ?
+            Real[] :
+            rand.(model.param_priors)
+    λ = Real[;;]
     noise_vars = rand.(noise_var_priors)
     return (θ=θ, length_scales=λ, noise_vars=noise_vars)
 end
 function sample_params(model::Nonparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution})
-    θ = Float64[]
+    θ = Real[]
     λ = reduce(hcat, rand.(model.length_scale_priors))
     noise_vars = rand.(noise_var_priors)
     return (θ=θ, length_scales=λ, noise_vars=noise_vars)
 end
 function sample_params(model::Semiparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution})
-    θ = rand.(model.parametric.param_priors)
+    θ = isempty(model.parametric.param_priors) ?
+            Real[] :
+            rand.(model.parametric.param_priors)
     λ = reduce(hcat, rand.(model.nonparametric.length_scale_priors))
     noise_vars = rand.(noise_var_priors)
     return (θ=θ, length_scales=λ, noise_vars=noise_vars)
@@ -28,7 +32,7 @@ end
 
 """
 Transform all model parameters and noise variances into one parameter vector.
-""" 
+"""
 function vectorize_params(
     θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_vars::AbstractVector{<:Real},
     activation_function::Function,
@@ -41,8 +45,15 @@ function vectorize_params(
     return params
 end
 
-vectorize_params(θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_vars::AbstractVector{<:Real}) =
-    vcat(θ, reduce(vcat, eachcol(λ); init=eltype(λ)[]), noise_vars)
+function vectorize_params(θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_vars::AbstractVector{<:Real})
+    λ = vectorize_length_scales(λ)
+    # skip empty params for type stability 
+    params = reduce(vcat, filter(!isempty, (θ, λ, noise_vars)))
+    return params
+end
+
+vectorize_length_scales(λ::AbstractMatrix) =
+    reduce(vcat, eachcol(λ); init=eltype(λ)[])
 
 """
 Transform vectorized model parameters back into separate vectors/matrices.
@@ -76,7 +87,7 @@ end
 function devectorize_params(model::Nonparametric, params::AbstractVector{<:Real})
     x_dim_, y_dim_, λ_len_ = x_dim(model), y_dim(model), λ_len(model)
     
-    length_scales = reshape(params[1:λ_len_], x_dim_, y_dim_)
+    length_scales = devectorize_length_scales(params[1:λ_len_], x_dim_, y_dim_)
     noise_vars = params[λ_len_+1:end]
     return (length_scales=length_scales, noise_vars=noise_vars)
 end
@@ -84,10 +95,13 @@ function devectorize_params(model::Semiparametric, params::AbstractVector{<:Real
     x_dim_, y_dim_, θ_len_, λ_len_ = x_dim(model), y_dim(model), θ_len(model), λ_len(model)
     
     θ = params[1:θ_len_]
-    length_scales = reshape(params[θ_len_+1:θ_len_+λ_len_], x_dim_, y_dim_)
+    length_scales = devectorize_length_scales(params[θ_len_+1:θ_len_+λ_len_], x_dim_, y_dim_)
     noise_vars = params[θ_len_+λ_len_+1:end]
     return (θ=θ, length_scales=length_scales, noise_vars=noise_vars)
 end
+
+devectorize_length_scales(λ::AbstractVector{<:Real}, x_dim::Int, y_dim::Int) =
+    reshape(λ, x_dim, y_dim)
 
 """
 Create a binary mask describing to which positions of the vectorized parameters

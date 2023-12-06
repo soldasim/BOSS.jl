@@ -117,3 +117,12 @@ Base.promote_rule(::Type{F}, ::Type{Infinity}) where {F<:AbstractFloat} = F
 for D in subtypes(UnivariateDistribution)
     @eval Distributions.cdf(::$D, ::Infinity) = 1.
 end
+
+"""
+Return the posterior predictive distribution of the Gaussian Process.
+
+The posterior is a function `mean, var = predict(x)`
+which gives the mean and variance of the predictive distribution as a function of `x`.
+"""
+model_posterior(prob::OptimizationProblem) =
+    model_posterior(prob.model, prob.data)

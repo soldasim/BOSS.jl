@@ -72,12 +72,6 @@ model_posterior(model::Nonparametric, data::ExperimentDataMLE) =
 model_posterior(model::Nonparametric, data::ExperimentDataBI) =
     model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.length_scales, eachcol(data.noise_vars))
 
-"""
-Return the posterior predictive distribution of the Gaussian Process.
-
-The posterior is a function `mean, var = predict(x)`
-which gives the mean and variance of the predictive distribution as a function of `x`.
-"""
 function model_posterior(
     model::Nonparametric,
     X::AbstractMatrix{NUM},

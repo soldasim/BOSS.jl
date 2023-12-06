@@ -44,18 +44,12 @@ model_posterior(model::Parametric, data::ExperimentDataMLE) =
 model_posterior(model::Parametric, data::ExperimentDataBI) = 
     model_posterior.(Ref(model), eachcol(data.θ), eachcol(data.noise_vars))
 
-"""
-Return the posterior predictive distribution of the model.
-
-The posterior is a function `mean, var = predict(x)`
-which gives the mean and variance of the predictive distribution as a function of `x`.
-"""
 function model_posterior(
     model::Parametric,
     θ::AbstractVector{NUM},
     noise_vars::AbstractVector{NUM}
 ) where {NUM<:Real}
-    return (x) -> model(x, θ), noise_vars
+    return (x) -> (model(x, θ), noise_vars)
 end
 
 function model_loglike(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
@@ -68,7 +62,7 @@ function model_loglike(model::Parametric, noise_var_priors::AbstractVector{<:Uni
 end
 
 function model_params_loglike(model::Parametric, θ::AbstractVector{<:Real})
-    return mapreduce(p -> logpdf(p...), +, zip(model.param_priors, θ))
+    return mapreduce(p -> logpdf(p...), +, zip(model.param_priors, θ); init=0.)
 end
 
 function model_data_loglike(
