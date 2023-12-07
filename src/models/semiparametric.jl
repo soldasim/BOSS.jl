@@ -10,12 +10,12 @@ model_posterior(model::Semiparametric, data::ExperimentDataBI) =
 
 function model_posterior(
     model::Semiparametric,
-    X::AbstractMatrix{NUM},
-    Y::AbstractMatrix{NUM},
-    θ::AbstractVector{NUM},
-    length_scales::AbstractMatrix{NUM},
-    noise_vars::AbstractVector{NUM},   
-) where {NUM<:Real}
+    X::AbstractMatrix{<:Real},
+    Y::AbstractMatrix{<:Real},
+    θ::AbstractVector{<:Real},
+    length_scales::AbstractMatrix{<:Real},
+    noise_vars::AbstractVector{<:Real},   
+)
     return model_posterior(add_mean(model.nonparametric, model.parametric(θ)), X, Y, length_scales, noise_vars)
 end
 

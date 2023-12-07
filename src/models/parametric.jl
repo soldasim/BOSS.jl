@@ -46,9 +46,9 @@ model_posterior(model::Parametric, data::ExperimentDataBI) =
 
 function model_posterior(
     model::Parametric,
-    θ::AbstractVector{NUM},
-    noise_vars::AbstractVector{NUM}
-) where {NUM<:Real}
+    θ::AbstractVector{<:Real},
+    noise_vars::AbstractVector{<:Real}
+)
     return (x) -> (model(x, θ), noise_vars)
 end
 

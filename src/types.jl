@@ -300,7 +300,7 @@ as well as the parameters and hyperparameters of the model.
 
 See also: [`BOSS.ExperimentDataPrior`](@ref), [`BOSS.ExperimentDataPost`](@ref)
 """
-abstract type ExperimentData{NUM<:Real} end
+abstract type ExperimentData end
 
 Base.length(data::ExperimentData) = size(data.X)[2]
 Base.isempty(data::ExperimentData) = isempty(data.X)
@@ -315,9 +315,8 @@ Stores the initial data.
 See also: [`BOSS.ExperimentDataPost`](@ref)
 """
 mutable struct ExperimentDataPrior{
-    NUM<:Real,
-    T<:AbstractMatrix{NUM},
-} <: ExperimentData{NUM}
+    T<:AbstractMatrix{<:Real},
+} <: ExperimentData
     X::T
     Y::T
 end
@@ -330,7 +329,7 @@ Stores the fitted/samples model parameters in addition to the data matrices `X`,
 
 See also: [`BOSS.ExperimentDataPrior`](@ref), [`BOSS.ExperimentDataMLE`](@ref), [`BOSS.ExperimentDataBI`](@ref)
 """
-abstract type ExperimentDataPost{T<:ModelFit, NUM<:Real} <: ExperimentData{NUM} end
+abstract type ExperimentDataPost{T<:ModelFit} <: ExperimentData end
 
 """
 Stores the data matrices `X`,`Y` as well as the optimized model parameters and hyperparameters.
@@ -347,12 +346,11 @@ Stores the data matrices `X`,`Y` as well as the optimized model parameters and h
 See also: [`BOSS.ExperimentDataBI`](@ref)
 """
 mutable struct ExperimentDataMLE{
-    NUM<:Real,
-    T<:AbstractMatrix{NUM},
-    P<:Union{Nothing, <:AbstractVector{NUM}},
-    L<:Union{Nothing, <:AbstractMatrix{NUM}},
-    N<:AbstractVector{NUM},
-} <: ExperimentDataPost{MLE, NUM}
+    T<:AbstractMatrix{<:Real},
+    P<:Union{Nothing, <:AbstractVector{<:Real}},
+    L<:Union{Nothing, <:AbstractMatrix{<:Real}},
+    N<:AbstractVector{<:Real},
+} <: ExperimentDataPost{MLE}
     X::T
     Y::T
     θ::P
@@ -366,23 +364,22 @@ Stores the data matrices `X`,`Y` as well as the sampled model parameters and hyp
 # Fields
 - `X::AbstractMatrix{<:Real}`: Contains the objective function inputs as columns.
 - `Y::AbstractMatrix{<:Real}`: Contains the objective function outputs as columns.
-- `θ::Union{Nothing, <:AbstractMatrix{NUM}}`: Samples of parameters of the parametric model
+- `θ::Union{Nothing, <:AbstractMatrix{<:Real}}`: Samples of parameters of the parametric model
         stored column-wise in a matrix (or nothing if the model is nonparametric).
-- `length_scales::Union{Nothing, <:AbstractVector{<:AbstractMatrix{NUM}}}`: Samples
+- `length_scales::Union{Nothing, <:AbstractVector{<:AbstractMatrix{<:Real}}}`: Samples
         of the length scales of the GPs as stored column-wise in a matrix for each `y` dimension
         (or nothing if the model is parametric).
-- `noise_vars::AbstractMatrix{NUM}`: Samples of the noise variances of each `y` dimension
+- `noise_vars::AbstractMatrix{<:Real}`: Samples of the noise variances of each `y` dimension
         stored column-wise in a matrix.
 
 See also: [`BOSS.ExperimentDataBI`](@ref)
 """
 mutable struct ExperimentDataBI{
-    NUM<:Real,
-    T<:AbstractMatrix{NUM},
-    P<:Union{Nothing, <:AbstractMatrix{NUM}},
-    L<:Union{Nothing, <:AbstractVector{<:AbstractMatrix{NUM}}},
-    N<:AbstractMatrix{NUM},
-} <: ExperimentDataPost{BI, NUM}
+    T<:AbstractMatrix{<:Real},
+    P<:Union{Nothing, <:AbstractMatrix{<:Real}},
+    L<:Union{Nothing, <:AbstractVector{<:AbstractMatrix{<:Real}}},
+    N<:AbstractMatrix{<:Real},
+} <: ExperimentDataPost{BI}
     X::T
     Y::T
     θ::P

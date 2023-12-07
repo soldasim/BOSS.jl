@@ -74,11 +74,11 @@ model_posterior(model::Nonparametric, data::ExperimentDataBI) =
 
 function model_posterior(
     model::Nonparametric,
-    X::AbstractMatrix{NUM},
-    Y::AbstractMatrix{NUM},
-    length_scales::AbstractMatrix{NUM},
-    noise_vars::AbstractVector{NUM},
-) where {NUM<:Real}
+    X::AbstractMatrix{<:Real},
+    Y::AbstractMatrix{<:Real},
+    length_scales::AbstractMatrix{<:Real},
+    noise_vars::AbstractVector{<:Real},
+)
     y_dim = length(noise_vars)
     means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]
     posts = model_posterior.(means, Ref(model.kernel), Ref(X), eachrow(Y), eachcol(length_scales), noise_vars)
@@ -92,11 +92,11 @@ end
 function model_posterior(
     mean::Union{Nothing, Function},
     kernel::Kernel,
-    X::AbstractMatrix{NUM},
-    y::AbstractVector{NUM},
-    length_scales::AbstractVector{NUM},
-    noise_var::NUM,
-) where {NUM<:Real}
+    X::AbstractMatrix{<:Real},
+    y::AbstractVector{<:Real},
+    length_scales::AbstractVector{<:Real},
+    noise_var::Real,
+)
     posterior_gp = AbstractGPs.posterior(finite_gp(mean, kernel, X, length_scales, noise_var), y)
     return (x) -> first.(mean_and_var(posterior_gp(hcat(x))))
 end
