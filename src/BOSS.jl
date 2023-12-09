@@ -14,9 +14,11 @@ include("term_cond.jl")
 include("plot.jl")
 
 """
-    boss!(problem::OptimizationProblem; kwargs...)
+    boss!(problem::OptimizationProblem{Function}; kwargs...)
+    x, acq = boss!(problem::OptimizationProblem{Missing}; kwargs...)
 
-Solve the given optimization problem via Bayesian optimization with surrogate model.
+Solve the given optimization problem via Bayesian optimization with surrogate model
+or give a recommendation for the next evaluation point if `problem.f == missing`.
 
 # Arguments
 
@@ -40,8 +42,8 @@ Solve the given optimization problem via Bayesian optimization with surrogate mo
 # Examples
 See 'https://github.com/Sheld5/BOSS.jl/tree/master/scripts' for example usage.
 """
-function boss!(problem::OptimizationProblem;
-    model_fitter::ModelFitter=TuringBI(),
+function boss!(problem::OptimizationProblem{Function};
+    model_fitter::ModelFitter,
     acq_maximizer::AcquisitionMaximizer,
     acquisition::AcquisitionFunction=ExpectedImprovement(),
     term_cond::TermCond=IterLimit(1),
@@ -55,6 +57,19 @@ function boss!(problem::OptimizationProblem;
         eval_objective!(problem, x; options)
     end
     return problem
+end
+
+function boss!(problem::OptimizationProblem{Missing};
+    model_fitter::ModelFitter,
+    acq_maximizer::AcquisitionMaximizer,
+    acquisition::AcquisitionFunction=ExpectedImprovement(),
+    options::BossOptions=BossOptions(),
+)
+    initialize!(problem; options)
+    estimate_parameters!(problem, model_fitter; options)
+    x, acq = maximize_acquisition(problem, acquisition, acq_maximizer; options)
+    isnothing(options.plot_options) || make_plot(options.plot_options, problem, acq, x; info=options.info)
+    return x, acq
 end
 
 """

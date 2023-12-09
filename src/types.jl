@@ -439,7 +439,7 @@ Defines the whole optimization problem for the BOSS algorithm.
 
 # Keywords
 - `fitness::Fitness`: The fitness function. See [`BOSS.Fitness`](@ref).
-- `f::Function`: The objective blackbox function.
+- `f::Union{Function, Missing}`: The objective blackbox function.
 - `domain::Domain`: The domain of `x`. See [`BOSS.Domain`](@ref).
 - `y_max`: The constraints on `y`. (See the definition above.)
 - `model::SurrogateModel`: See [`BOSS.SurrogateModel`](@ref).
@@ -450,9 +450,11 @@ Defines the whole optimization problem for the BOSS algorithm.
 
 See also: [`BOSS.boss!`](@ref)
 """
-mutable struct OptimizationProblem
+mutable struct OptimizationProblem{
+    F<:Union{Function, Missing},
+}
     fitness::Fitness
-    f::Function
+    f::F
     domain::Domain
     y_max::AbstractVector{<:Real}
     model::SurrogateModel
