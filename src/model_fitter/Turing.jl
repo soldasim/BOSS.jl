@@ -158,9 +158,7 @@ function sample_params(
     return θ, length_scales, noise_vars
 end
 
-function sample_params_turing(turing::TuringBI, turing_model, param_symbols; adbackend=:forwarddiff)
-    Turing.setadbackend(adbackend)
-
+function sample_params_turing(turing::TuringBI, turing_model, param_symbols)
     samples_in_chain = turing.n_adapts + (turing.leap_size * turing.samples_in_chain)
     if turing.parallel
         chains = Turing.sample(turing_model, turing.sampler, MCMCThreads(), samples_in_chain, turing.chain_count; progress=false)
