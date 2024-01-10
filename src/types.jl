@@ -451,7 +451,7 @@ Defines the whole optimization problem for the BOSS algorithm.
 See also: [`BOSS.boss!`](@ref)
 """
 mutable struct OptimizationProblem{
-    F<:Union{Function, Missing},
+    F<:Any,
 }
     fitness::Fitness
     f::F

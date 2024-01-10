@@ -42,7 +42,7 @@ or give a recommendation for the next evaluation point if `problem.f == missing`
 # Examples
 See 'https://github.com/Sheld5/BOSS.jl/tree/master/scripts' for example usage.
 """
-function boss!(problem::OptimizationProblem{Function};
+function boss!(problem::OptimizationProblem;
     model_fitter::ModelFitter,
     acq_maximizer::AcquisitionMaximizer,
     acquisition::AcquisitionFunction=ExpectedImprovement(),
