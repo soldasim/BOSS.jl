@@ -1,7 +1,5 @@
 using Test
 using BOSS
-using Distributions
-using LinearAlgebra
 
 @testset "BOSS.jl" begin
     include("acquisition.jl")
