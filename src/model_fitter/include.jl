@@ -1,5 +1,6 @@
 include("utils.jl")
-include("random_fitter.jl")
+include("random.jl")
+include("sampling.jl")
 include("Optimization.jl")
 include("PRIMA.jl")
 include("Turing.jl")

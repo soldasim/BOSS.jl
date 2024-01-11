@@ -21,7 +21,9 @@ struct GridAM <: AcquisitionMaximizer
     steps::Vector{Float64}
     parallel::Bool
 end
-function GridAM(problem::BOSS.OptimizationProblem, steps::Vector{Float64};
+function GridAM(;
+    problem::BOSS.OptimizationProblem,
+    steps,
     parallel=true,
 )
     domain = problem.domain
@@ -30,22 +32,16 @@ function GridAM(problem::BOSS.OptimizationProblem, steps::Vector{Float64};
     return GridAM(points, steps, parallel)
 end
 
-function maximize_acquisition(acq::Function, optimizer::GridAM, problem::BOSS.OptimizationProblem, options::BossOptions)
-    if optimizer.parallel
-        args = Vector{Vector{Float64}}(undef, Threads.nthreads())
-        vals = fill(0., Threads.nthreads())
-
-        Threads.@threads for p in optimizer.points
+function maximize_acquisition(acq::Function, opt::GridAM, problem::BOSS.OptimizationProblem, options::BossOptions)
+    if opt.parallel
+        vals = Vector{Float64}(undef, length(opt.points))
+        Threads.@threads for i in eachindex(opt.points)
+            p = opt.points[i]
             v = acq(p)
-            if (v > vals[Threads.threadid()])
-                args[Threads.threadid()] = p
-                vals[Threads.threadid()] = v
-            end
+            vals[i] = v
         end
-        
-        return args[argmax(vals)]
-
+        return opt.points[argmax(vals)]
     else
-        return argmax(acq, optimizer.points)
+        return argmax(acq, opt.points)
     end
 end
