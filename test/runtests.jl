@@ -2,9 +2,9 @@ using Test
 using BOSS
 
 @testset "BOSS.jl" begin
-    include("acquisition.jl")
-    include("parametric.jl")
-    include("nonparametric.jl")
-    include("semiparametric.jl")
-    include("term_cond.jl")
+    include("unit/acquisition_function/expected_improvement.jl")
+    include("unit/models/parametric.jl")
+    include("unit/models/nonparametric.jl")
+    include("unit/models/semiparametric.jl")
+    include("unit/term_cond.jl")
 end
