@@ -52,12 +52,12 @@ Turing.@model function turing_model(
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
-    noise_vars ~ arraydist(noise_var_priors)
-    θ ~ arraydist(model.param_priors)
+    noise_vars ~ product_distribution(noise_var_priors)
+    θ ~ product_distribution(model.param_priors)
 
     means = model.(eachcol(X), Ref(θ))
     
-    Y ~ arraydist(Distributions.MvNormal.(means, Ref(noise_vars)))
+    Y ~ product_distribution(Distributions.MvNormal.(means, Ref(noise_vars)))
 end
 Turing.@model function turing_model(
     model::Nonparametric,
@@ -67,13 +67,13 @@ Turing.@model function turing_model(
 )
     y_dim = size(Y)[1]
 
-    noise_vars ~ arraydist(noise_var_priors)
-    length_scales ~ arraydist(model.length_scale_priors)
+    noise_vars ~ product_distribution(noise_var_priors)
+    length_scales ~ product_distribution(model.length_scale_priors)
     
     gps = [finite_gp(model.mean, model.kernel, X, length_scales[:,i], noise_vars[i]) for i in 1:y_dim]
 
     Yt = transpose(Y)
-    Yt ~ arraydist(gps)
+    Yt ~ product_distribution(gps)
 end
 Turing.@model function turing_model(
     model::Semiparametric,
@@ -83,15 +83,15 @@ Turing.@model function turing_model(
 )
     y_dim = size(Y)[1]
 
-    noise_vars ~ arraydist(noise_var_priors)
-    θ ~ arraydist(model.parametric.param_priors)
-    length_scales ~ arraydist(model.nonparametric.length_scale_priors)
+    noise_vars ~ product_distribution(noise_var_priors)
+    θ ~ product_distribution(model.parametric.param_priors)
+    length_scales ~ product_distribution(model.nonparametric.length_scale_priors)
 
     mean = model.parametric(θ)
     gps = [finite_gp(x->mean(x)[i], model.nonparametric.kernel, X, length_scales[:,i], noise_vars[i]) for i in 1:y_dim]
     
     Yt = transpose(Y)
-    Yt ~ arraydist(gps)
+    Yt ~ product_distribution(gps)
 end
 
 function sample_params(

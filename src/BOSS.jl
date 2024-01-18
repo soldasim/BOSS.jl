@@ -15,7 +15,7 @@ include("plot.jl")
 
 """
     boss!(problem::OptimizationProblem{Function}; kwargs...)
-    x, acq = boss!(problem::OptimizationProblem{Missing}; kwargs...)
+    x = boss!(problem::OptimizationProblem{Missing}; kwargs...)
 
 Solve the given optimization problem via Bayesian optimization with surrogate model
 or give a recommendation for the next evaluation point if `problem.f == missing`.
@@ -69,7 +69,7 @@ function boss!(problem::OptimizationProblem{Missing};
     estimate_parameters!(problem, model_fitter; options)
     x, acq = maximize_acquisition(problem, acquisition, acq_maximizer; options)
     isnothing(options.plot_options) || make_plot(options.plot_options, problem, acq, x; info=options.info)
-    return x, acq
+    return x
 end
 
 """

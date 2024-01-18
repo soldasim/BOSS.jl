@@ -200,6 +200,10 @@ struct Semiparametric{
     parametric::P
     nonparametric::N
 end
+Semiparametric(;
+    parametric,
+    nonparametric,
+) = Semiparametric(parametric, nonparametric)
 
 # - - - - - - - - Model-Fit Algorithms - - - - - - - -
 
@@ -320,6 +324,10 @@ mutable struct ExperimentDataPrior{
     X::T
     Y::T
 end
+ExperimentDataPrior(;
+    X,
+    Y,
+) = ExperimentDataPrior(X, Y)
 
 # TODO: Implement an options to pass empty data to BOSS and let it automatically sample few initial samples.
 # empty_data(x_dim::Int, y_dim::Int, type::Type=Float64) = ExperimentDataPrior(Array{type}(undef, x_dim, 0), Array{type}(undef, y_dim, 0))

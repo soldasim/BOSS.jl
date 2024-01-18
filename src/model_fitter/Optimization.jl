@@ -35,16 +35,21 @@ function OptimizationMLE(;
     return OptimizationMLE(algorithm, multistart, parallel, apply_softplus, softplus_params, kwargs)
 end
 
-function estimate_parameters(optimization::OptimizationMLE, problem::OptimizationProblem, options::BossOptions)
+function estimate_parameters(opt::OptimizationMLE, problem::OptimizationProblem, options::BossOptions)
     # Prepare necessary parameter transformations.
-    softplus_mask = create_activation_mask(problem, optimization.apply_softplus, optimization.softplus_params)
+    softplus_mask = create_activation_mask(problem, opt.apply_softplus, opt.softplus_params)
     skip_mask, skipped_values = create_dirac_skip_mask(problem)
     vectorize = (params) -> vectorize_params(params..., softplus, softplus_mask, skip_mask)
     devectorize = (params) -> devectorize_params(problem.model, params, softplus, softplus_mask, skipped_values, skip_mask)
 
+    # Skip optimization if there are no parameters.
+    if sum(skip_mask) == 0
+        return devectorize(Float64[])
+    end
+
     # Generate optimization starts.
-    starts = reduce(hcat, (vectorize(sample_params(problem.model, problem.noise_var_priors)) for _ in 1:optimization.multistart))
-    (optimization.multistart == 1) && (starts = starts[:,:])  # make sure `starts` is a `Matrix`
+    starts = reduce(hcat, (vectorize(sample_params(problem.model, problem.noise_var_priors)) for _ in 1:opt.multistart))
+    (opt.multistart == 1) && (starts = starts[:,:])  # make sure `starts` is a `Matrix`
 
     # Define the optimization objective.
     loglike = model_loglike(problem.model, problem.noise_var_priors, problem.data)
@@ -56,10 +61,10 @@ function estimate_parameters(optimization::OptimizationMLE, problem::Optimizatio
 
     # Optimize with restarts.
     function optimize(start)
-        params = Optimization.solve(optimization_problem(start), optimization.algorithm; optimization.kwargs...).u
+        params = Optimization.solve(optimization_problem(start), opt.algorithm; opt.kwargs...).u
         ll = loglike_vec(params)
         return params, ll
     end
-    best_params, _ = optimize_multistart(optimize, starts, optimization.parallel, options)
+    best_params, _ = optimize_multistart(optimize, starts, opt.parallel, options)
     return devectorize(best_params)
 end

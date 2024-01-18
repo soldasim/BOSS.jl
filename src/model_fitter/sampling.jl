@@ -17,7 +17,7 @@ SamplingMLE(;
 function estimate_parameters(opt::SamplingMLE, problem::OptimizationProblem, options::BossOptions)
     loglike = model_loglike(problem.model, problem.noise_var_priors, problem.data)
     sample_() = sample_params(problem.model, problem.noise_var_priors)
-    fitness_(p) = loglike(p...)
+    fitness_(p) = loglike(p[params_(problem.model)]...)
 
     if opt.parallel
         counts = get_sample_counts(opt.samples, Threads.nthreads())
@@ -32,6 +32,10 @@ function estimate_parameters(opt::SamplingMLE, problem::OptimizationProblem, opt
         return params
     end
 end
+
+params_(::Parametric) = (:θ, :noise_vars)
+params_(::Nonparametric) = (:length_scales, :noise_vars)
+params_(::Semiparametric) = (:θ, :length_scales, :noise_vars)
 
 function sampling_optim(sample_func, fitness_func, samples)
     best_p = nothing
