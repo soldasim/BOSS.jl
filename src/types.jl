@@ -100,7 +100,8 @@ where
      n, m, p ∈ R.
 
 # Keywords
-- `lift::Function`: Define the `lift` function according to the definition above.
+- `lift::Function`: Defines the `lift` function `(::Vector{<:Real}) -> (::Vector{Vector{<:Real}})`
+        according to the definition above.
 - `param_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions for
         the parameters `[θ₁₁, ..., θ₁ₚ, ..., θₘ₁, ..., θₘₚ]` according to the definition above.
 - `discrete::Union{Nothing, <:AbstractVector{<:Bool}}`: Describes which dimensions are discrete.
@@ -150,8 +151,6 @@ NonlinModel(;
     param_priors,
     discrete=nothing,
 ) = NonlinModel(predict, param_priors, discrete)
-
-(m::ZeroMean)(x::AbstractVector{<:Real}) = zeros(eltype(x), m.y_dim)
 
 """
     Nonparametric(; kwargs...)

@@ -46,9 +46,10 @@ function vectorize_params(
 end
 
 function vectorize_params(θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_vars::AbstractVector{<:Real})
+    init = promote_type(eltype.((θ, λ, noise_vars))...)[]
     λ = vectorize_length_scales(λ)
     # skip empty params for type stability 
-    params = reduce(vcat, filter(!isempty, (θ, λ, noise_vars)))
+    params = reduce(vcat, filter(!isempty, (θ, λ, noise_vars)); init)
     return params
 end
 

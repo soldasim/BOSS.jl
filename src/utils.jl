@@ -11,8 +11,9 @@ Return true iff x belongs to the domain.
 """
 function in_domain(x::AbstractVector{<:Real}, domain::Domain)
     in_bounds(x, domain.bounds) || return false
-    isnothing(domain.cons) && return true
-    return all(domain.cons(x) .>= 0.)
+    in_discrete(x, domain.discrete) || return false
+    in_cons(x, domain.cons) || return false
+    return true
 end
 
 """
@@ -26,6 +27,12 @@ function in_bounds(x::AbstractVector{<:Real}, bounds::AbstractBounds)
     any(x .> ub) && return false
     return true
 end
+
+in_discrete(x::AbstractVector{<:Real}, discrete::AbstractVector{<:Bool}) =
+    all(round.(x[discrete]) .== x[discrete])
+
+in_cons(x::AbstractVector{<:Real}, cons::Nothing) = true
+in_cons(x::AbstractVector{<:Real}, cons) = all(cons(x) .>= 0.)
 
 """
     is_feasible(y, y_max) -> Bool

@@ -30,7 +30,7 @@ an averaged posterior of the model posterior samples is used for the prediction 
         In case of `LinearFitness`, the expected improvement can be calculated analytically.
 
 - `cons_safe::Bool`: If set to true, the acquisition function `acq(x)` is made 'constraint-safe'
-        by wrapping it in `safe_acq(x) = in_domain(x, domain) ? acq(x) : 0.`.
+        by checking the bounds and constraints during each evaluation.
         Set `cons_safe` to `true` if the evaluation of the model at exterior points
         may cause errors or nonsensical values.
         You may set `cons_safe` to `false` if the evaluation of the model at exterior points
@@ -58,7 +58,12 @@ function (ei::ExpectedImprovement)(problem::OptimizationProblem, options::BossOp
 end
 
 function make_safe(acq::Function, domain::Domain)
-    return acq_safe(x) = in_domain(x, domain) ? acq(x) : 0.
+    return function acq_safe(x)
+        in_bounds(x, domain.bounds) || return 0.
+        in_cons(x, domain.cons) || return 0.
+        # `in_discrete` ignored
+        return acq(x)
+    end
 end
 
 # Construct acquisition function from a single posterior.
@@ -77,7 +82,7 @@ end
     end
 
 # Construct averaged acquisition function from multiple sampled posteriors.
-function (ei::ExpectedImprovement)(fitness::Fitness, posteriors::AbstractVector{<:Function}, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Union{Nothing, <:Real})
+function (ei::ExpectedImprovement)(fitness::Fitness, posteriors::AbstractVector{<:Function}, constraints::Union{Nothing, <:AbstractVector{<:Real}}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Union{Nothing, <:Real})
     acqs = ei.(Ref(fitness), posteriors, Ref(constraints), eachcol(ϵ_samples), Ref(best_yet))
     x -> mapreduce(a_ -> a_(x), +, acqs) / length(acqs)
 end
@@ -87,8 +92,10 @@ function expected_improvement(fitness::LinFitness, mean::AbstractVector{<:Real},
     # https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7352306 Eq(44)
     μf = fitness.coefs' * mean
     σf = sqrt((fitness.coefs .^ 2)' * var)
-    norm_ϵ = (μf - best_yet) / σf
-    return (μf - best_yet) * cdf(Distributions.Normal(), norm_ϵ) + σf * pdf(Distributions.Normal(), norm_ϵ)
+    diff = (μf - best_yet)
+    (diff == 0. && σf == 0.) && return 0.
+    norm_ϵ = diff / σf
+    return diff * cdf(Distributions.Normal(), norm_ϵ) + σf * pdf(Distributions.Normal(), norm_ϵ)
 end
 
 # Approximated EI for nonlinear fitness function.

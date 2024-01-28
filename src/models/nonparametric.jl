@@ -1,7 +1,10 @@
 using AbstractGPs
 using Distributions
 
-const MIN_PARAM_VALUE = 1e-18
+"""
+The minimal value of length scales and noise variance used for GPs to avoid numerical issues.
+"""
+const MIN_PARAM_VALUE = 1e-8
 
 # Workaround: https://discourse.julialang.org/t/zygote-gradient-does-not-work-with-abstractgps-custommean/87815/7
 AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::ColVecs) = map(m.f, eachcol(x.X))
@@ -111,14 +114,13 @@ function finite_gp(
     length_scales::AbstractVector{<:Real},
     noise_var::Real;
     min_param_val::Real=MIN_PARAM_VALUE,
-    min_noise::Real=MIN_PARAM_VALUE,
 )
     # for numerical stability
-    params = length_scales .+ min_param_val
-    noise = noise_var + min_noise
+    length_scales = max.(length_scales, min_param_val)
+    noise_var = max(noise_var, min_param_val)
 
-    kernel = with_lengthscale(kernel, params)
-    return finite_gp_(mean, kernel, X, noise)
+    kernel = with_lengthscale(kernel, length_scales)
+    return finite_gp_(mean, kernel, X, noise_var)
 end
 
 finite_gp_(::Nothing, kernel::Kernel, X::AbstractMatrix{<:Real}, noise_var::Real) = GP(kernel)(X, noise_var)

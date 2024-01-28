@@ -15,7 +15,7 @@ function maximize_acquisition(acq::Function, optimizer::RandomSelectAM, problem:
     domain = problem.domain
     x = random_start(domain.bounds)
     if !isnothing(domain.cons)
-        while any(domain.cons(x) .< 0.)
+        while !in_cons(x, domain.cons)
             x = random_start(domain.bounds)
         end
     end
