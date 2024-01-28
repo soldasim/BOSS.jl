@@ -5,6 +5,7 @@ include("dummy_problem.jl")
 include("utils.jl")
 
 @testset "Combinatorial Tests" begin
+    @info "Running Combinatorial Tests ..."
     inputs = load_input_coverage()
     for i in eachindex(inputs)
         comb = inputs[i]
