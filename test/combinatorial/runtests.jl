@@ -1,9 +1,4 @@
-```
-Determines whether parallelization of BOSS is allowed during tests.
-
-Set `PARALLEL_TESTS = true` to allow for BOSS parallelization to be tested.
-```
-const PARALLEL_TESTS = true
+using OptimizationPRIMA
 
 include("input_values.jl")
 include("dummy_problem.jl")

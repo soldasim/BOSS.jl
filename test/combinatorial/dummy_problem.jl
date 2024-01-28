@@ -1,4 +1,3 @@
-using OptimizationPRIMA
 
 function create_problem(in)
     problem = construct_problem(in)
