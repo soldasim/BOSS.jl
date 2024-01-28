@@ -4,7 +4,7 @@ function create_problem(in)
     model_fitter = construct_model_fitter(Val(in("ModelFitter")), in)
     acq_maximizer = construct_acq_maximizer(Val(in("AcquisitionMaximizer")), in, problem)
     acquisition = in("Acquisition")
-    options = BOSS.BossOptions(; info=true, debug=true)
+    options = BOSS.BossOptions(; info=false, debug=true)
     term_cond = BOSS.IterLimit(in("iter_max"))
 
     if ismissing(problem.f)
