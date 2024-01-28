@@ -1,8 +1,9 @@
+#using ParamTests  # TODO
+
+include("utils.jl")
+include("_parametrized_tests.jl")  # TODO
 
 @testset "Unit Tests" begin
-    include("acquisition_function/expected_improvement.jl")
-    include("models/parametric.jl")
-    include("models/nonparametric.jl")
-    include("models/semiparametric.jl")
-    include("term_cond.jl")
+    test_files = list_files_rec(Base.source_dir() * "\\test")
+    include.(test_files)
 end

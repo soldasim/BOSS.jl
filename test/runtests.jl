@@ -1,5 +1,10 @@
-using Test
 using BOSS
+using Test
+
+```
+Determines whether parallelization of BOSS is allowed during tests.
+```
+const PARALLEL_TESTS = true
 
 @testset "BOSS TESTS" verbose=true begin
     include("unit/runtests.jl")
