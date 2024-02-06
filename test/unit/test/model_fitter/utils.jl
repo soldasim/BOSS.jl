@@ -116,19 +116,34 @@ end
 @testset "vectorize_params(θ, λ, noise_vars)" begin
     @param_test BOSS.vectorize_params begin
         @params [1., 2., 3.], [4.;4.;; 5.;5.;;], [0.1, 0.1]
-        @success out == [1., 2., 3., 4., 4., 5., 5., 0.1, 0.1]
+        @success (
+            out == [1., 2., 3., 4., 4., 5., 5., 0.1, 0.1],
+            eltype(out) == Float64,
+        )
 
-        @params Float64[], [4.;4.;; 5.;5.;;], [0.1, 0.1]
-        @success out == [4., 4., 5., 5., 0.1, 0.1]
+        @params Real[], [4.;4.;; 5.;5.;;], [0.1, 0.1]
+        @success (
+            out == [4., 4., 5., 5., 0.1, 0.1],
+            eltype(out) == Float64,
+        )
 
         @params [1., 2., 3.], Float64[;;], [0.1, 0.1]
-        @success out == [1., 2., 3., 0.1, 0.1]
+        @success (
+            out == [1., 2., 3., 0.1, 0.1],
+            eltype(out) == Float64,
+        )
 
         @params [1., 2., 3.], [4.;4.;; 5.;5.;;], Float64[]
-        @success out == [1., 2., 3., 4., 4., 5., 5.]
+        @success (
+            out == [1., 2., 3., 4., 4., 5., 5.],
+            eltype(out) == Float64,
+        )
 
-        @params Float64[], Float64[;;], Float64[]
-        @success out == Float64[]
+        @params Real[], Real[;;], Real[]
+        @success (
+            out == Real[],
+            eltype(out) == Real,
+        )
     end
 end
 
