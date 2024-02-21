@@ -8,14 +8,14 @@ function create_problem(in)
     term_cond = BOSS.IterLimit(in("iter_max"))
 
     if ismissing(problem.f)
-        return () -> boss!(problem;
+        return () -> bo!(problem;
             model_fitter,
             acq_maximizer,
             acquisition,
             options,
         )
     else
-        return () -> boss!(problem;
+        return () -> bo!(problem;
             model_fitter,
             acq_maximizer,
             acquisition,
@@ -120,5 +120,5 @@ function construct_acq_maximizer(::Val{:Grid}, in, problem)
     )
 end
 function construct_acq_maximizer(::Val{:Random}, in, problem)
-    return BOSS.RandomSelectAM()
+    return BOSS.RandomAM()
 end

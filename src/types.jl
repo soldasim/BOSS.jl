@@ -162,7 +162,7 @@ NonlinModel(;
 ) = NonlinModel(predict, param_priors, discrete)
 
 """
-    Nonparametric(; kwargs...)
+    GaussianProcess(; kwargs...)
 
 A Gaussian Process surrogate model.
 
@@ -175,7 +175,7 @@ A Gaussian Process surrogate model.
         of `y_dim` `x_dim`-variate distributions where `x_dim` and `y_dim` are
         the dimensions of the input and output of the model respectively.
 """
-struct Nonparametric{
+struct GaussianProcess{
     M<:Union{Nothing, Function},
     P<:AbstractVector{<:MultivariateDistribution},
 } <: SurrogateModel
@@ -183,11 +183,18 @@ struct Nonparametric{
     kernel::Kernel
     length_scale_priors::P
 end
-Nonparametric(;
+GaussianProcess(;
     mean=nothing,
     kernel=Matern52Kernel(),
     length_scale_priors,
-) = Nonparametric(mean, kernel, length_scale_priors)
+) = GaussianProcess(mean, kernel, length_scale_priors)
+
+"""
+    Nonparametric(; kwargs...)
+
+Alias for [`GaussianProcess`](@ref).
+"""
+const Nonparametric = GaussianProcess
 
 """
     Semiparametric(; kwargs...)
@@ -313,6 +320,7 @@ as well as the parameters and hyperparameters of the model.
 See also: [`BOSS.ExperimentDataPrior`](@ref), [`BOSS.ExperimentDataPost`](@ref)
 """
 abstract type ExperimentData end
+ExperimentData(args...) = ExperimentDataPrior(args...)
 
 Base.length(data::ExperimentData) = size(data.X)[2]
 Base.isempty(data::ExperimentData) = isempty(data.X)

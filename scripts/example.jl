@@ -115,7 +115,7 @@ function example_mle(problem=opt_problem(4), iters=3;
     term_cond = BOSS.IterLimit(iters)
 
     # Run BOSS:
-    boss!(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)
+    bo!(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)
 end
 
 """
@@ -146,5 +146,5 @@ function example_bi(problem=opt_problem(4), iters=3;
     term_cond = BOSS.IterLimit(iters)
 
     # Run BOSS:
-    boss!(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)
+    bo!(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)
 end

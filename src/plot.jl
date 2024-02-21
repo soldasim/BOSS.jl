@@ -7,6 +7,24 @@ const CONSTRAINT_STYLE = :dash
 const ACQUISITION_COLOR = :blue
 
 """
+Plot the current state of the optimization process.
+"""
+function make_plot(opt::PlotOptions, problem::OptimizationProblem, acquistion::Function, acq_opt::AbstractVector{<:Real}; info::Bool)
+    info && @info "Plotting ..."
+    opt_ = PlotOptions(
+        opt.Plots,
+        opt.f_true,
+        acquistion,
+        acq_opt,
+        opt.points,
+        opt.xaxis,
+        opt.yaxis,
+        opt.title,
+    )
+    plot_problem(opt_, problem)
+end
+
+"""
     BOSS.plot_problem(opt::PlotOptions, problem::OptimizationProblem)
 
 Plot the current state of the given optimization problem.
