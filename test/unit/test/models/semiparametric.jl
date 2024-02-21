@@ -32,7 +32,6 @@
             out([2., 2.]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}},
             length(out([2., 2.])[1]) == 2,
             length(out([2., 2.])[2]) == 2,
-            # out([2., 2.])[2] == [1e-8, 1e-8],  # TODO: https://github.com/soldasim/BOSS.jl/issues/13
             all(out([2., 2.])[2] .< out([3., 3.])[2]),
             all(out([10., 10.])[2] .< out([11., 11.])[2]),
         )
