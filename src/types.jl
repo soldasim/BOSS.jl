@@ -1,7 +1,6 @@
 using Distributions
 using AbstractGPs
 
-# TODO: refactor types
 
 const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 
@@ -337,9 +336,6 @@ ExperimentDataPrior(;
     X,
     Y,
 ) = ExperimentDataPrior(X, Y)
-
-# TODO: Implement an options to pass empty data to BOSS and let it automatically sample few initial samples.
-# empty_data(x_dim::Int, y_dim::Int, type::Type=Float64) = ExperimentDataPrior(Array{type}(undef, x_dim, 0), Array{type}(undef, y_dim, 0))
 
 """
 Stores the fitted/samples model parameters in addition to the data matrices `X`,`Y`.

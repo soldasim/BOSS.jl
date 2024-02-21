@@ -194,7 +194,6 @@ end
     end
 end
 
-# TODO: Rework with keywords when https://github.com/soldasim/ParamTests.jl/issues/5 is resolved.
 @testset "exclude_exterior_points(domain, X, Y)" begin
     domain = BOSS.Domain(;
         bounds = ([0., 0.], [10., 10.]),

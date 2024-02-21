@@ -104,7 +104,7 @@ end
             length(out([2., 2.])[1]) == 2,
             length(out([2., 2.])[2]) == 2,
             isapprox.(out([2., 2.])[1], [2., 2.]; atol=0.01) |> all,
-            # out([2., 2.])[2] == [1e-8, 1e-8],  # TODO: https://github.com/soldasim/BOSS.jl/issues/13
+            # out([2., 2.])[2] == [1e-8, 1e-8],  # TODO
             all([2., 2.] .< out([3., 3.])[1] .< [5., 5.]),
             isapprox.(out([100., 100.])[1], [1., 1.]; atol=0.01) |> all,
             all(out([2., 2.])[2] .< out([3., 3.])[2]),

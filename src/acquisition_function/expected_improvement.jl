@@ -1,7 +1,5 @@
 using Distributions
 
-# TODO: remove unnecessary ϵ sampling for `LinFitness`
-
 """
     ExpectedImprovement(; kwargs...)
 
@@ -119,7 +117,7 @@ feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints
 sample_ϵs(y_dim::Int, sample_count::Int) = rand(Normal(), (y_dim, sample_count))
 
 best_so_far(problem::OptimizationProblem, posteriors::AbstractVector{<:Function}) =
-    best_so_far(problem, average_posteriors(posteriors))  # TODO: better solution ?
+    best_so_far(problem, average_posteriors(posteriors))
 
 best_so_far(problem::OptimizationProblem, posterior::Function) =
     best_so_far(problem.fitness, problem.data.X, problem.y_max, posterior)
