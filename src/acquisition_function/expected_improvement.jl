@@ -7,6 +7,8 @@ using Distributions
 
 The expected improvement (EI) acquisition function.
 
+Fitness function must be defined as a part of the problem definition in order to use EI. (See `BOSS.Fitness`.)
+
 Measures the quality of a potential evaluation point `x` as the expected improvement
 in best-so-far achieved fitness by evaluating the objective function at `y = f(x)`.
 

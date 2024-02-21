@@ -28,6 +28,8 @@ or give a recommendation for the next evaluation point if `problem.f == missing`
 
 - `model_fitter::ModelFitter`: Defines the algorithm used to estimate model parameters.
 - `acq_maximizer::AcquisitionMaximizer`: Defines the algorithm used to maximize the acquisition function.
+- `acquisition::AcquisitionFunction`: Defines the acquisition function maximized to select
+        promising candidates for further evaluation.
 - `term_cond::TermCond`: Defines the termination condition.
 - `options::BossOptions`: Defines miscellaneous options and hyperparameters.
 

@@ -12,9 +12,19 @@ const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 An abstract type for a fitness function
 measuring the quality of an output `y` of the objective function.
 
-See also: [`BOSS.LinFitness`](@ref), [`BOSS.NonlinFitness`](@ref)
+Fitness is used by the `AcquisitionFunction` to determine promising points for future evaluations.
+
+See also: [`BOSS.AcquisitionFunction`](@ref), [`BOSS.NoFitness`](@ref), [`BOSS.LinFitness`](@ref), [`BOSS.NonlinFitness`](@ref)
 """
 abstract type Fitness end
+
+"""
+    NoFitness()
+
+Placeholder for problems with no defined fitness. Problems with `NoFitness`
+can only be solved with `AcquisitionFunction` which does not use fitness.
+"""
+struct NoFitness <: Fitness end
 
 """
     LinFitness(coefs::AbstractVector{<:Real})
@@ -22,7 +32,7 @@ abstract type Fitness end
 Used to define a linear fitness function 
 measuring the quality of an output `y` of the objective function.
 
-Provides better performance than using the more general `BOSS.NonlinFitness`
+May provide better performance than the more general `BOSS.NonlinFitness`
 as some acquisition functions can be calculated analytically with linear fitness
 functions whereas this may not be possible with a nonlinear fitness function.
 
@@ -469,7 +479,7 @@ mutable struct OptimizationProblem{
     data::ExperimentData
 end
 OptimizationProblem(;
-    fitness,
+    fitness=NoFitness(),
     f,
     domain,
     model,
