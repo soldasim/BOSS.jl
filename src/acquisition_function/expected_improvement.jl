@@ -120,12 +120,22 @@ best_so_far(problem::OptimizationProblem, posteriors::AbstractVector{<:Function}
     best_so_far(problem, average_posteriors(posteriors))
 
 best_so_far(problem::OptimizationProblem, posterior::Function) =
-    best_so_far(problem.fitness, problem.data.X, problem.y_max, posterior)
+    best_so_far(problem.fitness, problem.data.X, problem.data.Y, problem.y_max, posterior)
 
-function best_so_far(fitness::Fitness, X::AbstractMatrix{<:Real}, y_max::AbstractVector{<:Real}, posterior::Function)
-    isempty(X) && return nothing
-    Y_hat = mapreduce(x -> posterior(x)[1], hcat, eachcol(X))[:,:]
-    feasible = is_feasible.(eachcol(Y_hat), Ref(y_max))
+# # noisy EI
+# # Causes point clustering, needs further inspection.
+# function best_so_far(fitness::Fitness, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, y_max::AbstractVector{<:Real}, posterior::Function)
+#     isempty(X) && return nothing
+#     Y_hat = mapreduce(x -> posterior(x)[1], hcat, eachcol(X))[:,:]
+#     feasible = is_feasible.(eachcol(Y_hat), Ref(y_max))
+#     any(feasible) || return nothing
+#     maximum((fitness(Y_hat[:,i]) for i in 1:size(Y_hat)[2] if feasible[i]))
+# end
+
+# classic EI
+function best_so_far(fitness::Fitness, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, y_max::AbstractVector{<:Real}, posterior::Function)
+    isempty(Y) && return nothing
+    feasible = is_feasible.(eachcol(Y), Ref(y_max))
     any(feasible) || return nothing
-    maximum((fitness(Y_hat[:,i]) for i in 1:size(Y_hat)[2] if feasible[i]))
+    maximum((fitness(Y[:,i]) for i in 1:size(Y)[2] if feasible[i]))
 end

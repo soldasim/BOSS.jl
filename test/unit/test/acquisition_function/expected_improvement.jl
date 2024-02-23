@@ -156,21 +156,21 @@ end
     end
 end
 
-@testset "best_so_far(fitness, X, y_max, posterior)" begin
+@testset "best_so_far(fitness, X, Y, y_max, posterior)" begin
     @param_test BOSS.best_so_far begin
-        @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [Inf], x -> (x, [0.1])
-        @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [5.], x -> (x, [0.1])
-        @params BOSS.LinFitness([1.]), [10.;; 2.;; 3.;;], [5.], x -> (x, [0.1])
+        @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> (x, [0.1])
+        @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [5.], x -> (x, [0.1])
+        @params BOSS.LinFitness([1.]), [10.;; 2.;; 3.;;], [10.;; 2.;; 3.;;], [5.], x -> (x, [0.1])
         @success out == 3.
 
-        @params BOSS.LinFitness([2.]), [1.;; 2.;; 3.;;], [Inf], x -> (x, [0.1])
+        @params BOSS.LinFitness([2.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> (x, [0.1])
         @success out == 6.
 
-        @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [Inf], x -> ([x[1]^2], [0.1])
-        @success out == 9.
+        # @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> ([x[1]^2], [0.1])
+        # @success out == 9.
 
-        @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [0.], x -> (x, [0.1])
-        @params BOSS.LinFitness([1.]), Float64[;;], [0.], x -> (x, [0.1])
+        @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [0.], x -> (x, [0.1])
+        @params BOSS.LinFitness([1.]), Float64[;;], Float64[;;], [0.], x -> (x, [0.1])
         @success isnothing(out)
     end
 end
