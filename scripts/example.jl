@@ -10,12 +10,12 @@ Random.seed!(555)
 # We have an unknown noisy function 'blackbox(x)=y,z' and we want to maximize y s.t. z < 0 on domain x ∈ [0,20].
 
 # The unknown blackbox function.
-function blackbox(x; noise=0.1)
+function blackbox(x; noise_var=0.01)
     y = exp(x[1]/10) * cos(2*x[1])
     z = (1/2)^6 * (x[1]^2 - (15.)^2)
     
-    y += rand(Normal(0., noise))
-    z += rand(Normal(0., noise))
+    y += rand(Normal(0., sqrt(noise_var)))
+    z += rand(Normal(0., sqrt(noise_var)))
 
     return [y,z]
 end
@@ -49,9 +49,10 @@ function bad_parametric_model()
 end
 
 # Our prediction about the noise and GP length scales.
-noise_var_priors() = fill(LogNormal(-2.3, 1.), 2)  # noise variance prior
-# noise_var_priors() = fill(Dirac(0.1), 2)           # predefined noise variance value
-length_scale_priors() = fill(MvLogNormal(0.1*ones(1), 1.0*ones(1)), 2)
+noise_var_priors() = fill(truncated(Normal(0., 0.1/3); lower=0.), 2)  # noise variance prior
+# noise_var_priors() = fill(Dirac(0.01), 2)                           # predefined noise variance value
+length_scale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2)
+# length_scale_priors() = fill(Product(fill(Dirac(1.), 1)), 2)
 
 # Generate some initial data.
 function gen_data(count, bounds)
@@ -68,10 +69,14 @@ function opt_problem(init_data=4)
     data = gen_data(init_data, domain.bounds)
 
     # Try changing the parametric model here.
-    model = BOSS.Semiparametric(
-        good_parametric_model(),
-        # bad_parametric_model(),
-        BOSS.Nonparametric(; length_scale_priors=length_scale_priors())
+    # model = BOSS.Semiparametric(
+    #     good_parametric_model(),
+    #     # bad_parametric_model(),
+    #     BOSS.Nonparametric(; length_scale_priors=length_scale_priors())
+    # )
+    model = BOSS.Nonparametric(;
+        kernel=BOSS.Matern32Kernel(),
+        length_scale_priors=length_scale_priors(),
     )
 
     BOSS.OptimizationProblem(;
@@ -87,53 +92,32 @@ end
 
 boss_options() = BOSS.BossOptions(;
     info=true,
-    plot_options=BOSS.PlotOptions(Plots, f_true=x->blackbox(x; noise=0.)),
+    plot_options=BOSS.PlotOptions(Plots, f_true=x->blackbox(x; noise_var=0.)),
 )
 
 """
 An example usage of the BOSS algorithm with a MLE algorithm.
 """
-function example_mle(problem=opt_problem(4), iters=3;
+function main(problem=opt_problem(4), iters=3;
     parallel=true,
     options=boss_options(),
 )
     # Algorithm selection and hyperparameters:
+    # MLE
     model_fitter = BOSS.OptimizationMLE(;
         algorithm=NelderMead(),
         multistart=20,
         parallel,
     )
-
-    acq_maximizer = BOSS.OptimizationAM(;
-        algorithm=LBFGS(),
-        multistart=20,
-        parallel,
-        x_tol=1e-2,
-    )
-
-    acquisition = BOSS.ExpectedImprovement()
-    term_cond = BOSS.IterLimit(iters)
-
-    # Run BOSS:
-    bo!(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)
-end
-
-"""
-An example usage of the BOSS algorithm with a BI algorithm.
-"""
-function example_bi(problem=opt_problem(4), iters=3;
-    parallel=true,
-    options=boss_options(),
-)
-    # Algorithm selection and hyperparameters:
-    model_fitter = BOSS.TuringBI(;
-        sampler=BOSS.PG(20),
-        warmup=100,
-        samples_in_chain=10,
-        chain_count=8,
-        leap_size=5,
-        parallel,
-    )
+    # # BI
+    # model_fitter = BOSS.TuringBI(;
+    #     sampler=BOSS.PG(20),
+    #     warmup=100,
+    #     samples_in_chain=10,
+    #     chain_count=8,
+    #     leap_size=5,
+    #     parallel,
+    # )
 
     acq_maximizer = BOSS.OptimizationAM(;
         algorithm=LBFGS(),
