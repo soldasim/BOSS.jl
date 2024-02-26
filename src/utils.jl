@@ -16,11 +16,6 @@ function in_domain(x::AbstractVector{<:Real}, domain::Domain)
     return true
 end
 
-"""
-    in_bounds(x, bounds) -> Bool
-
-Return true iff x belongs to the given bounds.
-"""
 function in_bounds(x::AbstractVector{<:Real}, bounds::AbstractBounds)
     lb, ub = bounds
     any(x .< lb) && return false
@@ -41,27 +36,15 @@ Return true iff `y` satisfies the given constraints.
 """
 is_feasible(y::AbstractVector{<:Real}, y_max::AbstractVector{<:Real}) = all(y .<= y_max)
 
-x_dim(model::Nonparametric) = length(first(model.length_scale_priors))
-x_dim(model::Semiparametric) = length(first(model.nonparametric.length_scale_priors))
 x_dim(domain::Domain) = length(domain.discrete)
 x_dim(problem::OptimizationProblem) = length(problem.domain.discrete)
 
-y_dim(model::Nonparametric) = length(model.length_scale_priors)
-y_dim(model::Semiparametric) = length(model.nonparametric.length_scale_priors)
 y_dim(problem::OptimizationProblem) = length(problem.y_max)
-
-θ_len(model::Parametric) = length(model.param_priors)
-θ_len(model::Nonparametric) = 0
-θ_len(model::Semiparametric) = length(model.parametric.param_priors)
-
-λ_len(model::Parametric) = 0
-λ_len(model::Nonparametric) = y_dim(model) * x_dim(model)
-λ_len(model::Semiparametric) = y_dim(model) * x_dim(model)
-
-param_count(model::SurrogateModel) = θ_len(model) + λ_len(model)
 
 cons_dim(domain::Domain) = isnothing(domain.cons) ? 0 : length(domain.cons(mean(domain.bounds)))
 cons_dim(problem::OptimizationProblem) = cons_dim(problem.domain)
+
+params_total(problem::OptimizationProblem) = sum(param_counts(problem.model)) + y_dim(problem)
 
 """
     result(problem) -> (x, y)
@@ -88,6 +71,15 @@ function result(problem::OptimizationProblem)
     feasible[best] || return nothing
     return X[:,best], Y[:,best]
 end
+
+"""
+Return the posterior predictive distribution of the Gaussian Process.
+
+The posterior is a function `mean, var = predict(x)`
+which gives the mean and variance of the predictive distribution as a function of `x`.
+"""
+model_posterior(prob::OptimizationProblem) =
+    model_posterior(prob.model, prob.data)
 
 """
 Exclude points exterior to the given `x` domain from the given `X` and `Y` data matrices
@@ -126,10 +118,48 @@ for D in subtypes(UnivariateDistribution)
 end
 
 """
-Return the posterior predictive distribution of the Gaussian Process.
-
-The posterior is a function `mean, var = predict(x)`
-which gives the mean and variance of the predictive distribution as a function of `x`.
+Update model parameters.
 """
-model_posterior(prob::OptimizationProblem) =
-    model_posterior(prob.model, prob.data)
+function update_parameters!(::Type{MLE}, data::ExperimentDataPrior,
+    θ,
+    length_scales,
+    noise_vars,
+)
+    return ExperimentDataMLE(
+        data.X,
+        data.Y,
+        θ,
+        length_scales,
+        noise_vars,
+    )
+end
+function update_parameters!(::Type{BI}, data::ExperimentDataPrior,
+    θ,
+    length_scales,
+    noise_vars,
+)
+    return ExperimentDataBI(
+        data.X,
+        data.Y,
+        θ,
+        length_scales,
+        noise_vars,
+    )
+end
+function update_parameters!(::Type{T}, data::ExperimentDataPost{T},
+    θ,
+    length_scales,
+    noise_vars,
+) where {T<:ModelFit}
+    data.θ = θ
+    data.length_scales = length_scales
+    data.noise_vars = noise_vars
+    return data
+end
+function update_parameters!(::Type{T}, data::ExperimentDataPost,
+    θ,
+    length_scales,
+    noise_vars,
+) where {T<:ModelFit}
+    throw(ArgumentError("Inconsistent experiment data!\nCannot switch from MLE to BI or vice-versa."))
+end

@@ -1,35 +1,4 @@
 
-# - - - SAMPLING MODEL PARAMETERS - - - - -
-
-"""
-Sample all model parameters and noise variances from their respective prior distributions.
-"""
-function sample_params(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution})
-    θ = isempty(model.param_priors) ?
-            Real[] :
-            rand.(model.param_priors)
-    λ = Real[;;]
-    noise_vars = rand.(noise_var_priors)
-    return (θ=θ, length_scales=λ, noise_vars=noise_vars)
-end
-function sample_params(model::Nonparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution})
-    θ = Real[]
-    λ = reduce(hcat, rand.(model.length_scale_priors))
-    noise_vars = rand.(noise_var_priors)
-    return (θ=θ, length_scales=λ, noise_vars=noise_vars)
-end
-function sample_params(model::Semiparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution})
-    θ = isempty(model.parametric.param_priors) ?
-            Real[] :
-            rand.(model.parametric.param_priors)
-    λ = reduce(hcat, rand.(model.nonparametric.length_scale_priors))
-    noise_vars = rand.(noise_var_priors)
-    return (θ=θ, length_scales=λ, noise_vars=noise_vars)
-end
-
-
-# - - - PARAMETER TRANSFORMATIONS - - - - -
-
 """
 Transform all model parameters and noise variances into one parameter vector.
 """
@@ -81,31 +50,16 @@ function devectorize_params(
     return devectorize_params(model, params)
 end
 
-function devectorize_params(model::Parametric, params::AbstractVector{<:Real})
-    θ_len_ = θ_len(model)
-    
-    θ = params[1:θ_len_]
-    noise_vars = params[θ_len_+1:end]
-    return (θ=θ, noise_vars=noise_vars)
-end
-function devectorize_params(model::Nonparametric, params::AbstractVector{<:Real})
-    x_dim_, y_dim_, λ_len_ = x_dim(model), y_dim(model), λ_len(model)
-    
-    length_scales = devectorize_length_scales(params[1:λ_len_], x_dim_, y_dim_)
-    noise_vars = params[λ_len_+1:end]
-    return (length_scales=length_scales, noise_vars=noise_vars)
-end
-function devectorize_params(model::Semiparametric, params::AbstractVector{<:Real})
-    x_dim_, y_dim_, θ_len_, λ_len_ = x_dim(model), y_dim(model), θ_len(model), λ_len(model)
-    
-    θ = params[1:θ_len_]
-    length_scales = devectorize_length_scales(params[θ_len_+1:θ_len_+λ_len_], x_dim_, y_dim_)
-    noise_vars = params[θ_len_+λ_len_+1:end]
-    return (θ=θ, length_scales=length_scales, noise_vars=noise_vars)
-end
+function devectorize_params(model::SurrogateModel, params::AbstractVector{<:Real})
+    θ_shape, λ_shape = param_shapes(model)
+    θ_len, λ_len = prod(θ_shape), prod(λ_shape)
 
-devectorize_length_scales(λ::AbstractVector{<:Real}, x_dim::Int, y_dim::Int) =
-    reshape(λ, x_dim, y_dim)
+    θ = params[1:θ_len]
+    λ = reshape(params[θ_len+1:θ_len+λ_len], λ_shape)
+    noise_vars = params[θ_len+λ_len+1:end]
+    
+    return θ, λ, noise_vars
+end
 
 """
 Create a binary mask describing to which positions of the vectorized parameters
@@ -121,7 +75,12 @@ create_activation_mask(
     problem::OptimizationProblem,
     mask_noisevar_and_lengthscales::Bool,
     mask_theta::Union{<:AbstractVector{Bool}, Nothing},
-) = create_activation_mask(param_count(problem.model) + y_dim(problem), θ_len(problem.model), mask_noisevar_and_lengthscales, mask_theta)
+) = create_activation_mask(
+    params_total(problem),
+    param_counts(problem.model)[1],
+    mask_noisevar_and_lengthscales,
+    mask_theta,
+)
 
 function create_activation_mask(
     params_total::Int,
@@ -142,12 +101,8 @@ end
 create_dirac_skip_mask(problem::OptimizationProblem) =
     create_dirac_skip_mask(problem.model, problem.noise_var_priors)
 
-create_dirac_skip_mask(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
-    create_dirac_skip_mask(model.param_priors, MultivariateDistribution[], noise_var_priors)
-create_dirac_skip_mask(model::Nonparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
-    create_dirac_skip_mask(UnivariateDistribution[], model.length_scale_priors, noise_var_priors)
-create_dirac_skip_mask(model::Semiparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
-    create_dirac_skip_mask(model.parametric.param_priors, model.nonparametric.length_scale_priors, noise_var_priors)
+create_dirac_skip_mask(model::SurrogateModel, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
+    create_dirac_skip_mask(param_priors(model)..., noise_var_priors)
 
 """
 Create a binary mask to skip all parameters with Dirac priors

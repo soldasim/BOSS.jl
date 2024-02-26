@@ -1,4 +1,4 @@
 include("utils.jl")
 include("parametric.jl")
-include("nonparametric.jl")
+include("gaussian_process.jl")
 include("semiparametric.jl")

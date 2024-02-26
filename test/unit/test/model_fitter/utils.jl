@@ -12,13 +12,13 @@
             fill(BOSS.LogNormal(), 2),
         )
         @success (
-            Base.in.([:θ, :length_scales, :noise_vars], Ref(keys(out))) |> all,
-            out.θ isa AbstractVector{<:Real},
-            out.length_scales isa AbstractMatrix{<:Real},
-            out.noise_vars isa AbstractVector{<:Real},
-            length(out.θ) == 4,
-            isempty(out.length_scales),
-            length(out.noise_vars) == 2,
+            length(out) == 3,
+            out[1] isa AbstractVector{<:Real},
+            out[2] isa AbstractMatrix{<:Real},
+            out[3] isa AbstractVector{<:Real},
+            length(out[1]) == 4,
+            isempty(out[2]),
+            length(out[3]) == 2,
         )
 
         @params (
@@ -32,13 +32,13 @@
             fill(BOSS.LogNormal(), 2),
         )
         @success (
-            Base.in.([:θ, :length_scales, :noise_vars], Ref(keys(out))) |> all,
-            out.θ isa AbstractVector{<:Real},
-            out.length_scales isa AbstractMatrix{<:Real},
-            out.noise_vars isa AbstractVector{<:Real},
-            length(out.θ) == 4,
-            isempty(out.length_scales),
-            length(out.noise_vars) == 2,
+            length(out) == 3,
+            out[1] isa AbstractVector{<:Real},
+            out[2] isa AbstractMatrix{<:Real},
+            out[3] isa AbstractVector{<:Real},
+            length(out[1]) == 4,
+            isempty(out[2]),
+            length(out[3]) == 2,
         )
 
         @params (
@@ -48,13 +48,13 @@
             fill(BOSS.LogNormal(), 2),
         )
         @success (
-            Base.in.([:θ, :length_scales, :noise_vars], Ref(keys(out))) |> all,
-            out.θ isa AbstractVector{<:Real},
-            out.length_scales isa AbstractMatrix{<:Real},
-            out.noise_vars isa AbstractVector{<:Real},
-            isempty(out.θ),
-            size(out.length_scales) == (2, 2),
-            length(out.noise_vars) == 2,
+            length(out) == 3,
+            out[1] isa AbstractVector{<:Real},
+            out[2] isa AbstractMatrix{<:Real},
+            out[3] isa AbstractVector{<:Real},
+            isempty(out[1]),
+            size(out[2]) == (2, 2),
+            length(out[3]) == 2,
         )
 
         @params (
@@ -73,13 +73,13 @@
             fill(BOSS.LogNormal(), 2),
         )
         @success (
-            Base.in.([:θ, :length_scales, :noise_vars], Ref(keys(out))) |> all,
-            out.θ isa AbstractVector{<:Real},
-            out.length_scales isa AbstractMatrix{<:Real},
-            out.noise_vars isa AbstractVector{<:Real},
-            length(out.θ) == 4,
-            size(out.length_scales) == (2, 2),
-            length(out.noise_vars) == 2,
+            length(out) == 3,
+            out[1] isa AbstractVector{<:Real},
+            out[2] isa AbstractMatrix{<:Real},
+            out[3] isa AbstractVector{<:Real},
+            length(out[1]) == 4,
+            size(out[2]) == (2, 2),
+            length(out[3]) == 2,
         )
     end
 end
@@ -177,43 +177,43 @@ end
     @param_test BOSS.devectorize_params begin
         @params deepcopy(lin_model), [1., 2., 3., 4., 0.1, 0.1], activation_function, fill(false, 6), Float64[], fill(true, 6)
         @params deepcopy(nonlin_model), [1., 2., 3., 4., 0.1, 0.1], activation_function, fill(false, 6), Float64[], fill(true, 6)
-        @success out == (θ = [1., 2., 3., 4.], noise_vars = [0.1, 0.1])
+        @success out == ([1., 2., 3., 4.], Float64[;;], [0.1, 0.1])
 
         @params deepcopy(nonparametric), [4., 4., 5., 5., 0.1, 0.1], activation_function, fill(false, 6), Float64[], fill(true, 6)
-        @success out == (length_scales = [4.;4.;; 5.;5.;;], noise_vars = [0.1, 0.1])
+        @success out == (Float64[], [4.;4.;; 5.;5.;;], [0.1, 0.1])
 
         @params deepcopy(semiparametric), [1., 2., 3., 4., 4., 4., 5., 5., 0.1, 0.1], activation_function, fill(false, 10), Float64[], fill(true, 10)
-        @success out == (θ = [1., 2., 3., 4.], length_scales = [4.;4.;; 5.;5.;;], noise_vars = [0.1, 0.1])
+        @success out == ([1., 2., 3., 4.], [4.;4.;; 5.;5.;;], [0.1, 0.1])
 
         @params deepcopy(lin_model), [-1., 2., -3., 4., 0.1, 0.1], activation_function, vcat([true, false, true, false], fill(false, 2)), Float64[], fill(true, 6)
         @params deepcopy(nonlin_model), [-1., 2., -3., 4., 0.1, 0.1], activation_function, vcat([true, false, true, false], fill(false, 2)), Float64[], fill(true, 6)
-        @success out == (θ = [1., 2., 3., 4.], noise_vars = [0.1, 0.1])
+        @success out == ([1., 2., 3., 4.], Float64[;;], [0.1, 0.1])
 
         @params deepcopy(nonparametric), [-4., -4., 5., 5., 0.1, 0.1], activation_function, vcat([true, true, false, false], fill(false, 2)), Float64[], fill(true, 6)
-        @success out == (length_scales = [4.;4.;; 5.;5.;;], noise_vars = [0.1, 0.1])
+        @success out == (Float64[], [4.;4.;; 5.;5.;;], [0.1, 0.1])
 
         @params deepcopy(semiparametric), [-1., 2., -3., 4., 4., 4., 5., 5., 0.1, 0.1], activation_function, vcat([true, false, true, false], fill(false, 6)), Float64[], fill(true, 10)
-        @success out == (θ = [1., 2., 3., 4.], length_scales = [4.;4.;; 5.;5.;;], noise_vars = [0.1, 0.1])
+        @success out == ([1., 2., 3., 4.], [4.;4.;; 5.;5.;;], [0.1, 0.1])
 
         @params deepcopy(lin_model), [2., 4., 0.1, 0.1], activation_function, fill(false, 6), [1., 3.], vcat([false, true, false, true], fill(true, 2))
         @params deepcopy(nonlin_model), [2., 4., 0.1, 0.1], activation_function, fill(false, 6), [1., 3.], vcat([false, true, false, true], fill(true, 2))
-        @success out == (θ = [1., 2., 3., 4.], noise_vars = [0.1, 0.1])
+        @success out == ([1., 2., 3., 4.], Float64[;;], [0.1, 0.1])
 
         @params deepcopy(nonparametric), [5., 5., 0.1, 0.1], activation_function, fill(false, 6), [4., 4.], vcat([false, false, true, true], fill(true, 2))
-        @success out == (length_scales = [4.;4.;; 5.;5.;;], noise_vars = [0.1, 0.1])
+        @success out == (Float64[], [4.;4.;; 5.;5.;;], [0.1, 0.1])
 
         @params deepcopy(semiparametric), [2., 4., 4., 4., 5., 5., 0.1, 0.1], activation_function, fill(false, 10), [1., 3.], vcat([false, true, false, true], fill(true, 6))
-        @success out == (θ = [1., 2., 3., 4.], length_scales = [4.;4.;; 5.;5.;;], noise_vars = [0.1, 0.1])
+        @success out == ([1., 2., 3., 4.], [4.;4.;; 5.;5.;;], [0.1, 0.1])
 
         @params deepcopy(lin_model), [-2., -4., 0.1, 0.1], activation_function, vcat([false, true, false, true], fill(false, 2)), [1., 3.], vcat([false, true, false, true], fill(true, 2))
         @params deepcopy(nonlin_model), [-2., -4., 0.1, 0.1], activation_function, vcat([false, true, false, true], fill(false, 2)), [1., 3.], vcat([false, true, false, true], fill(true, 2))
-        @success out == (θ = [1., 2., 3., 4.], noise_vars = [0.1, 0.1])
+        @success out == ([1., 2., 3., 4.], Float64[;;], [0.1, 0.1])
 
         @params deepcopy(nonparametric), [-5., -5., 0.1, 0.1], activation_function, vcat([false, false, true, true], fill(false, 2)), [4., 4.], vcat([false, false, true, true], fill(true, 2))
-        @success out == (length_scales = [4.;4.;; 5.;5.;;], noise_vars = [0.1, 0.1])
+        @success out == (Float64[], [4.;4.;; 5.;5.;;], [0.1, 0.1])
 
         @params deepcopy(semiparametric), [-2., -4., 4., 4., 5., 5., 0.1, 0.1], activation_function, vcat([false, true, false, true], fill(false, 6)), [1., 3.], vcat([false, true, false, true], fill(true, 6))
-        @success out == (θ = [1., 2., 3., 4.], length_scales = [4.;4.;; 5.;5.;;], noise_vars = [0.1, 0.1])
+        @success out == ([1., 2., 3., 4.], [4.;4.;; 5.;5.;;], [0.1, 0.1])
     end
 end
 
@@ -244,13 +244,13 @@ end
     @param_test BOSS.devectorize_params begin
         @params deepcopy(lin_model), [1., 2., 3., 4., 0.1, 0.1]
         @params deepcopy(nonlin_model), [1., 2., 3., 4., 0.1, 0.1]
-        @success out == (θ = [1., 2., 3., 4.], noise_vars = [0.1, 0.1])
+        @success out == ([1., 2., 3., 4.], Float64[;;], [0.1, 0.1])
 
         @params deepcopy(nonparametric), [4., 4., 5., 5., 0.1, 0.1]
-        @success out == (length_scales = [4.;4.;; 5.;5.;;], noise_vars = [0.1, 0.1])
+        @success out == (Float64[], [4.;4.;; 5.;5.;;], [0.1, 0.1])
 
         @params deepcopy(semiparametric), [1., 2., 3., 4., 4., 4., 5., 5., 0.1, 0.1]
-        @success out == (θ = [1., 2., 3., 4.], length_scales = [4.;4.;; 5.;5.;;], noise_vars = [0.1, 0.1])
+        @success out == ([1., 2., 3., 4.], [4.;4.;; 5.;5.;;], [0.1, 0.1])
     end
 end
 

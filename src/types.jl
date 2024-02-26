@@ -5,76 +5,41 @@ using AbstractGPs
 const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 
 
-# - - - - - - - - Fitness Function - - - - - - - -
+# - - - - - - - - Acquisition Functions - - - - - - - -
 
 """
-An abstract type for a fitness function
-measuring the quality of an output `y` of the objective function.
+Specifies the acquisition function describing the "quality" of a potential next evaluation point.
+Inherit this type to define a custom acquisition function.
 
-Fitness is used by the `AcquisitionFunction` to determine promising points for future evaluations.
+Example: `struct CustomAcq <: AcquisitionFunction ... end`
 
-See also: [`BOSS.AcquisitionFunction`](@ref), [`BOSS.NoFitness`](@ref), [`BOSS.LinFitness`](@ref), [`BOSS.NonlinFitness`](@ref)
+Structures derived from this type have to implement the following method:
+`(acquisition::CustomAcq)(problem::OptimizationProblem, options::BossOptions)`
+
+This method should return a function `acq(x::AbstractVector{<:Real}) = val::Real`,
+which is maximized to select the next evaluation function of blackbox function in each iteration.
+
+See also: [`BOSS.ExpectedImprovement`](@ref)
 """
-abstract type Fitness end
+abstract type AcquisitionFunction end
 
-"""
-    NoFitness()
-
-Placeholder for problems with no defined fitness. Problems with `NoFitness`
-can only be solved with `AcquisitionFunction` which does not use fitness.
-"""
-struct NoFitness <: Fitness end
-
-"""
-    LinFitness(coefs::AbstractVector{<:Real})
-
-Used to define a linear fitness function 
-measuring the quality of an output `y` of the objective function.
-
-May provide better performance than the more general `BOSS.NonlinFitness`
-as some acquisition functions can be calculated analytically with linear fitness
-functions whereas this may not be possible with a nonlinear fitness function.
-
-See also: [`BOSS.NonlinFitness`](@ref)
-
-# Example
-A fitness function `f(y) = y[1] + a * y[2] + b * y[3]` can be defined as:
-```julia-repl
-julia> BOSS.LinFitness([1., a, b])
-```
-"""
-struct LinFitness{
-    C<:AbstractVector{<:Real},
-} <: Fitness
-    coefs::C
-end
-(f::LinFitness)(y) = f.coefs' * y
-
-"""
-    NonlinFitness(fitness::Function)
-
-Used to define a general nonlinear fitness function
-measuring the quality of an output `y` of the objective function.
-
-If your fitness function is linear, use `BOSS.LinFitness` instead for better performance.
-
-See also: [`BOSS.LinFitness`](@ref)
-
-# Example
-```julia-repl
-julia> NonlinFitness(y -> cos(y[1]) + sin(y[2]))
-```
-"""
-struct NonlinFitness <: Fitness
-    fitness::Function
-end
-(f::NonlinFitness)(y) = f.fitness(y)
+# Specific implementations of `AcquisitionFunction` are in '\src\acquisition'.
 
 
 # - - - - - - - - Surrogate Model - - - - - - - -
 
 """
 An abstract type for a surrogate model approximating the objective function.
+
+Example usage: `struct CustomModel <: BOSS.SurrogateModel ... end`
+
+All models should implement the following methods:
+`make_discrete(model::CustomModel, discrete::AbstractVector{<:Bool}) -> discrete_model::CustomModel`
+`model_posterior(model::CustomModel, data::ExperimentDataMLE) -> (x -> mean, var)`
+`model_posterior(model::CustomModel, data::ExperimentDataBI) -> [(x -> mean, var)]`
+`model_loglike(model::CustomModel, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData) -> (θ, length_scales, noise_vars -> loglike)`
+`sample_params(model::CustomModel, noise_var_priors::AbstractVector{<:UnivariateDistribution}) -> (θ_sample::AbstractVector{<:Real}, λ_sample::AbstractMatrix{<:Real}, noise_vars_sample::AbstractVector{<:Real})`
+`param_priors(model::CustomModel) -> (θ_priors::AbstractVector{<:UnivariateDistribution}, λ_priors::AbstractVector{<:MultivariateDistribution})
 
 See also:
 [`BOSS.LinModel`](@ref), [`BOSS.NonlinModel`](@ref),
@@ -83,144 +48,29 @@ See also:
 """
 abstract type SurrogateModel end
 
-"""
-An abstract type for parametric surrogate models.
+# Specific implementations of `SurrogateModel` are in '\src\models'.
 
-See also: [`BOSS.LinModel`](@ref), [`BOSS.NonlinModel`](@ref)
-"""
-abstract type Parametric <: SurrogateModel end
+
+# - - - - - - - - Acquisition Maximization - - - - - - - -
 
 """
-    LinModel(; kwargs...)
+Specifies the library/algorithm used for acquisition function optimization.
+Inherit this type to define a custom acquisition maximizer.
 
-A parametric surrogate model linear in its parameters.
+Example: `struct CustomAlg <: AcquisitionMaximizer ... end`
 
-This model definition will provide better performance than the more general 'BOSS.NonlinModel' in the future.
-This feature is not implemented yet so it is equivalent to using `BOSS.NonlinModel` for now.
+Structures derived from this type have to implement the following method:
+`maximize_acquisition(acq_maximizer::CustomAlg, problem::OptimizationProblem, acq::Function; info::Bool)`
+This method should return the point of the input domain which maximizes the given acquisition function `acq`.
 
-The linear model is defined as
-    ϕs = lift(x)
-    y = [θs[i]' * ϕs[i] for i in 1:m]
-where
-    x = [x₁, ..., xₙ]
-    y = [y₁, ..., yₘ]
-    θs = [θ₁, ..., θₘ], θᵢ = [θᵢ₁, ..., θᵢₚ]
-    ϕs = [ϕ₁, ..., ϕₘ], ϕᵢ = [ϕᵢ₁, ..., ϕᵢₚ]
-     n, m, p ∈ R.
-
-# Keywords
-- `lift::Function`: Defines the `lift` function `(::Vector{<:Real}) -> (::Vector{Vector{<:Real}})`
-        according to the definition above.
-- `param_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions for
-        the parameters `[θ₁₁, ..., θ₁ₚ, ..., θₘ₁, ..., θₘₚ]` according to the definition above.
-- `discrete::Union{Nothing, <:AbstractVector{<:Bool}}`: Describes which dimensions are discrete.
-        Typically, the `discrete` kwarg can be ignored by the end-user as it will be updated
-        according to the `Domain` of the `OptimizationProblem` during BOSS initialization.
+See also: [`BOSS.OptimMaximizer`](@ref)
 """
-struct LinModel{
-    P<:AbstractVector{<:UnivariateDistribution},
-    D<:Union{Nothing, <:AbstractVector{<:Bool}},
-} <: Parametric
-    lift::Function
-    param_priors::P
-    discrete::D
-end
-LinModel(;
-    lift,
-    param_priors,
-    discrete=nothing,
-) = LinModel(lift, param_priors, discrete)
+abstract type AcquisitionMaximizer end
 
-"""
-    NonlinModel(; kwargs...)
+# Specific implementations of `AcquisitionMaximizer` are in '\src\acquisition_maximizer'.
 
-A parametric surrogate model.
 
-If your model is linear, you can use `BOSS.LinModel` which will provide better performance in the future. (Not yet implemented.)
-
-Define the model as `y = predict(x, θ)` where `θ` are the model parameters.
-
-# Keywords
-- `predict::Function`: The `predict` function according to the definition above.
-- `param_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions for the model parameters.
-- `discrete::Union{Nothing, <:AbstractVector{<:Bool}}`: Describes which dimensions are discrete.
-        Typically, the `discrete` kwarg can be ignored by the end-user as it will be updated
-        according to the `Domain` of the `OptimizationProblem` during BOSS initialization.
-"""
-struct NonlinModel{
-    P<:AbstractVector{<:UnivariateDistribution},
-    D<:Union{Nothing, <:AbstractVector{<:Bool}},
-} <: Parametric
-    predict::Function
-    param_priors::P
-    discrete::D
-end
-NonlinModel(;
-    predict,
-    param_priors,
-    discrete=nothing,
-) = NonlinModel(predict, param_priors, discrete)
-
-"""
-    GaussianProcess(; kwargs...)
-
-A Gaussian Process surrogate model.
-
-# Keywords
-- `mean::Union{Nothing, Function}`: Used as the mean function for the GP.
-        Defaults to `nothing` equivalent to `x -> 0.`.
-- `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern52Kernel()`.
-- `length_scale_priors::AbstractVector{<:MultivariateDistribution}`: The prior distributions
-        for the length scales of the GP. The `length_scale_priors` should be a vector
-        of `y_dim` `x_dim`-variate distributions where `x_dim` and `y_dim` are
-        the dimensions of the input and output of the model respectively.
-"""
-struct GaussianProcess{
-    M<:Union{Nothing, Function},
-    P<:AbstractVector{<:MultivariateDistribution},
-} <: SurrogateModel
-    mean::M
-    kernel::Kernel
-    length_scale_priors::P
-end
-GaussianProcess(;
-    mean=nothing,
-    kernel=Matern52Kernel(),
-    length_scale_priors,
-) = GaussianProcess(mean, kernel, length_scale_priors)
-
-"""
-    Nonparametric(; kwargs...)
-
-Alias for [`GaussianProcess`](@ref).
-"""
-const Nonparametric = GaussianProcess
-
-"""
-    Semiparametric(; kwargs...)
-
-A semiparametric surrogate model (a combination of a parametric model and Gaussian Process).
-
-The parametric model is used as the mean of the Gaussian Process and all parameters
-and hyperparameters are estimated simultaneously.
-
-# Keywords
-- `parametric::Parametric`: The parametric model used as the GP mean function.
-- `nonparametric::Nonparametric{Nothing}`: The outer GP model without mean.
-"""
-struct Semiparametric{
-    P<:Parametric,
-    N<:Nonparametric{Nothing},
-} <: SurrogateModel
-    parametric::P
-    nonparametric::N
-end
-Semiparametric(;
-    parametric,
-    nonparametric,
-) = Semiparametric(parametric, nonparametric)
-
-# - - - - - - - - Model-Fit Algorithms - - - - - - - -
+# - - - - - - - - Model-Fitting - - - - - - - -
 
 """
 An abstract type used to differentiate between
@@ -248,46 +98,6 @@ See also: [`BOSS.OptimMLE`](@ref), [`BOSS.TuringBI`](@ref)
 abstract type ModelFitter{T<:ModelFit} end
 
 # Specific implementations of `ModelFitter` are in '\src\model_fitter'.
-
-
-# - - - - - - - - Acquisition Maximization - - - - - - - -
-
-"""
-Specifies the library/algorithm used for acquisition function optimization.
-Inherit this type to define a custom acquisition maximizer.
-
-Example: `struct CustomAlg <: AcquisitionMaximizer ... end`
-
-Structures derived from this type have to implement the following method:
-`maximize_acquisition(acq_maximizer::CustomAlg, problem::OptimizationProblem, acq::Function; info::Bool)`
-This method should return the point of the input domain which maximizes the given acquisition function `acq`.
-
-See also: [`BOSS.OptimMaximizer`](@ref)
-"""
-abstract type AcquisitionMaximizer end
-
-# Specific implementations of `AcquisitionMaximizer` are in '\src\acquisition_maximizer'.
-
-
-# - - - - - - - - Acquisition Functions - - - - - - - -
-
-"""
-Specifies the acquisition function describing the "quality" of a potential next evaluation point.
-Inherit this type to define a custom acquisition function.
-
-Example: `struct CustomAcq <: AcquisitionFunction ... end`
-
-Structures derived from this type have to implement the following method:
-`(acquisition::CustomAcq)(problem::OptimizationProblem, options::BossOptions)`
-
-This method should return a function `acq(x::AbstractVector{<:Real}) = val::Real`,
-which is maximized to select the next evaluation function of blackbox function in each iteration.
-
-See also: [`BOSS.ExpectedImprovement`](@ref)
-"""
-abstract type AcquisitionFunction end
-
-# Specific implementations of `AcquisitionFunction` are in '\src\acquisition'.
 
 
 # - - - - - - - - Termination Conditions - - - - - - - -
@@ -410,6 +220,69 @@ end
 
 
 # - - - - - - - - Optimization Problem - - - - - - - -
+
+"""
+An abstract type for a fitness function
+measuring the quality of an output `y` of the objective function.
+
+Fitness is used by the `AcquisitionFunction` to determine promising points for future evaluations.
+
+See also: [`BOSS.AcquisitionFunction`](@ref), [`BOSS.NoFitness`](@ref), [`BOSS.LinFitness`](@ref), [`BOSS.NonlinFitness`](@ref)
+"""
+abstract type Fitness end
+
+"""
+    NoFitness()
+
+Placeholder for problems with no defined fitness. Problems with `NoFitness`
+can only be solved with `AcquisitionFunction` which does not use fitness.
+"""
+struct NoFitness <: Fitness end
+
+"""
+    LinFitness(coefs::AbstractVector{<:Real})
+
+Used to define a linear fitness function 
+measuring the quality of an output `y` of the objective function.
+
+May provide better performance than the more general `BOSS.NonlinFitness`
+as some acquisition functions can be calculated analytically with linear fitness
+functions whereas this may not be possible with a nonlinear fitness function.
+
+See also: [`BOSS.NonlinFitness`](@ref)
+
+# Example
+A fitness function `f(y) = y[1] + a * y[2] + b * y[3]` can be defined as:
+```julia-repl
+julia> BOSS.LinFitness([1., a, b])
+```
+"""
+struct LinFitness{
+    C<:AbstractVector{<:Real},
+} <: Fitness
+    coefs::C
+end
+(f::LinFitness)(y) = f.coefs' * y
+
+"""
+    NonlinFitness(fitness::Function)
+
+Used to define a general nonlinear fitness function
+measuring the quality of an output `y` of the objective function.
+
+If your fitness function is linear, use `BOSS.LinFitness` instead for better performance.
+
+See also: [`BOSS.LinFitness`](@ref)
+
+# Example
+```julia-repl
+julia> NonlinFitness(y -> cos(y[1]) + sin(y[2]))
+```
+"""
+struct NonlinFitness <: Fitness
+    fitness::Function
+end
+(f::NonlinFitness)(y) = f.fitness(y)
 
 """
     Domain(; kwargs...)

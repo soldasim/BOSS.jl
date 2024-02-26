@@ -81,7 +81,7 @@ Estimate the model parameters & hyperparameters using the given `model_fitter` a
 function estimate_parameters!(problem::OptimizationProblem, model_fitter::ModelFitter{T}; options::BossOptions) where {T}
     options.info && @info "Estimating model parameters ..."
     params = estimate_parameters(model_fitter, problem, options)
-    problem.data = update_parameters!(T, problem.data; params...)
+    problem.data = update_parameters!(T, problem.data, params...)
 end
 
 """
@@ -130,46 +130,3 @@ Maximize the given acquisition function.
 For examples of specialized methods see: https://github.com/Sheld5/BOSS.jl/tree/master/src/acquisition_maximizer
 """
 function maximize_acquisition(::Function, ::AcquisitionMaximizer, ::OptimizationProblem, ::BossOptions) end
-
-
-"""
-Update model parameters.
-"""
-function update_parameters!(::Type{MLE}, data::ExperimentDataPrior;
-    θ=nothing,
-    length_scales=nothing,
-    noise_vars=nothing,
-)
-    return ExperimentDataMLE(
-        data.X,
-        data.Y,
-        θ,
-        length_scales,
-        noise_vars,
-    )
-end
-function update_parameters!(::Type{BI}, data::ExperimentDataPrior;
-    θ=nothing,
-    length_scales=nothing,
-    noise_vars=nothing,
-)
-    return ExperimentDataBI(
-        data.X,
-        data.Y,
-        θ,
-        length_scales,
-        noise_vars,
-    )
-end
-function update_parameters!(::Type{T}, data::ExperimentDataPost{T};
-    θ=nothing,
-    length_scales=nothing,
-    noise_vars=nothing,
-) where {T<:ModelFit}
-    data.θ = θ
-    data.length_scales = length_scales
-    data.noise_vars = noise_vars
-    return data
-end
-update_parameters!(::T, problem::OptimizationProblem; kwargs...) where {T<:ModelFit} =
-    throw(ArgumentError("Inconsistent experiment data!\nCannot switch from MLE to BI or vice-versa."))

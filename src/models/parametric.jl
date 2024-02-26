@@ -1,5 +1,83 @@
 using Distributions
 
+"""
+An abstract type for parametric surrogate models.
+
+See also: [`BOSS.LinModel`](@ref), [`BOSS.NonlinModel`](@ref)
+"""
+abstract type Parametric <: SurrogateModel end
+
+"""
+    LinModel(; kwargs...)
+
+A parametric surrogate model linear in its parameters.
+
+This model definition will provide better performance than the more general 'BOSS.NonlinModel' in the future.
+This feature is not implemented yet so it is equivalent to using `BOSS.NonlinModel` for now.
+
+The linear model is defined as
+    ϕs = lift(x)
+    y = [θs[i]' * ϕs[i] for i in 1:m]
+where
+    x = [x₁, ..., xₙ]
+    y = [y₁, ..., yₘ]
+    θs = [θ₁, ..., θₘ], θᵢ = [θᵢ₁, ..., θᵢₚ]
+    ϕs = [ϕ₁, ..., ϕₘ], ϕᵢ = [ϕᵢ₁, ..., ϕᵢₚ]
+     n, m, p ∈ R.
+
+# Keywords
+- `lift::Function`: Defines the `lift` function `(::Vector{<:Real}) -> (::Vector{Vector{<:Real}})`
+        according to the definition above.
+- `param_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions for
+        the parameters `[θ₁₁, ..., θ₁ₚ, ..., θₘ₁, ..., θₘₚ]` according to the definition above.
+- `discrete::Union{Nothing, <:AbstractVector{<:Bool}}`: Describes which dimensions are discrete.
+        Typically, the `discrete` kwarg can be ignored by the end-user as it will be updated
+        according to the `Domain` of the `OptimizationProblem` during BOSS initialization.
+"""
+struct LinModel{
+    P<:AbstractVector{<:UnivariateDistribution},
+    D<:Union{Nothing, <:AbstractVector{<:Bool}},
+} <: Parametric
+    lift::Function
+    param_priors::P
+    discrete::D
+end
+LinModel(;
+    lift,
+    param_priors,
+    discrete=nothing,
+) = LinModel(lift, param_priors, discrete)
+
+"""
+    NonlinModel(; kwargs...)
+
+A parametric surrogate model.
+
+If your model is linear, you can use `BOSS.LinModel` which will provide better performance in the future. (Not yet implemented.)
+
+Define the model as `y = predict(x, θ)` where `θ` are the model parameters.
+
+# Keywords
+- `predict::Function`: The `predict` function according to the definition above.
+- `param_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions for the model parameters.
+- `discrete::Union{Nothing, <:AbstractVector{<:Bool}}`: Describes which dimensions are discrete.
+        Typically, the `discrete` kwarg can be ignored by the end-user as it will be updated
+        according to the `Domain` of the `OptimizationProblem` during BOSS initialization.
+"""
+struct NonlinModel{
+    P<:AbstractVector{<:UnivariateDistribution},
+    D<:Union{Nothing, <:AbstractVector{<:Bool}},
+} <: Parametric
+    predict::Function
+    param_priors::P
+    discrete::D
+end
+NonlinModel(;
+    predict,
+    param_priors,
+    discrete=nothing,
+) = NonlinModel(predict, param_priors, discrete)
+
 (model::Parametric)(θ::AbstractVector{<:Real}) = x -> model(x, θ)
 
 function (model::LinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real})
@@ -53,7 +131,7 @@ function model_posterior(
 end
 
 function model_loglike(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
-    function loglike(θ, noise_vars)
+    function loglike(θ, length_scales, noise_vars)
         ll_params = model_params_loglike(model, θ)
         ll_data = model_data_loglike(model, θ, noise_vars, data.X, data.Y)
         ll_noise = noise_loglike(noise_var_priors, noise_vars)
@@ -75,3 +153,15 @@ function model_data_loglike(
     ll_datum(x, y) = logpdf(MvNormal(model(x, θ), sqrt.(noise_vars)), y)
     return mapreduce(d -> ll_datum(d...), +, zip(eachcol(X), eachcol(Y)))
 end
+
+function sample_params(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution})
+    θ = isempty(model.param_priors) ?
+            Real[] :
+            rand.(model.param_priors)
+    λ = Real[;;]
+    noise_vars = rand.(noise_var_priors)
+    return θ, λ, noise_vars
+end
+
+param_priors(model::Parametric) =
+    model.param_priors, MultivariateDistribution[]
