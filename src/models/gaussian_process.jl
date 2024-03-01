@@ -30,7 +30,7 @@ struct GaussianProcess{
 end
 GaussianProcess(;
     mean=nothing,
-    kernel=Matern52Kernel(),
+    kernel=Matern32Kernel(),
     length_scale_priors,
 ) = GaussianProcess(mean, kernel, length_scale_priors)
 
