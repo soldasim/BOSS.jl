@@ -3,7 +3,7 @@ using Plots
 using Distributions
 using Random
 
-using OptimizationOptimJL
+using OptimizationPRIMA
 
 Random.seed!(555)
 
@@ -105,9 +105,10 @@ function main(problem=opt_problem(4), iters=3;
     # Algorithm selection and hyperparameters:
     # MLE
     model_fitter = BOSS.OptimizationMLE(;
-        algorithm=NelderMead(),
-        multistart=20,
+        algorithm = NEWUOA(),
+        multistart = 20,
         parallel,
+        rhoend = 1e-4,
     )
     # # BI
     # model_fitter = BOSS.TuringBI(;
@@ -120,10 +121,10 @@ function main(problem=opt_problem(4), iters=3;
     # )
 
     acq_maximizer = BOSS.OptimizationAM(;
-        algorithm=LBFGS(),
-        multistart=20,
+        algorithm = BOBYQA(),
+        multistart = 20,
         parallel,
-        x_tol=1e-2,
+        rhoend = 1e-4,
     )
 
     acquisition = BOSS.ExpectedImprovement()
