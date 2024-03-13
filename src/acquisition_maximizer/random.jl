@@ -11,13 +11,19 @@ or even get stuck if the constraints are very tight.
 """
 struct RandomAM <: AcquisitionMaximizer end
 
-function maximize_acquisition(acq::Function, optimizer::RandomAM, problem::BOSS.OptimizationProblem, options::BossOptions)
+function maximize_acquisition(::RandomAM, ::AcquisitionFunction, problem::OptimizationProblem, options::BossOptions)
     domain = problem.domain
-    x = random_start(domain.bounds)
+    x = random_x(domain)
     if !isnothing(domain.cons)
         while !in_cons(x, domain.cons)
-            x = random_start(domain.bounds)
+            x = random_x(domain)
         end
     end
+    return x
+end
+
+function random_x(domain)
+    x = random_start(domain.bounds)
+    x = cond_func(round).(domain.discrete, x)  # assure discrete dims
     return x
 end

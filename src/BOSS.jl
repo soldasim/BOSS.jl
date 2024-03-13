@@ -21,6 +21,7 @@ export OptimizationMLE
 export TuringBI
 
 # Acquisition Maximizers
+export SequentialBatchAM
 export RandomAM
 export GridAM
 export OptimizationAM

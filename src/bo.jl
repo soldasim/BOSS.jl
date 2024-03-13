@@ -40,9 +40,9 @@ function bo!(problem::OptimizationProblem;
     initialize!(problem; options)
     while term_cond(problem)
         estimate_parameters!(problem, model_fitter; options)
-        x, acq = maximize_acquisition(problem, acquisition, acq_maximizer; options)
-        isnothing(options.plot_options) || make_plot(options.plot_options, problem, acq, x; info=options.info)
-        eval_objective!(problem, x; options)
+        X = maximize_acquisition(problem, acquisition, acq_maximizer; options)
+        isnothing(options.plot_options) || make_plot(options.plot_options, problem, acquisition, X; info=options.info)
+        eval_objective!(problem, X; options)
     end
     return problem
 end
@@ -55,9 +55,9 @@ function bo!(problem::OptimizationProblem{Missing};
 )
     initialize!(problem; options)
     estimate_parameters!(problem, model_fitter; options)
-    x, acq = maximize_acquisition(problem, acquisition, acq_maximizer; options)
-    isnothing(options.plot_options) || make_plot(options.plot_options, problem, acq, x; info=options.info)
-    return x
+    X = maximize_acquisition(problem, acquisition, acq_maximizer; options)
+    isnothing(options.plot_options) || make_plot(options.plot_options, problem, acquisition, X; info=options.info)
+    return X
 end
 
 """
@@ -89,44 +89,24 @@ Maximize the given `acquisition` function via the given `acq_maximizer` algorith
 """
 function maximize_acquisition(problem::OptimizationProblem, acquisition::AcquisitionFunction, acq_maximizer::AcquisitionMaximizer; options::BossOptions)
     options.info && @info "Maximizing acquisition function ..."
-    acq = acquisition(problem, options)
-    x = maximize_acquisition(acq, acq_maximizer, problem, options)
-    x = cond_func(round).(problem.domain.discrete, x)
-    options.info && !in_domain(x, problem.domain) && @warn "The acquisition maximization resulted in an exterior point!\nPoint $(x) not in bounds $(problem.domain.bounds)."
-    return x, acq
+    X = maximize_acquisition(acq_maximizer, acquisition, problem, options)
+    options.info && check_new_points(X, problem)
+    return X
+end
+
+function check_new_points(X::AbstractArray{<:Real}, problem::OptimizationProblem)
+    for x in eachcol(X)
+        in_domain(x, problem.domain) || @warn "The acquisition maximization resulted in an exterior point!\nPoint $(x) not in bounds $(problem.domain.bounds)."
+    end
 end
 
 """
 Evaluate the objective function and update the data.
 """
-function eval_objective!(problem::OptimizationProblem, x::AbstractVector{<:Real}; options::BossOptions)
+function eval_objective!(problem::OptimizationProblem, X::AbstractArray{<:Real}; options::BossOptions)
     options.info && @info "Evaluating objective function ..."
-    
-    y = problem.f(x)
-    problem.data.X = hcat(problem.data.X, x)
-    problem.data.Y = hcat(problem.data.Y, y)
-
-    options.info && @info "New data point: $x : $y"
-    return y
+    Y = mapreduce(problem.f, hcat, eachcol(X))
+    add_data!(problem.data, X, Y)
+    options.info && @info "New data point: $X : $Y"
+    return Y
 end
-
-"""
-Estimate the model parameters according to the current data.
-
-For examples of specialized methods see: https://github.com/Sheld5/BOSS.jl/tree/master/src/model_fitter
-"""
-function estimate_parameters(::ModelFitter, ::OptimizationProblem, ::BossOptions) end
-
-"""
-Construct the acquisition function for the given problem.
-
-For examples of specialized methods see: https://github.com/Sheld5/BOSS.jl/tree/master/src/acquisition_function
-"""
-function (::AcquisitionFunction)(::OptimizationProblem) end
-
-"""
-Maximize the given acquisition function.
-
-For examples of specialized methods see: https://github.com/Sheld5/BOSS.jl/tree/master/src/acquisition_maximizer
-"""
-function maximize_acquisition(::Function, ::AcquisitionMaximizer, ::OptimizationProblem, ::BossOptions) end

@@ -34,7 +34,8 @@ function CobylaAM(prima;
     return CobylaAM(prima, multistart, parallel, kwargs)
 end
 
-function maximize_acquisition(acq::Function, optimizer::CobylaAM, problem::BOSS.OptimizationProblem, options::BossOptions)
+function maximize_acquisition(optimizer::CobylaAM, acquisition::AcquisitionFunction, problem::OptimizationProblem, options::BossOptions)
+    acq = acquisition(problem, options)
     domain = problem.domain
     c_dim = cons_dim(domain)
 
@@ -59,5 +60,6 @@ function maximize_acquisition(acq::Function, optimizer::CobylaAM, problem::BOSS.
     end
 
     best_x, _ = optimize_multistart(acq_optimize, starts, optimizer.parallel, options)
+    best_x = cond_func(round).(problem.domain.discrete, best_x)  # assure discrete dims
     return best_x
 end

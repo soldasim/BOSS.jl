@@ -163,3 +163,12 @@ function update_parameters!(::Type{T}, data::ExperimentDataPost,
 ) where {T<:ModelFit}
     throw(ArgumentError("Inconsistent experiment data!\nCannot switch from MLE to BI or vice-versa."))
 end
+
+"""
+Add one (as vectors) or more (as matrices) datapoints to the dataset.
+"""
+function add_data!(data::ExperimentData, X::AbstractArray{<:Real}, Y::AbstractArray{<:Real})
+    data.X = hcat(data.X, X)
+    data.Y = hcat(data.Y, Y)
+    return data
+end

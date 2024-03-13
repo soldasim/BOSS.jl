@@ -30,12 +30,22 @@ function GridAM(;
     shuffle=true,
 )
     domain = problem.domain
-    ranges = [domain.bounds[1][i]:steps[i]:domain.bounds[2][i] for i in 1:x_dim(problem)]
+    ranges = dim_range.(domain.bounds..., steps, domain.discrete)
     points = [[x...] for x in Iterators.product(ranges...) if in_domain([x...], domain)]
     return GridAM(points, steps, parallel, shuffle)
 end
 
-function maximize_acquisition(acq::Function, opt::GridAM, problem::BOSS.OptimizationProblem, options::BossOptions)
+function dim_range(lb, ub, step, discrete)
+    if discrete
+        isinteger(step) || @warn "Non-integer `step` provided for a discrete dimension! Rounding `step` from $(step) up to $(ceil(step))."
+        return ceil(lb):ceil(step):floor(ub)
+    else
+        return lb:step:ub
+    end
+end
+
+function maximize_acquisition(opt::GridAM, acquisition::AcquisitionFunction, problem::OptimizationProblem, options::BossOptions)
+    acq = acquisition(problem, options)
     points_ = opt.shuffle ? (opt.points |> deepcopy |> shuffle) : opt.points
     if opt.parallel
         vals = Vector{Float64}(undef, length(points_))

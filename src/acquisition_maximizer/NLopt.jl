@@ -40,7 +40,8 @@ function NLoptAM(nlopt;
     return NLoptAM(nlopt, algorithm, multistart, parallel, cons_tol, kwargs)
 end
 
-function maximize_acquisition(acq::Function, optimizer::NLoptAM, problem::BOSS.OptimizationProblem, options::BossOptions)
+function maximize_acquisition(optimizer::NLoptAM, acquisition::AcquisitionFunction, problem::OptimizationProblem, options::BossOptions)
+    acq = acquisition(problem, options)
     domain = problem.domain
     
     if optimizer.multistart == 1
@@ -58,6 +59,7 @@ function maximize_acquisition(acq::Function, optimizer::NLoptAM, problem::BOSS.O
     end
     
     best_x, _ = optimize_multistart(acq_optimize, starts, optimizer.parallel, options)
+    best_x = cond_func(round).(problem.domain.discrete, best_x)  # assure discrete dims
     return best_x
 end
 

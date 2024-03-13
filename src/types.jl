@@ -60,8 +60,9 @@ Inherit this type to define a custom acquisition maximizer.
 Example: `struct CustomAlg <: AcquisitionMaximizer ... end`
 
 Structures derived from this type have to implement the following method:
-`maximize_acquisition(acq_maximizer::CustomAlg, problem::OptimizationProblem, acq::Function; info::Bool)`
-This method should return the point of the input domain which maximizes the given acquisition function `acq`.
+`maximize_acquisition(acq_maximizer::CustomAlg, acq::AcquisitionFunction, problem::OptimizationProblem, options::BossOptions)`
+This method should return the point of the input domain which maximizes the given acquisition function `acq` (as a vector)
+or a batch of points (as a column-wise matrix).
 
 See also: [`BOSS.OptimMaximizer`](@ref)
 """
@@ -388,7 +389,7 @@ but supports multi-dimensional `y`.
 struct PlotOptions{
     F<:Union{Nothing, Function},
     A<:Union{Nothing, Function},
-    O<:Union{Nothing, AbstractVector{<:Real}},
+    O<:Union{Nothing, AbstractArray{<:Real}},
 }
     Plots::Module
     f_true::F

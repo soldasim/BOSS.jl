@@ -9,12 +9,13 @@ const ACQUISITION_COLOR = :blue
 """
 Plot the current state of the optimization process.
 """
-function make_plot(opt::PlotOptions, problem::OptimizationProblem, acquistion::Function, acq_opt::AbstractVector{<:Real}; info::Bool)
+function make_plot(opt::PlotOptions, problem::OptimizationProblem, acquisition::AcquisitionFunction, acq_opt::AbstractArray{<:Real}; info::Bool)
     info && @info "Plotting ..."
+    acq = acquisition(problem, BossOptions())
     opt_ = PlotOptions(
         opt.Plots,
         opt.f_true,
-        acquistion,
+        acq,
         acq_opt,
         opt.points,
         opt.xaxis,
@@ -144,14 +145,15 @@ function plot_acquisition(opt::PlotOptions, problem::OptimizationProblem)
     p = opt.Plots.plot(; ylabel="acquisition", xaxis=opt.xaxis, yaxis=opt.yaxis)
 
     if !isnothing(opt.acquisition)
-        acq(x) = in_domain([x], problem.domain) ? opt.acquisition([x]) : 0.
+        acq(x) = in_domain(x, problem.domain) ? opt.acquisition(x) : 0.
         x_points = (opt.xaxis == :log) ? log_range(lb, ub, opt.points) : collect(LinRange(lb, ub, opt.points))
-        y_points = acq.(x_points)
+        y_points = (x->acq([x])).(x_points)
         opt.Plots.plot!(p, x_points, y_points; label="acquisition", color=ACQUISITION_COLOR)
 
         if !isnothing(opt.acq_opt)
-            o = first(opt.acq_opt)
-            opt.Plots.scatter!(p, [o], [acq(o)]; label="optimum", color=ACQUISITION_COLOR)
+            opts = eachcol(opt.acq_opt) |> collect
+            vals = acq.(opts)
+            opt.Plots.scatter!(p, opts, vals; label="optimum", color=ACQUISITION_COLOR)
         end
     end
 
