@@ -103,10 +103,22 @@ end
 """
 Evaluate the objective function and update the data.
 """
-function eval_objective!(problem::OptimizationProblem, X::AbstractArray{<:Real}; options::BossOptions)
+function eval_objective!(problem::OptimizationProblem, x::AbstractVector{<:Real}; options::BossOptions)
     options.info && @info "Evaluating objective function ..."
-    Y = mapreduce(problem.f, hcat, eachcol(X))
+    y = problem.f(x)
+    add_data!(problem.data, x, y)
+    options.info && @info "New data point: $x : $y"
+    return y
+end
+function eval_objective!(problem::OptimizationProblem, X::AbstractMatrix{<:Real}; options::BossOptions)
+    options.info && @info "Evaluating objective function ..."
+    if options.parallel_evals
+        tasks = [Threads.@spawn problem.f(x) for x in eachcol(X)]
+        Y = reduce(hcat, fetch.(tasks))
+    else
+        Y = mapreduce(problem.f, hcat, eachcol(X))
+    end
     add_data!(problem.data, X, Y)
-    options.info && @info "New data point: $X : $Y"
+    options.info && @info "New data:" * reduce(*, ("\n\t$x : $y" for (x, y) in zip(eachcol(X), eachcol(Y))))
     return Y
 end
