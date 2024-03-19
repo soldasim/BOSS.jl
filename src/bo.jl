@@ -1,3 +1,4 @@
+using Distributed
 
 """
     bo!(problem::OptimizationProblem{Function}; kwargs...)
@@ -112,13 +113,21 @@ function eval_objective!(problem::OptimizationProblem, x::AbstractVector{<:Real}
 end
 function eval_objective!(problem::OptimizationProblem, X::AbstractMatrix{<:Real}; options::BossOptions)
     options.info && @info "Evaluating objective function ..."
-    if options.parallel_evals
-        tasks = [Threads.@spawn problem.f(x) for x in eachcol(X)]
-        Y = reduce(hcat, fetch.(tasks))
-    else
-        Y = mapreduce(problem.f, hcat, eachcol(X))
-    end
+    Y = eval_points(Val(options.parallel_evals), problem.f, X)
     add_data!(problem.data, X, Y)
     options.info && @info "New data:" * reduce(*, ("\n\t$x : $y" for (x, y) in zip(eachcol(X), eachcol(Y))))
     return Y
+end
+
+function eval_points(::Val{:serial}, f::Function, X::AbstractMatrix{<:Real})
+    Y = mapreduce(f, hcat, eachcol(X))
+end
+function eval_points(::Val{:parallel}, f::Function, X::AbstractMatrix{<:Real})
+    tasks = [Threads.@spawn f(x) for x in eachcol(X)]
+    Y = reduce(hcat, fetch.(tasks))
+end
+function eval_points(::Val{:distributed}, f::Function, X::AbstractMatrix{<:Real})
+    Y = @distributed hcat for x in eachcol(X)
+        f(x)
+    end
 end

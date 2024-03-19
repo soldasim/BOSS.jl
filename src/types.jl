@@ -419,8 +419,10 @@ Stores miscellaneous settings of the BOSS algorithm.
 # Keywords
 - `info::Bool`: Setting `info=false` silences the BOSS algorithm.
 - `debug::Bool`: Set `debug=true` to print stactraces of caught optimization errors.
-- `parallel_evals::Bool`: Determines whether to run multiple objective function evaluations
-        within one batch in parallel. (Only has an effect if batching AM is used.)
+- `parallel_evals::String`: Possible values: `:serial`, `:parallel`, `:distributed`. Defaults to `:parallel`.
+        Determines whether to run multiple objective function evaluations
+        within one batch in serial, parallel, or distributed fashion.
+        (Only has an effect if batching AM is used.)
 - `plot_options::PlotOptions`: If `plot_options` is provided, BOSS will print the state
         of the optimization problem in each iteration. See [`BOSS.PlotOptions`](@ref).
 
@@ -431,12 +433,15 @@ struct BossOptions{
 }
     info::Bool
     debug::Bool
-    parallel_evals::Bool
+    parallel_evals::Symbol
     plot_options::P
 end
-BossOptions(;
+function BossOptions(;
     info=true,
     debug=false,
-    parallel_evals=true,
+    parallel_evals=:parallel,
     plot_options=nothing,
-) = BossOptions(info, debug, parallel_evals, plot_options)
+)
+    @assert parallel_evals in [:serial, :parallel, :distributed]
+    return BossOptions(info, debug, parallel_evals, plot_options)
+end
