@@ -46,6 +46,13 @@ cons_dim(problem::OptimizationProblem) = cons_dim(problem.domain)
 
 params_total(problem::OptimizationProblem) = sum(param_counts(problem.model)) + y_dim(problem)
 
+function data_count(problem::OptimizationProblem)
+    xsize = size(problem.data.X)[2]
+    ysize = size(problem.data.Y)[2]
+    @assert xsize == ysize
+    return xsize
+end
+
 """
     result(problem) -> (x, y)
 
