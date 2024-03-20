@@ -173,7 +173,7 @@ uuid = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
 version = "0.4.7"
 
 [[deps.BOSS]]
-deps = ["AbstractGPs", "Distributions", "InteractiveUtils", "LatinHypercubeSampling", "Optimization", "Random", "Turing"]
+deps = ["AbstractGPs", "Distributed", "Distributions", "InteractiveUtils", "LatinHypercubeSampling", "Optimization", "Random", "Turing"]
 path = ".."
 uuid = "15052f3f-a82a-4ca3-bbc4-f478a3bd1ae2"
 version = "0.1.0"
