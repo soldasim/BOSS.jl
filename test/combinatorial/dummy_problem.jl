@@ -1,11 +1,17 @@
 
-function create_problem(in)
-    problem = construct_problem(in)
-    model_fitter = construct_model_fitter(Val(in("ModelFitter")), in)
-    acq_maximizer = construct_acq_maximizer(Val(in("AcquisitionMaximizer")), in, problem)
-    acquisition = in("Acquisition")
-    options = BOSS.BossOptions(; info=false, debug=true)
-    term_cond = BOSS.IterLimit(in("iter_max"))
+"""
+Creates a dummy problem for the given combinatorial test.
+
+# Params
+- `in::Function`: Maps input variable names to their values.
+"""
+function create_problem(val)
+    problem = construct_problem(val)
+    model_fitter = construct_model_fitter(Val(val("ModelFitter")), val)
+    acq_maximizer = construct_acq_maximizer(Val(val("AcquisitionMaximizer")), val, problem)
+    acquisition = val("Acquisition")
+    options = BOSS.BossOptions(; info=true, debug=true)
+    term_cond = BOSS.IterLimit(val("iter_max"))
 
     if ismissing(problem.f)
         return () -> bo!(problem;
@@ -25,65 +31,65 @@ function create_problem(in)
     end
 end
 
-function construct_problem(in)
-    fitness = construct_fitness(Val(in("FITNESS")), in)
+function construct_problem(val)
+    fitness = construct_fitness(Val(val("FITNESS")), val)
 
     domain = BOSS.Domain(;
-        bounds = in("bounds"),
-        discrete = in("discrete"),
-        cons = in("cons"),
+        bounds = val("bounds"),
+        discrete = val("discrete"),
+        cons = val("cons"),
     )
-    model = construct_model(Val(in("MODEL")), in)
+    model = construct_model(Val(val("MODEL")), val)
 
-    data = BOSS.ExperimentDataPrior(in("XY")...)
+    data = BOSS.ExperimentDataPrior(val("XY")...)
     
-    return BOSS.OptimizationProblem(;
+    return BOSS.BossProblem(;
         fitness,
-        f = in("f"),
+        f = val("f"),
         domain,
         model,
-        noise_var_priors = in("noise_var_priors"),
-        y_max = in("y_max"),
+        noise_var_priors = val("noise_var_priors"),
+        y_max = val("y_max"),
         data,
     )    
 end
 
-function construct_fitness(::Val{:LinFitness}, in)
-    return BOSS.LinFitness(in("LinFitness_coefs"))
+function construct_fitness(::Val{:LinFitness}, val)
+    return BOSS.LinFitness(val("LinFitness_coefs"))
 end
-function construct_fitness(::Val{:NonlinFitness}, in)
-    return BOSS.NonlinFitness(in("NonlinFitness_fit"))
+function construct_fitness(::Val{:NonlinFitness}, val)
+    return BOSS.NonlinFitness(val("NonlinFitness_fit"))
 end
 
-function construct_model(::Val{:Parametric}, in)
+function construct_model(::Val{:Parametric}, val)
     return BOSS.NonlinModel(;
-        predict = in("Parametric_predict"),
-        param_priors = in("Parametric_theta_priors"),
+        predict = val("Parametric_predict"),
+        param_priors = val("Parametric_theta_priors"),
     )
 end
-function construct_model(::Val{:Nonparametric}, in)
+function construct_model(::Val{:Nonparametric}, val)
     return BOSS.Nonparametric(;
-        mean = in(String(in("MODEL"))*"_mean"),
-        kernel = in("Nonparametric_kernel"),
-        length_scale_priors = in("Nonparametric_length_scale_priors"),
+        mean = val(String(val("MODEL"))*"_mean"),
+        kernel = val("Nonparametric_kernel"),
+        length_scale_priors = val("Nonparametric_length_scale_priors"),
     )
 end
-function construct_model(::Val{:Semiparametric}, in)
+function construct_model(::Val{:Semiparametric}, val)
     return BOSS.Semiparametric(;
-        parametric = construct_model(Val(:Parametric), in),
-        nonparametric = construct_model(Val(:Nonparametric), in),
+        parametric = construct_model(Val(:Parametric), val),
+        nonparametric = construct_model(Val(:Nonparametric), val),
     )
 end
 
-function construct_model_fitter(::Val{:Optimization}, in)
+function construct_model_fitter(::Val{:Optimization}, val)
     return BOSS.OptimizationMLE(;
         algorithm = NEWUOA(),
         multistart = 2,#200,  # low to improve test runtime
-        parallel = in("ModelFitter_parallel"),
+        parallel = val("ModelFitter_parallel"),
         rhoend = 1e-2,
     )
 end
-function construct_model_fitter(::Val{:Turing}, in)
+function construct_model_fitter(::Val{:Turing}, val)
     # low sample count to improve test runtime
     return BOSS.TuringBI(;
         sampler = BOSS.PG(20),
@@ -91,34 +97,36 @@ function construct_model_fitter(::Val{:Turing}, in)
         samples_in_chain = 2,#10,
         chain_count = 2,#8,
         leap_size = 3,#5,
-        parallel = in("ModelFitter_parallel"),
+        parallel = val("ModelFitter_parallel"),
     )
 end
-function construct_model_fitter(::Val{:Sampling}, in)
+function construct_model_fitter(::Val{:Sampling}, val)
     return BOSS.SamplingMLE(;
         samples = 2,#200,  # low to improve test runtime
-        parallel = in("ModelFitter_parallel"),
+        parallel = val("ModelFitter_parallel"),
     )
 end
-function construct_model_fitter(::Val{:Random}, in)
+function construct_model_fitter(::Val{:Random}, val)
     return BOSS.RandomMLE()
 end
 
-function construct_acq_maximizer(::Val{:Optimization}, in, problem)
+function construct_acq_maximizer(::Val{:Optimization}, val, problem)
     return BOSS.OptimizationAM(;
-        algorithm = isnothing(in("cons")) ? BOBYQA() : COBYLA(),
+        algorithm = isnothing(val("cons")) ? BOBYQA() : COBYLA(),
+        # TODO
+        autodiff = isnothing(val("cons")) ? nothing : BOSS.Optimization.AutoForwardDiff(),
         multistart = 2,#20,  # low to improve test runtime
-        parallel = in("AcquisitionMaximizer_parallel"),
+        parallel = val("AcquisitionMaximizer_parallel"),
         rhoend = 1e-2,
     )
 end
-function construct_acq_maximizer(::Val{:Grid}, in, problem)
+function construct_acq_maximizer(::Val{:Grid}, val, problem)
     return BOSS.GridAM(;
         problem,
         steps = [1.],#[0.1],  # high to improve test runtime
-        parallel = in("AcquisitionMaximizer_parallel"),
+        parallel = val("AcquisitionMaximizer_parallel"),
     )
 end
-function construct_acq_maximizer(::Val{:Random}, in, problem)
+function construct_acq_maximizer(::Val{:Random}, val, problem)
     return BOSS.RandomAM()
 end

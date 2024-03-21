@@ -36,11 +36,11 @@ function NLoptAM(nlopt;
     cons_tol=1e-18,
     kwargs...
 )
-    ((:lower_bounds in keys(kwargs)) || (:upper_bounds in keys(kwargs))) && @warn "The provided `:lower_bounds` and `:upper_bounds` kwargs of `BOSS.OptimizationAM` are ignored!\nUse the `domain` field of the `BOSS.OptimizationProblem` instead."
+    ((:lower_bounds in keys(kwargs)) || (:upper_bounds in keys(kwargs))) && @warn "The provided `:lower_bounds` and `:upper_bounds` kwargs of `BOSS.OptimizationAM` are ignored!\nUse the `domain` field of the `BOSS.BossProblem` instead."
     return NLoptAM(nlopt, algorithm, multistart, parallel, cons_tol, kwargs)
 end
 
-function maximize_acquisition(optimizer::NLoptAM, acquisition::AcquisitionFunction, problem::OptimizationProblem, options::BossOptions)
+function maximize_acquisition(optimizer::NLoptAM, acquisition::AcquisitionFunction, problem::BossProblem, options::BossOptions)
     acq = acquisition(problem, options)
     domain = problem.domain
     

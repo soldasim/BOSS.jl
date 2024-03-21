@@ -2,23 +2,23 @@ using OptimizationPRIMA
 
 include("input_values.jl")
 include("dummy_problem.jl")
-include("utils.jl")
+include("file_utils.jl")
 
 @testset "Combinatorial Tests" begin
     @info "Running Combinatorial Tests ..."
+    
     inputs = load_input_coverage()
     for i in eachindex(inputs)
-        comb = inputs[i]
+        val = get_input_vals(inputs[i])
         
         @testset "Test $i" begin
-            in(var) = INPUT_DICT[var][comb[var]]
-            script = create_problem(in)
+            script = create_problem(val)
             
-            if in("VALID")
-                if ismissing(in("f"))
+            if val("VALID")
+                if ismissing(val("f"))
                     @test script() isa AbstractVector{<:Real}
                 else
-                    @test script() isa BOSS.OptimizationProblem
+                    @test script() isa BOSS.BossProblem
                 end
             else
                 @test_throws Exception script()

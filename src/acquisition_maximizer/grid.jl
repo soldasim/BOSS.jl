@@ -11,7 +11,7 @@ Not suitable for problems with high dimensional domain.
 Can be used with constraints on `x`.
 
 # Arguments
-- `problem::BOSS.OptimizationProblem`: Provide your defined optimization problem.
+- `problem::BOSS.BossProblem`: Provide your defined optimization problem.
 - `steps::Vector{Float64}`: Defines the size of the grid gaps in each `x` dimension.
 
 # Keywords
@@ -24,7 +24,7 @@ struct GridAM <: AcquisitionMaximizer
     shuffle::Bool
 end
 function GridAM(;
-    problem::BOSS.OptimizationProblem,
+    problem::BOSS.BossProblem,
     steps,
     parallel=true,
     shuffle=true,
@@ -44,7 +44,7 @@ function dim_range(lb, ub, step, discrete)
     end
 end
 
-function maximize_acquisition(opt::GridAM, acquisition::AcquisitionFunction, problem::OptimizationProblem, options::BossOptions)
+function maximize_acquisition(opt::GridAM, acquisition::AcquisitionFunction, problem::BossProblem, options::BossOptions)
     acq = acquisition(problem, options)
     points_ = opt.shuffle ? (opt.points |> deepcopy |> shuffle) : opt.points
     if opt.parallel

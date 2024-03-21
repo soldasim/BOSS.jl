@@ -12,7 +12,7 @@ mutable struct IterLimit <: TermCond
 end
 IterLimit(iter_max::Int) = IterLimit(0, iter_max)
 
-function (cond::IterLimit)(problem::OptimizationProblem)
+function (cond::IterLimit)(problem::BossProblem)
     (cond.iter >= cond.iter_max) && return false
     cond.iter += 1
     return true

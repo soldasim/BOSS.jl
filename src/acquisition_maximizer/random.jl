@@ -11,7 +11,7 @@ or even get stuck if the constraints are very tight.
 """
 struct RandomAM <: AcquisitionMaximizer end
 
-function maximize_acquisition(::RandomAM, ::AcquisitionFunction, problem::OptimizationProblem, options::BossOptions)
+function maximize_acquisition(::RandomAM, ::AcquisitionFunction, problem::BossProblem, options::BossOptions)
     domain = problem.domain
     x = random_x(domain)
     if !isnothing(domain.cons)

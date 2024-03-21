@@ -1,6 +1,6 @@
 
 @testset "average_posteriors(posteriors)" begin
-    problem = BOSS.OptimizationProblem(;
+    problem = BOSS.BossProblem(;
         fitness = BOSS.LinFitness([1., 0.]),
         f = x -> x,
         domain = BOSS.Domain(; bounds=([0., 0.], [10., 10.])),

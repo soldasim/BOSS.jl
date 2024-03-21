@@ -13,7 +13,7 @@ A Gaussian Process surrogate model.
 
 # Keywords
 - `mean::Union{Nothing, Function}`: Used as the mean function for the GP.
-        Defaults to `nothing` equivalent to `x -> 0.`.
+        Defaults to `nothing` equivalent to `x -> [0.]`.
 - `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern52Kernel()`.
 - `length_scale_priors::AbstractVector{<:MultivariateDistribution}`: The prior distributions
         for the length scales of the GP. The `length_scale_priors` should be a vector
@@ -40,7 +40,6 @@ add_mean(m::GaussianProcess{Nothing}, mean::Function) =
 # Workaround: https://discourse.julialang.org/t/zygote-gradient-does-not-work-with-abstractgps-custommean/87815/7
 AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::ColVecs) = map(m.f, eachcol(x.X))
 AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::RowVecs) = map(m.f, eachrow(x.X))
-AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::AbstractVector) = map(m.f, x)
 
 """
     DiscreteKernel(kernel::Kernel, dims::AbstractVector{Bool})
@@ -54,10 +53,10 @@ All dimensions are considered as discrete if `dims` is not provided.
 
 This structure is used internally by the BOSS algorithm.
 The end user of BOSS.jl is not expected to use this structure.
-Use the `BOSS.Domain` passed to the `BOSS.OptimizationProblem`
+Use the `BOSS.Domain` passed to the `BOSS.BossProblem`
 to define discrete dimensions instead.
 
-See also: `BOSS.OptimizationProblem`(@ref)
+See also: `BOSS.BossProblem`(@ref)
 
 # Examples:
 ```julia-repl

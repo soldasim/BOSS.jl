@@ -1,6 +1,6 @@
 
 @testset "(::IterLimit)(problem)" begin
-    problem = BOSS.OptimizationProblem(;
+    problem = BOSS.BossProblem(;
         fitness = BOSS.LinFitness([1.]),
         f = x -> [sin(x[1])],
         domain = BOSS.Domain(; bounds=([0.], [10.])),

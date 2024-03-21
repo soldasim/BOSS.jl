@@ -151,7 +151,7 @@ end
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
-    problem(model) = BOSS.OptimizationProblem(;
+    problem(model) = BOSS.BossProblem(;
         fitness = BOSS.LinFitness([1., 0.]),
         f = x -> x,
         domain = BOSS.Domain(; bounds=([0., 0.], [10., 10.])),

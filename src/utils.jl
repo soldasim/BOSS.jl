@@ -37,16 +37,16 @@ Return true iff `y` satisfies the given constraints.
 is_feasible(y::AbstractVector{<:Real}, y_max::AbstractVector{<:Real}) = all(y .<= y_max)
 
 x_dim(domain::Domain) = length(domain.discrete)
-x_dim(problem::OptimizationProblem) = length(problem.domain.discrete)
+x_dim(problem::BossProblem) = length(problem.domain.discrete)
 
-y_dim(problem::OptimizationProblem) = length(problem.y_max)
+y_dim(problem::BossProblem) = length(problem.y_max)
 
 cons_dim(domain::Domain) = isnothing(domain.cons) ? 0 : length(domain.cons(mean(domain.bounds)))
-cons_dim(problem::OptimizationProblem) = cons_dim(problem.domain)
+cons_dim(problem::BossProblem) = cons_dim(problem.domain)
 
-params_total(problem::OptimizationProblem) = sum(param_counts(problem.model)) + y_dim(problem)
+params_total(problem::BossProblem) = sum(param_counts(problem.model)) + y_dim(problem)
 
-function data_count(problem::OptimizationProblem)
+function data_count(problem::BossProblem)
     xsize = size(problem.data.X)[2]
     ysize = size(problem.data.Y)[2]
     @assert xsize == ysize
@@ -65,7 +65,7 @@ Returns nothing if the dataset is empty or if no feasible point is present.
 Does not check whether `x` belongs to the domain as no exterior points
 should be present in the dataset.
 """
-function result(problem::OptimizationProblem)
+function result(problem::BossProblem)
     X, Y = problem.data.X, problem.data.Y
     @assert size(X)[2] == size(Y)[2]
     isempty(X) && return nothing
@@ -85,7 +85,7 @@ Return the posterior predictive distribution of the Gaussian Process.
 The posterior is a function `mean, var = predict(x)`
 which gives the mean and variance of the predictive distribution as a function of `x`.
 """
-model_posterior(prob::OptimizationProblem) =
+model_posterior(prob::BossProblem) =
     model_posterior(prob.model, prob.data)
 
 """

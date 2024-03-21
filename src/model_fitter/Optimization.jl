@@ -22,6 +22,7 @@ struct OptimizationMLE{
     parallel::Bool
     apply_softplus::Bool
     softplus_params::Union{Vector{Bool}, Nothing}
+    autodiff::SciMLBase.AbstractADType
     kwargs::Base.Pairs{Symbol, <:Any}
 end
 function OptimizationMLE(;
@@ -30,12 +31,14 @@ function OptimizationMLE(;
     parallel=true,
     apply_softplus=true,
     softplus_params=nothing,
+    autodiff=AutoForwardDiff(),
     kwargs...
 )
-    return OptimizationMLE(algorithm, multistart, parallel, apply_softplus, softplus_params, kwargs)
+    isnothing(autodiff) && (autodiff = SciMLBase.NoAD())
+    return OptimizationMLE(algorithm, multistart, parallel, apply_softplus, softplus_params, autodiff, kwargs)
 end
 
-function estimate_parameters(opt::OptimizationMLE, problem::OptimizationProblem, options::BossOptions)
+function estimate_parameters(opt::OptimizationMLE, problem::BossProblem, options::BossOptions)
     # Prepare necessary parameter transformations.
     softplus_mask = create_activation_mask(problem, opt.apply_softplus, opt.softplus_params)
     skip_mask, skipped_values = create_dirac_skip_mask(problem)
@@ -56,8 +59,8 @@ function estimate_parameters(opt::OptimizationMLE, problem::OptimizationProblem,
     loglike_vec = (params) -> loglike(devectorize(params)...)
     
     # Construct the optimization problem.
-    optimization_function = Optimization.OptimizationFunction((params, _)->(-loglike_vec(params)), AutoForwardDiff())
-    optimization_problem = (start) -> Optimization.OptimizationProblem(optimization_function, start, nothing)
+    optimization_function = OptimizationFunction((params, _)->(-loglike_vec(params)), opt.autodiff)
+    optimization_problem = (start) -> OptimizationProblem(optimization_function, start, nothing)
 
     # Optimize with restarts.
     function optimize(start)

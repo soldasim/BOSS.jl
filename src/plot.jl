@@ -9,7 +9,7 @@ const ACQUISITION_COLOR = :blue
 """
 Plot the current state of the optimization process.
 """
-function make_plot(opt::PlotOptions, problem::OptimizationProblem, acquisition::AcquisitionFunction, acq_opt::AbstractArray{<:Real}; info::Bool)
+function make_plot(opt::PlotOptions, problem::BossProblem, acquisition::AcquisitionFunction, acq_opt::AbstractArray{<:Real}; info::Bool)
     info && @info "Plotting ..."
     acq = acquisition(problem, BossOptions())
     opt_ = PlotOptions(
@@ -26,7 +26,7 @@ function make_plot(opt::PlotOptions, problem::OptimizationProblem, acquisition::
 end
 
 """
-    BOSS.plot_problem(opt::PlotOptions, problem::OptimizationProblem)
+    BOSS.plot_problem(opt::PlotOptions, problem::BossProblem)
 
 Plot the current state of the given optimization problem.
 
@@ -34,7 +34,7 @@ Only works with 1-dimensional `x`, but supports multidimensional `y`.
 
 See also: [`BOSS.PlotOptions`](@ref)
 """
-function plot_problem(opt::PlotOptions, problem::OptimizationProblem)
+function plot_problem(opt::PlotOptions, problem::BossProblem)
     @assert x_dim(problem) == 1
 
     subplots = opt.Plots.Plot[]
@@ -75,7 +75,7 @@ end
 Create a plot of a single `y` dimension containing the gathered data, objective function,
 constraints on `y` and the fitted model.
 ```
-function plot_y_slice(opt::PlotOptions, problem::OptimizationProblem, dim::Int)
+function plot_y_slice(opt::PlotOptions, problem::BossProblem, dim::Int)
     @assert x_dim(problem) == 1
     lb, ub = first.(problem.domain.bounds)
 
@@ -138,7 +138,7 @@ end
 ```
 Create a plot of the acquisition function.
 ```
-function plot_acquisition(opt::PlotOptions, problem::OptimizationProblem)
+function plot_acquisition(opt::PlotOptions, problem::BossProblem)
     @assert x_dim(problem) == 1
     lb, ub = first.(problem.domain.bounds)
 

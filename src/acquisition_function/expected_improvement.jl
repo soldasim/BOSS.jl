@@ -48,7 +48,7 @@ function ExpectedImprovement(;
     return ExpectedImprovement(ϵ_samples, cons_safe)
 end
 
-function (ei::ExpectedImprovement)(problem::OptimizationProblem, options::BossOptions)
+function (ei::ExpectedImprovement)(problem::BossProblem, options::BossOptions)
     posterior = model_posterior(problem.model, problem.data)
     ϵ_samples = sample_ϵs(y_dim(problem), ϵ_sample_count(posterior, ei.ϵ_samples))
     b = best_so_far(problem, posterior)
@@ -116,10 +116,10 @@ feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints
 
 sample_ϵs(y_dim::Int, sample_count::Int) = rand(Normal(), (y_dim, sample_count))
 
-best_so_far(problem::OptimizationProblem, posteriors::AbstractVector{<:Function}) =
+best_so_far(problem::BossProblem, posteriors::AbstractVector{<:Function}) =
     best_so_far(problem, average_posteriors(posteriors))
 
-best_so_far(problem::OptimizationProblem, posterior::Function) =
+best_so_far(problem::BossProblem, posterior::Function) =
     best_so_far(problem.fitness, problem.data.X, problem.data.Y, problem.y_max, posterior)
 
 # # noisy EI

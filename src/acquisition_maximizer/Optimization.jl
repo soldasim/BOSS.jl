@@ -31,26 +31,27 @@ function OptimizationAM(;
     autodiff=AutoForwardDiff(),
     kwargs...
 )
-    ((:lb in keys(kwargs)) || (:ub in keys(kwargs))) && @warn "The provided `:lb` and `:ub` kwargs of `BOSS.OptimizationAM` are ignored!\nUse the `domain` field of the `BOSS.OptimizationProblem` instead."
+    ((:lb in keys(kwargs)) || (:ub in keys(kwargs))) && @warn "The provided `:lb` and `:ub` kwargs of `BOSS.OptimizationAM` are ignored!\nUse the `domain` field of the `BOSS.BossProblem` instead."
+    isnothing(autodiff) && (autodiff = SciMLBase.NoAD())
     return OptimizationAM(algorithm, multistart, parallel, autodiff, kwargs)
 end
 
-function maximize_acquisition(optimizer::OptimizationAM, acquisition::AcquisitionFunction, problem::OptimizationProblem, options::BossOptions)
+function maximize_acquisition(opt::OptimizationAM, acquisition::AcquisitionFunction, problem::BossProblem, options::BossOptions)
     acq = acquisition(problem, options)
     domain = problem.domain
     c_dim = cons_dim(domain)
     
-    if optimizer.multistart == 1
+    if opt.multistart == 1
         starts = mean(domain.bounds)[:,:]
     else
-        starts = generate_starts_LHC(domain.bounds, optimizer.multistart)
+        starts = generate_starts_LHC(domain.bounds, opt.multistart)
     end
 
     acq_func = (x, p) -> -acq(x)  # `-acq(x)` because Optimization.jl minimizes.
     cons_func = isnothing(domain.cons) ? nothing : (res, x, p) -> (res .= domain.cons(x))
     
-    acq_objective = Optimization.OptimizationFunction(acq_func, optimizer.autodiff; cons=cons_func)
-    acq_problem(start) = Optimization.OptimizationProblem(acq_objective, start, nothing;
+    acq_objective = OptimizationFunction(acq_func, opt.autodiff; cons=cons_func)
+    acq_problem(start) = OptimizationProblem(acq_objective, start, nothing;
         lb=domain.bounds[1],
         ub=domain.bounds[2],
         lcons=fill(0., c_dim),
@@ -60,12 +61,12 @@ function maximize_acquisition(optimizer::OptimizationAM, acquisition::Acquisitio
     )
 
     function acq_optimize(start)
-        x = Optimization.solve(acq_problem(start), optimizer.algorithm; optimizer.kwargs...)
+        x = Optimization.solve(acq_problem(start), opt.algorithm; opt.kwargs...)
         a = acq(x.u)  # because `x.objective == -acq(x.u)`
         return x.u, a
     end
     
-    best_x, _ = optimize_multistart(acq_optimize, starts, optimizer.parallel, options)
+    best_x, _ = optimize_multistart(acq_optimize, starts, opt.parallel, options)
     best_x = cond_func(round).(problem.domain.discrete, best_x)  # assure discrete dims
     return best_x
 end

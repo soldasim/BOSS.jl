@@ -61,14 +61,14 @@ function gen_data(count, bounds)
     return X, Y
 end
 
-# The problem defined as `BOSS.OptimizationProblem`.
+# The problem defined as `BOSS.BossProblem`.
 function opt_problem(init_data=4)
     domain = BOSS.Domain(;
         bounds = ([0.], [20.]),
     )
     data = gen_data(init_data, domain.bounds)
 
-    # Try changing the parametric model here.
+    # Try using the Semiparametric model and changing the parametric mean.
     # model = BOSS.Semiparametric(
     #     good_parametric_model(),
     #     # bad_parametric_model(),
@@ -79,7 +79,7 @@ function opt_problem(init_data=4)
         length_scale_priors=length_scale_priors(),
     )
 
-    BOSS.OptimizationProblem(;
+    BOSS.BossProblem(;
         fitness = BOSS.LinFitness([1, 0]),
         f = blackbox,
         domain,
@@ -102,7 +102,7 @@ function main(problem=opt_problem(4), iters=3;
     parallel=true,
     options=boss_options(),
 )
-    # Algorithm selection and hyperparameters:
+    ### Model Fitter:
     # MLE
     model_fitter = BOSS.OptimizationMLE(;
         algorithm = NEWUOA(),
@@ -120,6 +120,7 @@ function main(problem=opt_problem(4), iters=3;
     #     parallel,
     # )
 
+    ### Acquisition Maximizer:
     acq_maximizer = BOSS.OptimizationAM(;
         algorithm = BOBYQA(),
         multistart = 20,

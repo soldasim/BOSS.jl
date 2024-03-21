@@ -14,7 +14,7 @@ SamplingMLE(;
     parallel=true,
 ) = SamplingMLE(samples, parallel)
 
-function estimate_parameters(opt::SamplingMLE, problem::OptimizationProblem, options::BossOptions)
+function estimate_parameters(opt::SamplingMLE, problem::BossProblem, options::BossOptions)
     loglike = model_loglike(problem.model, problem.noise_var_priors, problem.data)
     sample_() = sample_params(problem.model, problem.noise_var_priors)
     fitness_(p) = loglike(p...)

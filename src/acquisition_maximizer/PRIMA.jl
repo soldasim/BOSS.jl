@@ -30,11 +30,11 @@ function CobylaAM(prima;
     parallel=true,
     kwargs...
 )
-    ((:xl in keys(kwargs)) || (:xu in keys(kwargs)) || (:nlconstr in keys(kwargs))) && @warn "The provided `:xl`, `:xu`, `:nlconstr` kwargs of `BOSS.CobylaAM` are ignored!\nUse the `domain` field of the `BOSS.OptimizationProblem` to define the domain instead."
+    ((:xl in keys(kwargs)) || (:xu in keys(kwargs)) || (:nlconstr in keys(kwargs))) && @warn "The provided `:xl`, `:xu`, `:nlconstr` kwargs of `BOSS.CobylaAM` are ignored!\nUse the `domain` field of the `BOSS.BossProblem` to define the domain instead."
     return CobylaAM(prima, multistart, parallel, kwargs)
 end
 
-function maximize_acquisition(optimizer::CobylaAM, acquisition::AcquisitionFunction, problem::OptimizationProblem, options::BossOptions)
+function maximize_acquisition(optimizer::CobylaAM, acquisition::AcquisitionFunction, problem::BossProblem, options::BossOptions)
     acq = acquisition(problem, options)
     domain = problem.domain
     c_dim = cons_dim(domain)

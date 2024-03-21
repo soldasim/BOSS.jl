@@ -14,7 +14,7 @@ Inherit this type to define a custom acquisition function.
 Example: `struct CustomAcq <: AcquisitionFunction ... end`
 
 Structures derived from this type have to implement the following method:
-`(acquisition::CustomAcq)(problem::OptimizationProblem, options::BossOptions)`
+`(acquisition::CustomAcq)(problem::BossProblem, options::BossOptions)`
 
 This method should return a function `acq(x::AbstractVector{<:Real}) = val::Real`,
 which is maximized to select the next evaluation function of blackbox function in each iteration.
@@ -60,7 +60,7 @@ Inherit this type to define a custom acquisition maximizer.
 Example: `struct CustomAlg <: AcquisitionMaximizer ... end`
 
 Structures derived from this type have to implement the following method:
-`maximize_acquisition(acq_maximizer::CustomAlg, acq::AcquisitionFunction, problem::OptimizationProblem, options::BossOptions)`
+`maximize_acquisition(acq_maximizer::CustomAlg, acq::AcquisitionFunction, problem::BossProblem, options::BossOptions)`
 This method should return the point of the input domain which maximizes the given acquisition function `acq` (as a vector)
 or a batch of points (as a column-wise matrix).
 
@@ -88,7 +88,7 @@ Inherit this type to define a custom model-fitting algorithms.
 Example: `struct CustomFitter <: ModelFitter{MLE} ... end` or `struct CustomFitter <: ModelFitter{BI} ... end`
 
 Structures derived from this type have to implement the following method:
-`estimate_parameters(model_fitter::CustomFitter, problem::OptimizationProblem; info::Bool)`.
+`estimate_parameters(model_fitter::CustomFitter, problem::BossProblem; info::Bool)`.
 
 This method should return a named tuple `(θ = ..., length_scales = ..., noise_vars = ...)`
 with either MLE model parameters (if `CustomAlg <: ModelFitter{MLE}`)
@@ -110,7 +110,7 @@ Inherit this type to define a custom termination condition.
 Example: `struct CustomCond <: TermCond ... end`
 
 Structures derived from this type have to implement the following method:
-`(cond::CustomCond)(problem::OptimizationProblem) where {CustomCond <: TermCond}`
+`(cond::CustomCond)(problem::BossProblem) where {CustomCond <: TermCond}`
 
 This method should return true to keep the optimization running
 and return false once the optimization is to be terminated.
@@ -318,7 +318,7 @@ function Domain(;
 end
 
 """
-    OptimizationProblem(; kwargs...)
+    BossProblem(; kwargs...)
 
 Defines the whole optimization problem for the BOSS algorithm.
 
@@ -345,7 +345,7 @@ Defines the whole optimization problem for the BOSS algorithm.
 
 See also: [`BOSS.boss!`](@ref)
 """
-mutable struct OptimizationProblem{
+mutable struct BossProblem{
     F<:Any,
 }
     fitness::Fitness
@@ -356,7 +356,7 @@ mutable struct OptimizationProblem{
     noise_var_priors::AbstractVector{<:UnivariateDistribution}
     data::ExperimentData
 end
-OptimizationProblem(;
+BossProblem(;
     fitness=NoFitness(),
     f,
     domain,
@@ -364,7 +364,7 @@ OptimizationProblem(;
     noise_var_priors,
     y_max=fill(Inf, length(noise_var_priors)),
     data,
-) = OptimizationProblem(fitness, f, domain, y_max, model, noise_var_priors, data)
+) = BossProblem(fitness, f, domain, y_max, model, noise_var_priors, data)
 
 
 # - - - - - - - - Boss Options - - - - - - - -

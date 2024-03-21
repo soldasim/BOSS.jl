@@ -1,4 +1,7 @@
 
+"""
+Loads combinations of input value names from the csv file. 
+"""
 function load_input_coverage()
     f = open("./combinatorial/combinations.csv", "r")
     names = nothing

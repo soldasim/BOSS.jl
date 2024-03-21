@@ -4,7 +4,7 @@ module BOSS
 export bo!, result
 
 # Problem Definition
-export OptimizationProblem
+export BossProblem
 export NoFitness, LinFitness, NonlinFitness
 export Domain
 export ExperimentData

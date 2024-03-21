@@ -41,7 +41,7 @@ TuringBI(;
     parallel=true,
 ) = TuringBI(sampler, warmup, samples_in_chain, chain_count, leap_size, parallel)
 
-function estimate_parameters(turing::TuringBI, problem::OptimizationProblem, options::BossOptions)
+function estimate_parameters(turing::TuringBI, problem::BossProblem, options::BossOptions)
     return sample_params(turing, problem.model, problem.noise_var_priors, problem.data.X, problem.data.Y)
 end
 

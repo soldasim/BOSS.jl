@@ -72,7 +72,7 @@ Use the binary vector `mask_theta` to define to which model parameters
 will the activation function be applied as well.
 """
 create_activation_mask(
-    problem::OptimizationProblem,
+    problem::BossProblem,
     mask_noisevar_and_lengthscales::Bool,
     mask_theta::Union{<:AbstractVector{Bool}, Nothing},
 ) = create_activation_mask(
@@ -98,7 +98,7 @@ function create_activation_mask(
     return mask
 end
 
-create_dirac_skip_mask(problem::OptimizationProblem) =
+create_dirac_skip_mask(problem::BossProblem) =
     create_dirac_skip_mask(problem.model, problem.noise_var_priors)
 
 create_dirac_skip_mask(model::SurrogateModel, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =

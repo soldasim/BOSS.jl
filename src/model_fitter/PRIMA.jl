@@ -41,7 +41,7 @@ function NewuoaMLE(prima;
     return NewuoaMLE(prima, multistart, parallel, apply_softplus, softplus_params, kwargs)
 end
 
-function estimate_parameters(optimizer::NewuoaMLE, problem::OptimizationProblem, options::BossOptions)
+function estimate_parameters(optimizer::NewuoaMLE, problem::BossProblem, options::BossOptions)
     # Prepare necessary parameter transformations.
     softplus_mask = create_activation_mask(problem, optimizer.apply_softplus, optimizer.softplus_params)
     skip_mask, skipped_values = create_dirac_skip_mask(problem)

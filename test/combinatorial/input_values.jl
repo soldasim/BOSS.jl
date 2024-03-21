@@ -204,3 +204,17 @@ macro inputdict(expr)
 end
 
 const INPUT_DICT = @inputdict INPUT_NAMES
+
+"""
+Gets a combination from the csv file and returns a function mapping
+the input variable names to concrete values.
+
+# In
+`comb`: A dictionary mapping input variable names to input value names.
+
+# Out
+`var -> val`: A function mapping input variable names to input values.
+"""
+function get_input_vals(comb)
+    return var -> INPUT_DICT[var][comb[var]]
+end

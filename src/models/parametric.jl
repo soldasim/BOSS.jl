@@ -32,7 +32,7 @@ where
         the parameters `[θ₁₁, ..., θ₁ₚ, ..., θₘ₁, ..., θₘₚ]` according to the definition above.
 - `discrete::Union{Nothing, <:AbstractVector{<:Bool}}`: Describes which dimensions are discrete.
         Typically, the `discrete` kwarg can be ignored by the end-user as it will be updated
-        according to the `Domain` of the `OptimizationProblem` during BOSS initialization.
+        according to the `Domain` of the `BossProblem` during BOSS initialization.
 """
 struct LinModel{
     P<:AbstractVector{<:UnivariateDistribution},
@@ -62,7 +62,7 @@ Define the model as `y = predict(x, θ)` where `θ` are the model parameters.
 - `param_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions for the model parameters.
 - `discrete::Union{Nothing, <:AbstractVector{<:Bool}}`: Describes which dimensions are discrete.
         Typically, the `discrete` kwarg can be ignored by the end-user as it will be updated
-        according to the `Domain` of the `OptimizationProblem` during BOSS initialization.
+        according to the `Domain` of the `BossProblem` during BOSS initialization.
 """
 struct NonlinModel{
     P<:AbstractVector{<:UnivariateDistribution},
