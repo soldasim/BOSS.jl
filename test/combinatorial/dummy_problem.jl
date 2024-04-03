@@ -113,8 +113,6 @@ end
 function construct_acq_maximizer(::Val{:Optimization}, val, problem)
     return BOSS.OptimizationAM(;
         algorithm = isnothing(val("cons")) ? BOBYQA() : COBYLA(),
-        # TODO
-        autodiff = isnothing(val("cons")) ? nothing : BOSS.Optimization.AutoForwardDiff(),
         multistart = 2,#20,  # low to improve test runtime
         parallel = val("AcquisitionMaximizer_parallel"),
         rhoend = 1e-2,
