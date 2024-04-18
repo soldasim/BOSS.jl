@@ -1,4 +1,3 @@
-using Optimization
 
 """
     OptimizationAM(; kwargs...)

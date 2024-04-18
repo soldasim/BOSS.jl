@@ -1,4 +1,3 @@
-using Distributions
 
 """
 An abstract type for parametric surrogate models.

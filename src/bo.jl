@@ -1,5 +1,3 @@
-using Distributed
-
 """
     bo!(problem::BossProblem{Function}; kwargs...)
     x = bo!(problem::BossProblem{Missing}; kwargs...)

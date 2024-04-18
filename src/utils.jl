@@ -1,5 +1,3 @@
-using InteractiveUtils
-using Distributions
 
 # Useful with broadcasting.
 cond_func(f::Function) = (b, x) -> b ? f(x) : x

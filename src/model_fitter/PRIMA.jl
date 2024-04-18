@@ -1,4 +1,3 @@
-# using PRIMA
 
 """
     NewuoaMLE(PRIMA; kwargs...)

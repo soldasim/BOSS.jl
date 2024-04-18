@@ -1,6 +1,3 @@
-using Distributions
-using AbstractGPs
-
 
 const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 

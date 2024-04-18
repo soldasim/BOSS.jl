@@ -1,5 +1,3 @@
-using AbstractGPs
-using Distributions
 
 """
 The minimal value of length scales and noise variance used for GPs to avoid numerical issues.

@@ -1,4 +1,3 @@
-using Random
 
 """
     GridAM(problem, steps; kwargs...)

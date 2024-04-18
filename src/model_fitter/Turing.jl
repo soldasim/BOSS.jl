@@ -1,5 +1,3 @@
-using Turing
-using Distributions
 
 """
     TuringBI(; kwargs...)

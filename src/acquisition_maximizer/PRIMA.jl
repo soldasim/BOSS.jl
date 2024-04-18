@@ -1,4 +1,3 @@
-# using PRIMA
 
 """
     CobylaAM(PRIMA::Module; kwargs...)

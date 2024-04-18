@@ -1,4 +1,3 @@
-# using NLopt
 
 """
     NLoptAM(NLopt::Module; kwargs...)
