@@ -37,7 +37,7 @@ function OptimizationMLE(;
     return OptimizationMLE(algorithm, multistart, parallel, apply_softplus, softplus_params, autodiff, kwargs)
 end
 
-function estimate_parameters(opt::OptimizationMLE, problem::BossProblem, options::BossOptions)
+function estimate_parameters(opt::OptimizationMLE, problem::BossProblem, options::BossOptions; return_all::Bool=false)
     # Prepare necessary parameter transformations.
     softplus_mask = create_activation_mask(problem, opt.apply_softplus, opt.softplus_params)
     skip_mask, skipped_values = create_dirac_skip_mask(problem)
@@ -67,6 +67,13 @@ function estimate_parameters(opt::OptimizationMLE, problem::BossProblem, options
         ll = loglike_vec(params)
         return params, ll
     end
-    best_params, _ = optimize_multistart(optimize, starts, opt.parallel, options)
-    return devectorize(best_params)
+    
+    if return_all
+        params, vals = optimize_multistart(optimize, starts, opt.parallel, options; return_all=true)
+        params = devectorize.(params)
+        return params, vals
+    else
+        best_params, _ = optimize_multistart(optimize, starts, opt.parallel, options)
+        return devectorize(best_params)
+    end
 end
