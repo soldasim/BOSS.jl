@@ -115,18 +115,23 @@ make_discrete(m::LinModel, discrete::AbstractVector{<:Bool}) =
 make_discrete(m::NonlinModel, discrete::AbstractVector{<:Bool}) =
     NonlinModel(m.predict, m.param_priors, discrete)
 
-model_posterior(model::Parametric, data::ExperimentDataMLE) =
-    model_posterior(model, data.θ, data.noise_vars)
+model_posterior(model::Parametric, data::ExperimentDataMLE; split::Bool=false) =
+    model_posterior(model, data.θ, data.noise_vars; split)
 
-model_posterior(model::Parametric, data::ExperimentDataBI) = 
-    model_posterior.(Ref(model), eachcol(data.θ), eachcol(data.noise_vars))
+model_posterior(model::Parametric, data::ExperimentDataBI; split::Bool=false) = 
+    model_posterior.(Ref(model), eachcol(data.θ), eachcol(data.noise_vars); split)
 
 function model_posterior(
     model::Parametric,
     θ::AbstractVector{<:Real},
-    noise_vars::AbstractVector{<:Real}
+    noise_vars::AbstractVector{<:Real};
+    split::Bool,
 )
-    return (x) -> (model(x, θ), noise_vars)
+    if split
+        return [(x) -> (model(x, θ)[i], noise_vars[i]) for i in eachindex(noise_vars)]
+    else
+        return (x) -> (model(x, θ), noise_vars)
+    end
 end
 
 function model_loglike(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)

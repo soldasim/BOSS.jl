@@ -96,7 +96,7 @@ end
     )
     BOSS.estimate_parameters!(problem, BOSS.SamplingMLE(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
 
-    @param_test BOSS.model_posterior begin
+    @param_test (m, d) -> BOSS.model_posterior(m, d; split=false) begin
         @params problem.model, problem.data
         @success (
             out isa Function,
@@ -108,6 +108,24 @@ end
             isapprox.(out([100., 100.])[1], [1., 1.]; atol=0.01) |> all,
             all(out([2., 2.])[2] .< out([3., 3.])[2]),
             all(out([10., 10.])[2] .< out([11., 11.])[2]),
+        )
+    end
+    @param_test (m, d) -> BOSS.model_posterior(m, d; split=true) begin
+        @params problem.model, problem.data
+        @success (
+            out isa Vector,
+            out[1]([2., 2.]) isa Tuple{<:Real, <:Real},
+            out[2]([2., 2.]) isa Tuple{<:Real, <:Real},
+            isapprox(out[1]([2., 2.])[1], 2.; atol=0.01),
+            isapprox(out[2]([2., 2.])[1], 2.; atol=0.01),
+            2. < out[1]([3., 3.])[1] < 5.,
+            2. < out[2]([3., 3.])[1] < 5.,
+            isapprox(out[1]([100., 100.])[1], 1.; atol=0.01),
+            isapprox(out[2]([100., 100.])[1], 1.; atol=0.01),
+            out[1]([2., 2.])[2] < out[1]([3., 3.])[2],
+            out[2]([2., 2.])[2] < out[2]([3., 3.])[2],
+            out[1]([10., 10.])[2] < out[1]([11., 11.])[2],
+            out[2]([10., 10.])[2] < out[2]([11., 11.])[2],
         )
     end
 end

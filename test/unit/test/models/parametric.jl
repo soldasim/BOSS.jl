@@ -183,7 +183,7 @@ end
     BOSS.estimate_parameters!(problem_lin, BOSS.SamplingMLE(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
     BOSS.estimate_parameters!(problem_nonlin, BOSS.SamplingMLE(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
 
-    @param_test BOSS.model_posterior begin
+    @param_test (m, d) -> BOSS.model_posterior(m, d; split=false) begin
         @params problem_lin.model, problem_lin.data
         @params problem_nonlin.model, problem_nonlin.data
         @success (
@@ -194,6 +194,21 @@ end
             out([2., 2.])[2] == [1e-8, 1e-8],
             all(out([2., 2.])[2] == out([3., 3.])[2]),
             all(out([10., 10.])[2] == out([11., 11.])[2]),
+        )
+    end
+    @param_test (m, d) -> BOSS.model_posterior(m, d; split=true) begin
+        @params problem_lin.model, problem_lin.data
+        @params problem_nonlin.model, problem_nonlin.data
+        @success (
+            out isa Vector,
+            out[1]([2., 2.]) isa Tuple{<:Real, <:Real},
+            out[2]([2., 2.]) isa Tuple{<:Real, <:Real},
+            out[1]([2., 2.])[2] == 1e-8,
+            out[2]([2., 2.])[2] == 1e-8,
+            out[1]([2., 2.])[2] == out[1]([3., 3.])[2],
+            out[2]([2., 2.])[2] == out[2]([3., 3.])[2],
+            out[1]([10., 10.])[2] == out[1]([11., 11.])[2],
+            out[2]([10., 10.])[2] == out[2]([11., 11.])[2],
         )
     end
 end

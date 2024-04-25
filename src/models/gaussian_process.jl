@@ -12,7 +12,7 @@ A Gaussian Process surrogate model.
 # Keywords
 - `mean::Union{Nothing, Function}`: Used as the mean function for the GP.
         Defaults to `nothing` equivalent to `x -> [0.]`.
-- `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern52Kernel()`.
+- `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern32Kernel()`.
 - `length_scale_priors::AbstractVector{<:MultivariateDistribution}`: The prior distributions
         for the length scales of the GP. The `length_scale_priors` should be a vector
         of `y_dim` `x_dim`-variate distributions where `x_dim` and `y_dim` are
@@ -94,26 +94,31 @@ make_discrete(m::GaussianProcess, discrete::AbstractVector{<:Bool}) =
 make_discrete(k::Kernel, discrete::AbstractVector{<:Bool}) = DiscreteKernel(k, discrete)
 make_discrete(k::DiscreteKernel, discrete::AbstractVector{<:Bool}) = make_discrete(k.kernel, discrete)
 
-model_posterior(model::GaussianProcess, data::ExperimentDataMLE) =
-    model_posterior(model, data.X, data.Y, data.length_scales, data.noise_vars)
+model_posterior(model::GaussianProcess, data::ExperimentDataMLE; split::Bool=false) =
+    model_posterior(model, data.X, data.Y, data.length_scales, data.noise_vars; split)
 
-model_posterior(model::GaussianProcess, data::ExperimentDataBI) =
-    model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.length_scales, eachcol(data.noise_vars))
+model_posterior(model::GaussianProcess, data::ExperimentDataBI; split::Bool=false) =
+    model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.length_scales, eachcol(data.noise_vars); split)
 
 function model_posterior(
     model::GaussianProcess,
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
     length_scales::AbstractMatrix{<:Real},
-    noise_vars::AbstractVector{<:Real},
+    noise_vars::AbstractVector{<:Real};
+    split::Bool,
 )
     y_dim = length(noise_vars)
     means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]
     posts = model_posterior.(means, Ref(model.kernel), Ref(X), eachrow(Y), eachcol(length_scales), noise_vars)
     
-    function posterior(x)
-        ys = map(p->p(x), posts)
-        first.(ys), last.(ys)
+    if split
+        return posts
+    else
+        return function post(x)
+            ys = map(p->p(x), posts)
+            first.(ys), last.(ys)
+        end
     end
 end
 

@@ -32,8 +32,8 @@ Example usage: `struct CustomModel <: BOSS.SurrogateModel ... end`
 
 All models should implement the following methods:
 `make_discrete(model::CustomModel, discrete::AbstractVector{<:Bool}) -> discrete_model::CustomModel`
-`model_posterior(model::CustomModel, data::ExperimentDataMLE) -> (x -> mean, var)`
-`model_posterior(model::CustomModel, data::ExperimentDataBI) -> [(x -> mean, var)]`
+`model_posterior(model::CustomModel, data::ExperimentDataMLE; split::Bool) -> (x -> mean, var) <or> [(x -> mean_i, var_i) for i in 1:y_dim]`
+`model_posterior(model::CustomModel, data::ExperimentDataBI; split::Bool) -> [(x -> mean, var) for each sample] <or> [[(x -> mean_i, var_i) for i in 1:y_dim] for each sample]`
 `model_loglike(model::CustomModel, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData) -> (θ, length_scales, noise_vars -> loglike)`
 `sample_params(model::CustomModel, noise_var_priors::AbstractVector{<:UnivariateDistribution}) -> (θ_sample::AbstractVector{<:Real}, λ_sample::AbstractMatrix{<:Real}, noise_vars_sample::AbstractVector{<:Real})`
 `param_priors(model::CustomModel) -> (θ_priors::AbstractVector{<:UnivariateDistribution}, λ_priors::AbstractVector{<:MultivariateDistribution})

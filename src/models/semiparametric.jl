@@ -33,11 +33,11 @@ Semiparametric(;
 make_discrete(m::Semiparametric, discrete::AbstractVector{<:Bool}) =
     Semiparametric(make_discrete(m.parametric, discrete), make_discrete(m.nonparametric, discrete))
 
-model_posterior(model::Semiparametric, data::ExperimentDataMLE) =
-    model_posterior(model, data.X, data.Y, data.θ, data.length_scales, data.noise_vars)
+model_posterior(model::Semiparametric, data::ExperimentDataMLE; split::Bool=false) =
+    model_posterior(model, data.X, data.Y, data.θ, data.length_scales, data.noise_vars; split)
 
-model_posterior(model::Semiparametric, data::ExperimentDataBI) =
-    model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), eachcol(data.θ), data.length_scales, eachcol(data.noise_vars))
+model_posterior(model::Semiparametric, data::ExperimentDataBI; split::Bool=false) =
+    model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), eachcol(data.θ), data.length_scales, eachcol(data.noise_vars); split)
 
 function model_posterior(
     model::Semiparametric,
@@ -45,9 +45,10 @@ function model_posterior(
     Y::AbstractMatrix{<:Real},
     θ::AbstractVector{<:Real},
     length_scales::AbstractMatrix{<:Real},
-    noise_vars::AbstractVector{<:Real},   
+    noise_vars::AbstractVector{<:Real};
+    split::Bool, 
 )
-    return model_posterior(add_mean(model.nonparametric, model.parametric(θ)), X, Y, length_scales, noise_vars)
+    return model_posterior(add_mean(model.nonparametric, model.parametric(θ)), X, Y, length_scales, noise_vars; split)
 end
 
 function model_loglike(model::Semiparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
