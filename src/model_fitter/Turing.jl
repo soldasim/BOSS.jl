@@ -124,7 +124,7 @@ function sample_params(
     tm = turing_model(model, noise_var_priors, X, Y)
     param_symbols = vcat(
         [Symbol("noise_vars[$i]") for i in 1:y_dim],
-        [[Symbol("length_scales[$j,$i]") for j in 1:x_dim] for i in 1:y_dim] |> x->reduce(vcat,x),
+        [[Symbol("length_scales[$j, $i]") for j in 1:x_dim] for i in 1:y_dim] |> x->reduce(vcat,x),
     )
 
     samples = sample_params_turing(turing, tm, param_symbols)
@@ -146,7 +146,7 @@ function sample_params(
     param_symbols = vcat(
         [Symbol("noise_vars[$i]") for i in 1:y_dim],
         [Symbol("θ[$i]") for i in 1:θ_len],
-        [[Symbol("length_scales[$j,$i]") for j in 1:x_dim] for i in 1:y_dim] |> x->reduce(vcat,x),
+        [[Symbol("length_scales[$j, $i]") for j in 1:x_dim] for i in 1:y_dim] |> x->reduce(vcat,x),
     )
 
     samples = sample_params_turing(turing, tm, param_symbols)
