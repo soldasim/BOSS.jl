@@ -40,8 +40,8 @@ function bo!(problem::BossProblem;
     while term_cond(problem)
         estimate_parameters!(problem, model_fitter; options)
         X = maximize_acquisition(problem, acquisition, acq_maximizer; options)
-        isnothing(options.plot_options) || make_plot(options.plot_options, problem, acquisition, X; info=options.info)
         eval_objective!(problem, X; options)
+        options.callback(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)
     end
     return problem
 end
@@ -55,7 +55,7 @@ function bo!(problem::BossProblem{Missing};
     initialize!(problem; options)
     estimate_parameters!(problem, model_fitter; options)
     X = maximize_acquisition(problem, acquisition, acq_maximizer; options)
-    isnothing(options.plot_options) || make_plot(options.plot_options, problem, acquisition, X; info=options.info)
+    options.callback(problem; model_fitter, acq_maximizer, acquisition, options)
     return X
 end
 

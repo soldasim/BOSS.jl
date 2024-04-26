@@ -32,7 +32,7 @@ function good_parametric_model()
 
     param_priors = fill(Normal(0., 1.), 3)
 
-    BOSS.NonlinModel(; predict, param_priors)
+    NonlinModel(; predict, param_priors)
 end
 # You can also try how the Parametric and Semiparametric models behave
 # when we provide a completely wrong parametric model.
@@ -45,7 +45,7 @@ function bad_parametric_model()
 
     param_priors = fill(Normal(0., 1.), 3)
 
-    BOSS.NonlinModel(; predict, param_priors)
+    NonlinModel(; predict, param_priors)
 end
 
 # Our prediction about the noise and GP length scales.
@@ -61,38 +61,38 @@ function gen_data(count, bounds)
     return X, Y
 end
 
-# The problem defined as `BOSS.BossProblem`.
+# The problem defined as `BossProblem`.
 function opt_problem(init_data=4)
-    domain = BOSS.Domain(;
+    domain = Domain(;
         bounds = ([0.], [20.]),
     )
     data = gen_data(init_data, domain.bounds)
 
     # Try using the Semiparametric model and changing the parametric mean.
-    # model = BOSS.Semiparametric(
+    # model = Semiparametric(
     #     good_parametric_model(),
     #     # bad_parametric_model(),
-    #     BOSS.Nonparametric(; length_scale_priors=length_scale_priors())
+    #     Nonparametric(; length_scale_priors=length_scale_priors())
     # )
-    model = BOSS.Nonparametric(;
+    model = Nonparametric(;
         kernel=BOSS.Matern32Kernel(),
         length_scale_priors=length_scale_priors(),
     )
 
-    BOSS.BossProblem(;
-        fitness = BOSS.LinFitness([1, 0]),
+    BossProblem(;
+        fitness = LinFitness([1, 0]),
         f = blackbox,
         domain,
         y_max = [Inf, 0.],
         model,
         noise_var_priors = noise_var_priors(),
-        data = BOSS.ExperimentDataPrior(data...),
+        data = ExperimentDataPrior(data...),
     )
 end
 
-boss_options() = BOSS.BossOptions(;
-    info=true,
-    plot_options=BOSS.PlotOptions(Plots, f_true=x->blackbox(x; noise_var=0.)),
+boss_options() = BossOptions(;
+    info = true,
+    callback = PlotCallback(Plots, f_true=x->blackbox(x; noise_var=0.)),
 )
 
 """
@@ -104,14 +104,14 @@ function main(problem=opt_problem(4), iters=3;
 )
     ### Model Fitter:
     # MLE
-    model_fitter = BOSS.OptimizationMLE(;
+    model_fitter = OptimizationMLE(;
         algorithm = NEWUOA(),
         multistart = 20,
         parallel,
         rhoend = 1e-4,
     )
     # # BI
-    # model_fitter = BOSS.TuringBI(;
+    # model_fitter = TuringBI(;
     #     sampler=BOSS.PG(20),
     #     warmup=100,
     #     samples_in_chain=10,
@@ -121,15 +121,15 @@ function main(problem=opt_problem(4), iters=3;
     # )
 
     ### Acquisition Maximizer:
-    acq_maximizer = BOSS.OptimizationAM(;
+    acq_maximizer = OptimizationAM(;
         algorithm = BOBYQA(),
         multistart = 20,
         parallel,
         rhoend = 1e-4,
     )
 
-    acquisition = BOSS.ExpectedImprovement()
-    term_cond = BOSS.IterLimit(iters)
+    acquisition = ExpectedImprovement()
+    term_cond = IterLimit(iters)
 
     # Run BOSS:
     bo!(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)

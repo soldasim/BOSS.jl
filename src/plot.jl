@@ -7,12 +7,70 @@ const CONSTRAINT_STYLE = :dash
 const ACQUISITION_COLOR = :blue
 
 """
+    PlotOptions(Plots; kwargs...)
+
+If `PlotOptions` is passed to `BossOptions` as `callback`, the state of the optimization problem
+is plotted in each iteration. Only works with one-dimensional `x` domains
+but supports multi-dimensional `y`.
+
+# Arguments
+- `Plots::Module`: Evaluate `using Plots` and pass the `Plots` module to `PlotsOptions`.
+
+# Keywords
+- `f_true::Union{Nothing, Function}`: The true objective function to be plotted.
+- `points::Int`: The number of points in each plotted function.
+- `xaxis::Symbol`: Used to change the x axis scale (`:identity`, `:log`).
+- `yaxis::Symbol`: Used to change the y axis scale (`:identity`, `:log`).
+- `title::String`: The plot title.
+"""
+struct PlotCallback{
+    F<:Union{Nothing, Function},
+    A<:Union{Nothing, Function},
+    O<:Union{Nothing, AbstractArray{<:Real}},
+} <: BossCallback
+    Plots::Module
+    f_true::F
+    acquisition::A
+    acq_opt::O
+    points::Int
+    xaxis::Symbol
+    yaxis::Symbol
+    title::String
+end
+PlotCallback(Plots::Module;
+    f_true=nothing,
+    acquisition=nothing,
+    acq_opt=nothing,
+    points=200,
+    xaxis=:identity,
+    yaxis=:identity,
+    title="BOSS optimization problem",
+) = PlotCallback(Plots, f_true, acquisition, acq_opt, points, xaxis, yaxis, title)
+
+(plt::PlotCallback)(problem::BossProblem;
+    acquisition::AcquisitionFunction,
+    options::BossOptions,
+    kwargs...
+) = make_plot(plt, remove_last_point(problem), acquisition, get_acq_opt(problem); info=options.info)
+
+function remove_last_point(problem::BossProblem)
+    prob = deepcopy(problem)
+    prob.data.X = prob.data.X[:,1:end-1]
+    prob.data.Y = prob.data.Y[:,1:end-1]
+    return prob
+end
+
+function get_acq_opt(problem)
+    return problem.data.X[:,end]
+end
+
+"""
 Plot the current state of the optimization process.
 """
-function make_plot(opt::PlotOptions, problem::BossProblem, acquisition::AcquisitionFunction, acq_opt::AbstractArray{<:Real}; info::Bool)
+function make_plot(opt::PlotCallback, problem::BossProblem, acquisition::AcquisitionFunction, acq_opt::AbstractArray{<:Real}; info::Bool)
     info && @info "Plotting ..."
     acq = acquisition(problem, BossOptions())
-    opt_ = PlotOptions(
+    opt_ = PlotCallback(
         opt.Plots,
         opt.f_true,
         acq,
@@ -22,7 +80,7 @@ function make_plot(opt::PlotOptions, problem::BossProblem, acquisition::Acquisit
         opt.yaxis,
         opt.title,
     )
-    plot_problem(opt_, problem)
+    display(plot_problem(opt_, problem))
 end
 
 """
@@ -34,7 +92,7 @@ Only works with 1-dimensional `x`, but supports multidimensional `y`.
 
 See also: [`BOSS.PlotOptions`](@ref)
 """
-function plot_problem(opt::PlotOptions, problem::BossProblem)
+function plot_problem(opt::PlotCallback, problem::BossProblem)
     @assert x_dim(problem) == 1
 
     subplots = opt.Plots.Plot[]
@@ -60,7 +118,7 @@ function plot_problem(opt::PlotOptions, problem::BossProblem)
     return p
 end
 
-function plot_legend(opt::PlotOptions)
+function plot_legend(opt::PlotCallback)
     p = opt.Plots.plot(; legend=:inside, legend_column=3)
     opt.Plots.plot!(p, 1:3; xlim=(4,5), framestyle=:none, color=F_COLOR, label="f")
     opt.Plots.plot!(p, 1:3; xlim=(4,5), framestyle=:none, color=MODEL_COLOR, label="model")
@@ -75,7 +133,7 @@ end
 Create a plot of a single `y` dimension containing the gathered data, objective function,
 constraints on `y` and the fitted model.
 ```
-function plot_y_slice(opt::PlotOptions, problem::BossProblem, dim::Int)
+function plot_y_slice(opt::PlotCallback, problem::BossProblem, dim::Int)
     @assert x_dim(problem) == 1
     lb, ub = first.(problem.domain.bounds)
 
@@ -138,7 +196,7 @@ end
 ```
 Create a plot of the acquisition function.
 ```
-function plot_acquisition(opt::PlotOptions, problem::BossProblem)
+function plot_acquisition(opt::PlotCallback, problem::BossProblem)
     @assert x_dim(problem) == 1
     lb, ub = first.(problem.domain.bounds)
 

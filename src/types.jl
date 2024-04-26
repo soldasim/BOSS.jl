@@ -107,7 +107,7 @@ Inherit this type to define a custom termination condition.
 Example: `struct CustomCond <: TermCond ... end`
 
 Structures derived from this type have to implement the following method:
-`(cond::CustomCond)(problem::BossProblem) where {CustomCond <: TermCond}`
+`(cond::CustomCond)(problem::BossProblem)`
 
 This method should return true to keep the optimization running
 and return false once the optimization is to be terminated.
@@ -196,8 +196,8 @@ Stores the data matrices `X`,`Y` as well as the sampled model parameters and hyp
 - `θ::Union{Nothing, <:AbstractMatrix{<:Real}}`: Samples of parameters of the parametric model
         stored column-wise in a matrix (or nothing if the model is nonparametric).
 - `length_scales::Union{Nothing, <:AbstractVector{<:AbstractMatrix{<:Real}}}`: Samples
-        of the length scales of the GPs as stored column-wise in a matrix for each `y` dimension
-        (or nothing if the model is parametric).
+    of the length scales of the GP as a vector of `x_dim`×`y_dim` matrices
+    (or nothing if the model is parametric).
 - `noise_vars::AbstractMatrix{<:Real}`: Samples of the noise variances of each `y` dimension
         stored column-wise in a matrix.
 
@@ -367,46 +367,30 @@ BossProblem(;
 # - - - - - - - - Boss Options - - - - - - - -
 
 """
-    PlotOptions(Plots; kwargs...)
+If an object `cb` of type `BossCallback` is passed to `BossOptions`,
+the method shown below will be called after every iteration of BO.
 
-If `PlotOptions` is passed to `boss!`, the state of the optimization problem
-is plotted in each iteration. Only works with one-dimensional `x` domains
-but supports multi-dimensional `y`.
+```
+cb(problem::BossProblem;
+    model_fitter::ModelFitter,
+    acq_maximizer::AcquisitionMaximizer,
+    acquisition::AcquisitionFunction,
+    term_cond::TermCond,
+    options::BossOptions,
+)
+```
 
-# Arguments
-- `Plots::Module`: Evaluate `using Plots` and pass the `Plots` module to `PlotsOptions`.
-
-# Keywords
-- `f_true::Union{Nothing, Function}`: The true objective function to be plotted.
-- `points::Int`: The number of points in each plotted function.
-- `xaxis::Symbol`: Used to change the x axis scale (`:identity`, `:log`).
-- `yaxis::Symbol`: Used to change the y axis scale (`:identity`, `:log`).
-- `title::String`: The plot title.
+See `PlotCallback` for an example usage of this feature for plotting.
 """
-struct PlotOptions{
-    F<:Union{Nothing, Function},
-    A<:Union{Nothing, Function},
-    O<:Union{Nothing, AbstractArray{<:Real}},
-}
-    Plots::Module
-    f_true::F
-    acquisition::A
-    acq_opt::O
-    points::Int
-    xaxis::Symbol
-    yaxis::Symbol
-    title::String
-end
-PlotOptions(Plots::Module;
-    f_true=nothing,
-    acquisition=nothing,
-    acq_opt=nothing,
-    points=200,
-    xaxis=:identity,
-    yaxis=:identity,
-    title="BOSS optimization problem",
-) = PlotOptions(Plots, f_true, acquisition, acq_opt, points, xaxis, yaxis, title)
+abstract type BossCallback end
 
+"""
+    NoCallback()
+
+Does nothing.
+"""
+struct NoCallback <: BossCallback end
+(::NoCallback)(::BossProblem; kwargs...) = nothing
 
 """
     BossOptions(; kwargs...)
@@ -416,29 +400,28 @@ Stores miscellaneous settings of the BOSS algorithm.
 # Keywords
 - `info::Bool`: Setting `info=false` silences the BOSS algorithm.
 - `debug::Bool`: Set `debug=true` to print stactraces of caught optimization errors.
-- `parallel_evals::String`: Possible values: `:serial`, `:parallel`, `:distributed`. Defaults to `:parallel`.
+- `parallel_evals::Symbol`: Possible values: `:serial`, `:parallel`, `:distributed`. Defaults to `:parallel`.
         Determines whether to run multiple objective function evaluations
         within one batch in serial, parallel, or distributed fashion.
         (Only has an effect if batching AM is used.)
-- `plot_options::PlotOptions`: If `plot_options` is provided, BOSS will print the state
-        of the optimization problem in each iteration. See [`BOSS.PlotOptions`](@ref).
+- `callback::BossCallback`: If provided, `callback(::BossProblem; kwargs...)` will be called every iteration.
 
 See also: [`BOSS.boss!`](@ref)
 """
 struct BossOptions{
-    P<:Union{Nothing, PlotOptions},
+    CB<:BossCallback
 }
     info::Bool
     debug::Bool
     parallel_evals::Symbol
-    plot_options::P
+    callback::CB
 end
 function BossOptions(;
     info=true,
     debug=false,
     parallel_evals=:parallel,
-    plot_options=nothing,
+    callback=NoCallback(),
 )
     @assert parallel_evals in [:serial, :parallel, :distributed]
-    return BossOptions(info, debug, parallel_evals, plot_options)
+    return BossOptions(info, debug, parallel_evals, callback)
 end

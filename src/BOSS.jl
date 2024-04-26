@@ -45,7 +45,10 @@ export IterLimit
 # Miscellaneous
 export AbstractBounds
 export BossOptions
-export PlotOptions
+
+# Callbacks
+export BossCallback
+export NoCallback, PlotCallback
 
 using Random
 using Distributions
