@@ -49,8 +49,8 @@ Turing.@model function turing_model(
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
-    noise_vars ~ product_distribution(noise_var_priors)
     θ ~ product_distribution(model.param_priors)
+    noise_vars ~ product_distribution(noise_var_priors)
 
     means = model.(eachcol(X), Ref(θ))
     
@@ -64,10 +64,11 @@ Turing.@model function turing_model(
 )
     y_dim = size(Y)[1]
 
-    noise_vars ~ product_distribution(noise_var_priors)
     length_scales ~ product_distribution(model.length_scale_priors)
+    amplitudes ~ product_distribution(model.amp_priors)
+    noise_vars ~ product_distribution(noise_var_priors)
     
-    gps = [finite_gp(model.mean, model.kernel, X, length_scales[:,i], noise_vars[i]) for i in 1:y_dim]
+    gps = [finite_gp(model.mean, model.kernel, X, length_scales[:,i], amplitudes[i], noise_vars[i]) for i in 1:y_dim]
 
     Yt = transpose(Y)
     Yt ~ product_distribution(gps)
@@ -80,12 +81,13 @@ Turing.@model function turing_model(
 )
     y_dim = size(Y)[1]
 
-    noise_vars ~ product_distribution(noise_var_priors)
     θ ~ product_distribution(model.parametric.param_priors)
     length_scales ~ product_distribution(model.nonparametric.length_scale_priors)
+    amplitudes ~ product_distribution(model.nonparametric.amp_priors)
+    noise_vars ~ product_distribution(noise_var_priors)
 
     mean = model.parametric(θ)
-    gps = [finite_gp(x->mean(x)[i], model.nonparametric.kernel, X, length_scales[:,i], noise_vars[i]) for i in 1:y_dim]
+    gps = [finite_gp(x->mean(x)[i], model.nonparametric.kernel, X, length_scales[:,i], amplitudes[i], noise_vars[i]) for i in 1:y_dim]
     
     Yt = transpose(Y)
     Yt ~ product_distribution(gps)
@@ -99,18 +101,15 @@ function sample_params(
     Y::AbstractMatrix{<:Real},
 )
     x_dim, y_dim = size(X)[1], size(Y)[1]
-    θ_len, λ_len = param_counts(model)
-    
-    tm = turing_model(model, noise_var_priors, X, Y)
-    param_symbols = vcat(
-        [Symbol("noise_vars[$i]") for i in 1:y_dim],
-        [Symbol("θ[$i]") for i in 1:θ_len],
-    )
+    θ_len, λ_len, α_len = param_counts(model)
 
-    samples = sample_params_turing(turing, tm, param_symbols)
-    noise_vars = reduce(vcat, transpose.(samples[1:y_dim]))
-    θ = reduce(vcat, transpose.(samples[y_dim+1:end]))
-    return θ, nothing, noise_vars
+    tm = turing_model(model, noise_var_priors, X, Y)
+    chains = sample_params_turing(turing, tm)
+
+    θs = get_samples(chains, "θ", (θ_len,))
+    noise_vars = get_samples(chains, "noise_vars", (y_dim,))
+
+    return θs, nothing, nothing, noise_vars
 end
 function sample_params(
     turing::TuringBI,
@@ -122,15 +121,13 @@ function sample_params(
     x_dim, y_dim = size(X)[1], size(Y)[1]
     
     tm = turing_model(model, noise_var_priors, X, Y)
-    param_symbols = vcat(
-        [Symbol("noise_vars[$i]") for i in 1:y_dim],
-        [[Symbol("length_scales[$j, $i]") for j in 1:x_dim] for i in 1:y_dim] |> x->reduce(vcat,x),
-    )
+    chains = sample_params_turing(turing, tm)
+    
+    length_scales = get_samples(chains, "length_scales", (x_dim, y_dim))
+    amplitudes = get_samples(chains, "amplitudes", (y_dim,))
+    noise_vars = get_samples(chains, "noise_vars", (y_dim,))
 
-    samples = sample_params_turing(turing, tm, param_symbols)
-    noise_vars = reduce(vcat, transpose.(samples[1:y_dim]))
-    length_scales = reshape.(eachcol(reduce(vcat, transpose.(samples[y_dim+1:end]))), Ref(x_dim), Ref(y_dim))
-    return nothing, length_scales, noise_vars
+    return nothing, length_scales, amplitudes, noise_vars
 end
 function sample_params(
     turing::TuringBI,
@@ -140,29 +137,35 @@ function sample_params(
     Y::AbstractMatrix{<:Real},
 )    
     x_dim, y_dim = size(X)[1], size(Y)[1]
-    θ_len, λ_len = param_counts(model)
+    θ_len, λ_len, α_len = param_counts(model)
     
     tm = turing_model(model, noise_var_priors, X, Y)
-    param_symbols = vcat(
-        [Symbol("noise_vars[$i]") for i in 1:y_dim],
-        [Symbol("θ[$i]") for i in 1:θ_len],
-        [[Symbol("length_scales[$j, $i]") for j in 1:x_dim] for i in 1:y_dim] |> x->reduce(vcat,x),
-    )
+    chains = sample_params_turing(turing, tm)
 
-    samples = sample_params_turing(turing, tm, param_symbols)
-    noise_vars = reduce(vcat, transpose.(samples[1:y_dim]))
-    θ = reduce(vcat, transpose.(samples[y_dim+1:y_dim+θ_len]))
-    length_scales = reshape.(eachcol(reduce(vcat, transpose.(samples[y_dim+θ_len+1:end]))), Ref(x_dim), Ref(y_dim))
-    return θ, length_scales, noise_vars
+    θs = get_samples(chains, "θ", (θ_len,))
+    length_scales = get_samples(chains, "length_scales", (x_dim, y_dim))
+    amplitudes = get_samples(chains, "amplitudes", (y_dim,))
+    noise_vars = get_samples(chains, "noise_vars", (y_dim,))
+
+    return θs, length_scales, amplitudes, noise_vars
 end
 
-function sample_params_turing(turing::TuringBI, turing_model, param_symbols)
+function sample_params_turing(turing::TuringBI, turing_model)
     samples_in_chain = turing.n_adapts + (turing.leap_size * turing.samples_in_chain)
     if turing.parallel
         chains = Turing.sample(turing_model, turing.sampler, MCMCThreads(), samples_in_chain, turing.chain_count; progress=false)
     else
         chains = mapreduce(_ -> Turing.sample(turing_model, turing.sampler, samples_in_chain; progress=false), chainscat, 1:turing.chain_count)
     end
+    chains = chains[turing.n_adapts+turing.leap_size:turing.leap_size:end]
+    return chains
+end
 
-    samples = [reduce(vcat, eachrow(chains[s][(turing.n_adapts+turing.leap_size):turing.leap_size:end,:])) for s in param_symbols]
+function get_samples(chains, param_name, param_shape)
+    # retrieve matrix (samples × param_count × chains)
+    samples = group(chains, param_name).value
+    # concatenate chains & transpose into matrix (param_count × samples)
+    samples = reduce(vcat, (samples[:,:,i] for i in 1:size(samples)[3])) |> transpose
+    # return vector of reshaped samples
+    return [reshape(s, param_shape) for s in eachcol(samples)]
 end

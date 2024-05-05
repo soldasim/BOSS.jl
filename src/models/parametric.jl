@@ -117,9 +117,8 @@ make_discrete(m::NonlinModel, discrete::AbstractVector{<:Bool}) =
 
 model_posterior(model::Parametric, data::ExperimentDataMLE; split::Bool=false) =
     model_posterior(model, data.θ, data.noise_vars; split)
-
 model_posterior(model::Parametric, data::ExperimentDataBI; split::Bool=false) = 
-    model_posterior.(Ref(model), eachcol(data.θ), eachcol(data.noise_vars); split)
+    model_posterior.(Ref(model), data.θ, data.noise_vars; split)
 
 function model_posterior(
     model::Parametric,
@@ -135,7 +134,7 @@ function model_posterior(
 end
 
 function model_loglike(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
-    function loglike(θ, length_scales, noise_vars)
+    function loglike(θ, λ, α, noise_vars)
         ll_params = model_params_loglike(model, θ)
         ll_data = model_data_loglike(model, θ, noise_vars, data.X, data.Y)
         ll_noise = noise_loglike(noise_var_priors, noise_vars)
@@ -158,14 +157,14 @@ function model_data_loglike(
     return mapreduce(d -> ll_datum(d...), +, zip(eachcol(X), eachcol(Y)))
 end
 
-function sample_params(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution})
+function sample_params(model::Parametric)
     θ = isempty(model.param_priors) ?
             Real[] :
             rand.(model.param_priors)
     λ = Real[;;]
-    noise_vars = rand.(noise_var_priors)
-    return θ, λ, noise_vars
+    α = Real[]
+    return θ, λ, α
 end
 
 param_priors(model::Parametric) =
-    model.param_priors, MultivariateDistribution[]
+    model.param_priors, MultivariateDistribution[], UnivariateDistribution[]

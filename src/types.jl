@@ -170,6 +170,7 @@ Stores the data matrices `X`,`Y` as well as the optimized model parameters and h
         of the parametric model (or nothing if the model is nonparametric).
 - `length_scales::Union{Nothing, <:AbstractMatrix{<:Real}}`: Contains the MLE length scales
         of the GP as a `x_dim`×`y_dim` matrix (or nothing if the model is parametric).
+- `amplitudes::Union{Nothing, <:AbstractVector{<:Real}}`: Amplitudes of the GP.
 - `noise_vars::AbstractVector{<:Real}`: The MLE noise variances of each `y` dimension.
 
 See also: [`BOSS.ExperimentDataBI`](@ref)
@@ -178,12 +179,14 @@ mutable struct ExperimentDataMLE{
     T<:AbstractMatrix{<:Real},
     P<:Union{Nothing, <:AbstractVector{<:Real}},
     L<:Union{Nothing, <:AbstractMatrix{<:Real}},
+    A<:Union{Nothing, <:AbstractVector{<:Real}},
     N<:AbstractVector{<:Real},
 } <: ExperimentDataPost{MLE}
     X::T
     Y::T
     θ::P
     length_scales::L
+    amplitudes::A
     noise_vars::N
 end
 
@@ -193,26 +196,29 @@ Stores the data matrices `X`,`Y` as well as the sampled model parameters and hyp
 # Fields
 - `X::AbstractMatrix{<:Real}`: Contains the objective function inputs as columns.
 - `Y::AbstractMatrix{<:Real}`: Contains the objective function outputs as columns.
-- `θ::Union{Nothing, <:AbstractMatrix{<:Real}}`: Samples of parameters of the parametric model
+- `θ::Union{Nothing, <:AbstractVector{<:AbstractVector{<:Real}}}`: Samples of parameters of the parametric model
         stored column-wise in a matrix (or nothing if the model is nonparametric).
 - `length_scales::Union{Nothing, <:AbstractVector{<:AbstractMatrix{<:Real}}}`: Samples
     of the length scales of the GP as a vector of `x_dim`×`y_dim` matrices
     (or nothing if the model is parametric).
-- `noise_vars::AbstractMatrix{<:Real}`: Samples of the noise variances of each `y` dimension
+- `amplitudes::Union{Nothing, <:AbstractVector{<:AbstractVector{<:Real}}}`: Samples of the amplitudes of the GP.
+- `noise_vars::AbstractVector{<:AbstractVector{<:Real}}`: Samples of the noise variances of each `y` dimension
         stored column-wise in a matrix.
 
 See also: [`BOSS.ExperimentDataBI`](@ref)
 """
 mutable struct ExperimentDataBI{
     T<:AbstractMatrix{<:Real},
-    P<:Union{Nothing, <:AbstractMatrix{<:Real}},
+    P<:Union{Nothing, <:AbstractVector{<:AbstractVector{<:Real}}},
     L<:Union{Nothing, <:AbstractVector{<:AbstractMatrix{<:Real}}},
-    N<:AbstractMatrix{<:Real},
+    A<:Union{Nothing, <:AbstractVector{<:AbstractVector{<:Real}}},
+    N<:AbstractVector{<:AbstractVector{<:Real}},
 } <: ExperimentDataPost{BI}
     X::T
     Y::T
     θ::P
     length_scales::L
+    amplitudes::A
     noise_vars::N
 end
 

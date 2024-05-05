@@ -14,13 +14,20 @@ discrete_round(dims::AbstractVector{<:Bool}, x::AbstractVector{<:Real}) = cond_f
 
 noise_loglike(noise_var_priors, noise_vars) = mapreduce(p -> logpdf(p...), +, zip(noise_var_priors, noise_vars))
 
+function sample_params(model::SurrogateModel, noise_var_priors::AbstractVector{<:UnivariateDistribution})
+    model_params = sample_params(model)
+    noise_vars = rand.(noise_var_priors)
+    return model_params..., noise_vars
+end
+
 function param_shapes(model::SurrogateModel)
-    θ_priors, λ_priors = param_priors(model)
+    θ_priors, λ_priors, α_priors = param_priors(model)
     θ_shape = (length(θ_priors),)
     λ_shape = isempty(λ_priors) ?
         (0, 0) :
         (length(first(λ_priors)), length(λ_priors))
-    return θ_shape, λ_shape
+    α_shape = (length(α_priors),)
+    return θ_shape, λ_shape, α_shape
 end
 
 param_counts(model::SurrogateModel) = prod.(param_shapes(model))

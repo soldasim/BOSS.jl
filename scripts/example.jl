@@ -49,10 +49,11 @@ function bad_parametric_model()
 end
 
 # Our prediction about the noise and GP length scales.
-noise_var_priors() = fill(truncated(Normal(0., 0.1/3); lower=0.), 2)  # noise variance prior
+noise_var_priors() = fill(truncated(Normal(0., 0.01); lower=0.), 2)  # noise variance prior
 # noise_var_priors() = fill(Dirac(0.01), 2)                           # predefined noise variance value
 length_scale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2)
 # length_scale_priors() = fill(Product(fill(Dirac(1.), 1)), 2)
+amplitude_priors() = fill(truncated(Normal(0., 5.); lower=0.), 2)
 
 # Generate some initial data.
 function gen_data(count, bounds)
@@ -72,11 +73,16 @@ function opt_problem(init_data=4)
     # model = Semiparametric(
     #     good_parametric_model(),
     #     # bad_parametric_model(),
-    #     Nonparametric(; length_scale_priors=length_scale_priors())
+    #     Nonparametric(;
+    #         kernel = BOSS.Matern32Kernel(),
+    #         amp_priors = amplitude_priors(),
+    #         length_scale_priors = length_scale_priors(),
+    #     ),
     # )
     model = Nonparametric(;
-        kernel=BOSS.Matern32Kernel(),
-        length_scale_priors=length_scale_priors(),
+        kernel = BOSS.Matern32Kernel(),
+        amp_priors = amplitude_priors(),
+        length_scale_priors = length_scale_priors(),
     )
 
     BossProblem(;
@@ -92,25 +98,26 @@ end
 
 boss_options() = BossOptions(;
     info = true,
+    debug = false,
     callback = PlotCallback(Plots, f_true=x->blackbox(x; noise_var=0.)),
 )
 
 """
 An example usage of the BOSS algorithm with a MLE algorithm.
 """
-function main(problem=opt_problem(4), iters=3;
-    parallel=true,
-    options=boss_options(),
+function main(problem=opt_problem(2), iters=20;
+    parallel = true,
+    options = boss_options(),
 )
     ### Model Fitter:
-    # MLE
+    # Maximum likelihood estimation
     model_fitter = OptimizationMLE(;
         algorithm = NEWUOA(),
         multistart = 20,
         parallel,
         rhoend = 1e-4,
     )
-    # # BI
+    # # Bayesian Inference (sampling)
     # model_fitter = TuringBI(;
     #     sampler=BOSS.PG(20),
     #     warmup=100,

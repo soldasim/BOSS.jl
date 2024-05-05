@@ -1,4 +1,6 @@
 
+# - - - Objective Function - - - - -
+
 function OBJ_FUNC(x; noise_var=0.01)
     y = exp(x[1]/10) * cos(2*x[1])
     z = (1/2)^6 * (x[1]^2 - (15.)^2)
@@ -8,6 +10,9 @@ function OBJ_FUNC(x; noise_var=0.01)
 
     return [y,z]
 end
+
+
+# - - - List of All Inputs - - - - -
 
 """
 The names of all parametrized BOSS inputs used in combinatorial testing.
@@ -27,6 +32,7 @@ const INPUT_NAMES = [
     "Parametric_theta_priors",
     "Nonparametric_mean",
     "Nonparametric_kernel",
+    "Nonparametric_amp_priors",
     "Nonparametric_length_scale_priors",
     "Semiparametric_mean",
     "MODEL",
@@ -128,6 +134,13 @@ const Nonparametric_kernel_DICT = Dict(
     "valid" => BOSS.Matern52Kernel(),
     "INACTIVE" => nothing,
     "*" => BOSS.Matern52Kernel(),
+)
+
+const Nonparametric_amp_priors_DICT = Dict(
+    "with_Dirac" => fill(BOSS.Dirac(1.), 2),
+    "wo_Dirac" => fill(BOSS.LogNormal(), 2),
+    "INACTIVE" => nothing,
+    "*" => fill(BOSS.LogNormal(), 2),
 )
 
 const Nonparametric_length_scale_priors_DICT = Dict(

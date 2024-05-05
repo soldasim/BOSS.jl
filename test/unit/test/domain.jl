@@ -1,6 +1,6 @@
 
 @testset "make_discrete(domain)" begin
-    @param_test BOSS.make_discrete begin        
+    @param_test BOSS.make_discrete begin   
         @params BOSS.Domain(;
             bounds = ([0., 0.], [1., 1.]),
             discrete = [false, false],

@@ -128,6 +128,7 @@ Update model parameters.
 function update_parameters!(::Type{MLE}, data::ExperimentDataPrior,
     θ,
     length_scales,
+    amplitudes,
     noise_vars,
 )
     return ExperimentDataMLE(
@@ -135,12 +136,14 @@ function update_parameters!(::Type{MLE}, data::ExperimentDataPrior,
         data.Y,
         θ,
         length_scales,
+        amplitudes,
         noise_vars,
     )
 end
 function update_parameters!(::Type{BI}, data::ExperimentDataPrior,
     θ,
     length_scales,
+    amplitudes,
     noise_vars,
 )
     return ExperimentDataBI(
@@ -148,22 +151,26 @@ function update_parameters!(::Type{BI}, data::ExperimentDataPrior,
         data.Y,
         θ,
         length_scales,
+        amplitudes,
         noise_vars,
     )
 end
 function update_parameters!(::Type{T}, data::ExperimentDataPost{T},
     θ,
     length_scales,
+    amplitudes,
     noise_vars,
 ) where {T<:ModelFit}
     data.θ = θ
     data.length_scales = length_scales
+    data.amplitudes = amplitudes
     data.noise_vars = noise_vars
     return data
 end
 function update_parameters!(::Type{T}, data::ExperimentDataPost,
     θ,
     length_scales,
+    amplitudes,
     noise_vars,
 ) where {T<:ModelFit}
     throw(ArgumentError("Inconsistent experiment data!\nCannot switch from MLE to BI or vice-versa."))

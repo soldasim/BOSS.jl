@@ -71,6 +71,7 @@ function construct_model(::Val{:Nonparametric}, val)
     return BOSS.Nonparametric(;
         mean = val(String(val("MODEL"))*"_mean"),
         kernel = val("Nonparametric_kernel"),
+        amp_priors = val("Nonparametric_amp_priors"),
         length_scale_priors = val("Nonparametric_length_scale_priors"),
     )
 end

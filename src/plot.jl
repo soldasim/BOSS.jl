@@ -114,7 +114,6 @@ function plot_problem(opt::PlotCallback, problem::BossProblem)
     layout = opt.Plots.grid(length(subplots)+1, 1; heights)
     p = opt.Plots.plot(subplots..., plot_legend(opt); layout)
 
-    display(p)
     return p
 end
 

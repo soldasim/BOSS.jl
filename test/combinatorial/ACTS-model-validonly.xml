@@ -189,6 +189,15 @@
       <basechoices />
       <invalidValues />
     </Parameter>
+    <Parameter id="27" name="Nonparametric_amp_priors" type="1">
+      <values>
+        <value>with_Dirac</value>
+        <value>wo_Dirac</value>
+        <value>INACTIVE</value>
+      </values>
+      <basechoices />
+      <invalidValues />
+    </Parameter>
   </Parameters>
   <OutputParameters />
   <Relations>
@@ -313,6 +322,18 @@
         <Parameter name="NonlinFitness_fit" />
       </Parameters>
     </Constraint>
+    <Constraint text="(MODEL = &quot;Parametric&quot;) =&gt; (Nonparametric_amp_priors = &quot;INACTIVE&quot;)">
+      <Parameters>
+        <Parameter name="MODEL" />
+        <Parameter name="Nonparametric_amp_priors" />
+      </Parameters>
+    </Constraint>
+    <Constraint text="(MODEL != &quot;Parametric&quot;) =&gt; (Nonparametric_amp_priors != &quot;INACTIVE&quot;)">
+      <Parameters>
+        <Parameter name="MODEL" />
+        <Parameter name="Nonparametric_amp_priors" />
+      </Parameters>
+    </Constraint>
   </Constraints>
   <Testset doi="2">
     <Testcase TCNo="0">
@@ -340,6 +361,7 @@
       <Value>1</Value>
       <Value>optimization_mle</Value>
       <Value>grid</Value>
+      <Value>wo_Dirac</Value>
     </Testcase>
     <Testcase TCNo="1">
       <Value>2</Value>
@@ -366,6 +388,7 @@
       <Value>1</Value>
       <Value>optimization_mle</Value>
       <Value>random</Value>
+      <Value>INACTIVE</Value>
     </Testcase>
     <Testcase TCNo="2">
       <Value>3</Value>
@@ -392,6 +415,7 @@
       <Value>1</Value>
       <Value>optimization_mle</Value>
       <Value>optimization</Value>
+      <Value>with_Dirac</Value>
     </Testcase>
     <Testcase TCNo="3">
       <Value>4</Value>
@@ -418,18 +442,19 @@
       <Value>1</Value>
       <Value>turing_bi</Value>
       <Value>random</Value>
+      <Value>with_Dirac</Value>
     </Testcase>
     <Testcase TCNo="4">
       <Value>5</Value>
-      <Value>duplicates</Value>
+      <Value>noduplicates</Value>
       <Value>valid_function</Value>
       <Value>*</Value>
-      <Value>some_true</Value>
+      <Value>all_false</Value>
       <Value>valid_function</Value>
-      <Value>all_infinite</Value>
-      <Value>wo_Dirac</Value>
-      <Value>true</Value>
-      <Value>true</Value>
+      <Value>some_finite</Value>
+      <Value>with_Dirac</Value>
+      <Value>false</Value>
+      <Value>false</Value>
       <Value>*</Value>
       <Value>valid_function</Value>
       <Value>wo_Dirac</Value>
@@ -438,12 +463,13 @@
       <Value>wo_Dirac</Value>
       <Value>nothing</Value>
       <Value>Semiparametric</Value>
+      <Value>wo_infs</Value>
       <Value>INACTIVE</Value>
-      <Value>valid_function</Value>
-      <Value>NonlinFitness</Value>
+      <Value>LinFitness</Value>
       <Value>*</Value>
       <Value>turing_bi</Value>
       <Value>optimization</Value>
+      <Value>wo_Dirac</Value>
     </Testcase>
     <Testcase TCNo="5">
       <Value>6</Value>
@@ -452,10 +478,10 @@
       <Value>all_finite</Value>
       <Value>some_true</Value>
       <Value>nothing</Value>
-      <Value>some_finite</Value>
+      <Value>all_infinite</Value>
       <Value>with_Dirac</Value>
-      <Value>false</Value>
-      <Value>false</Value>
+      <Value>true</Value>
+      <Value>true</Value>
       <Value>EI</Value>
       <Value>INACTIVE</Value>
       <Value>INACTIVE</Value>
@@ -470,6 +496,7 @@
       <Value>1</Value>
       <Value>turing_bi</Value>
       <Value>grid</Value>
+      <Value>with_Dirac</Value>
     </Testcase>
     <Testcase TCNo="6">
       <Value>7</Value>
@@ -478,10 +505,10 @@
       <Value>all_finite</Value>
       <Value>all_false</Value>
       <Value>nothing</Value>
-      <Value>some_finite</Value>
+      <Value>all_infinite</Value>
       <Value>wo_Dirac</Value>
       <Value>false</Value>
-      <Value>true</Value>
+      <Value>false</Value>
       <Value>EI</Value>
       <Value>valid_function</Value>
       <Value>with_Dirac</Value>
@@ -496,18 +523,19 @@
       <Value>1</Value>
       <Value>sampling_mle</Value>
       <Value>optimization</Value>
+      <Value>INACTIVE</Value>
     </Testcase>
     <Testcase TCNo="7">
       <Value>8</Value>
-      <Value>noduplicates</Value>
+      <Value>duplicates</Value>
       <Value>valid_function</Value>
       <Value>*</Value>
-      <Value>all_false</Value>
+      <Value>some_true</Value>
       <Value>valid_function</Value>
-      <Value>all_infinite</Value>
-      <Value>with_Dirac</Value>
+      <Value>some_finite</Value>
+      <Value>wo_Dirac</Value>
       <Value>true</Value>
-      <Value>false</Value>
+      <Value>true</Value>
       <Value>*</Value>
       <Value>*</Value>
       <Value>wo_Dirac</Value>
@@ -516,19 +544,20 @@
       <Value>with_Dirac</Value>
       <Value>nothing</Value>
       <Value>Semiparametric</Value>
-      <Value>wo_infs</Value>
       <Value>INACTIVE</Value>
-      <Value>LinFitness</Value>
+      <Value>valid_function</Value>
+      <Value>NonlinFitness</Value>
       <Value>*</Value>
       <Value>sampling_mle</Value>
       <Value>grid</Value>
+      <Value>wo_Dirac</Value>
     </Testcase>
     <Testcase TCNo="8">
       <Value>9</Value>
-      <Value>duplicates</Value>
+      <Value>noduplicates</Value>
       <Value>missing</Value>
       <Value>*</Value>
-      <Value>some_true</Value>
+      <Value>all_false</Value>
       <Value>nothing</Value>
       <Value>some_finite</Value>
       <Value>wo_Dirac</Value>
@@ -540,7 +569,7 @@
       <Value>valid_function</Value>
       <Value>*</Value>
       <Value>wo_Dirac</Value>
-      <Value>*</Value>
+      <Value>INACTIVE</Value>
       <Value>Nonparametric</Value>
       <Value>wo_infs</Value>
       <Value>INACTIVE</Value>
@@ -548,18 +577,19 @@
       <Value>*</Value>
       <Value>sampling_mle</Value>
       <Value>random</Value>
+      <Value>wo_Dirac</Value>
     </Testcase>
     <Testcase TCNo="9">
       <Value>10</Value>
-      <Value>noduplicates</Value>
+      <Value>duplicates</Value>
       <Value>valid_function</Value>
       <Value>all_finite</Value>
-      <Value>all_false</Value>
+      <Value>some_true</Value>
       <Value>valid_function</Value>
       <Value>all_infinite</Value>
       <Value>with_Dirac</Value>
       <Value>false</Value>
-      <Value>false</Value>
+      <Value>true</Value>
       <Value>EI</Value>
       <Value>valid_function</Value>
       <Value>with_Dirac</Value>
@@ -568,24 +598,25 @@
       <Value>INACTIVE</Value>
       <Value>INACTIVE</Value>
       <Value>Parametric</Value>
+      <Value>wo_infs</Value>
       <Value>INACTIVE</Value>
-      <Value>valid_function</Value>
-      <Value>NonlinFitness</Value>
+      <Value>LinFitness</Value>
       <Value>1</Value>
       <Value>random_mle</Value>
       <Value>grid</Value>
+      <Value>INACTIVE</Value>
     </Testcase>
     <Testcase TCNo="10">
       <Value>11</Value>
-      <Value>duplicates</Value>
+      <Value>noduplicates</Value>
       <Value>missing</Value>
       <Value>*</Value>
-      <Value>some_true</Value>
+      <Value>all_false</Value>
       <Value>nothing</Value>
-      <Value>some_finite</Value>
+      <Value>all_infinite</Value>
       <Value>wo_Dirac</Value>
-      <Value>false</Value>
       <Value>true</Value>
+      <Value>false</Value>
       <Value>*</Value>
       <Value>*</Value>
       <Value>wo_Dirac</Value>
@@ -594,24 +625,25 @@
       <Value>with_Dirac</Value>
       <Value>nothing</Value>
       <Value>Semiparametric</Value>
-      <Value>wo_infs</Value>
       <Value>INACTIVE</Value>
-      <Value>LinFitness</Value>
+      <Value>valid_function</Value>
+      <Value>NonlinFitness</Value>
       <Value>*</Value>
       <Value>random_mle</Value>
       <Value>random</Value>
+      <Value>with_Dirac</Value>
     </Testcase>
     <Testcase TCNo="11">
       <Value>12</Value>
-      <Value>noduplicates</Value>
+      <Value>duplicates</Value>
       <Value>valid_function</Value>
       <Value>*</Value>
-      <Value>all_false</Value>
+      <Value>some_true</Value>
       <Value>valid_function</Value>
-      <Value>all_infinite</Value>
+      <Value>some_finite</Value>
       <Value>wo_Dirac</Value>
-      <Value>true</Value>
-      <Value>true</Value>
+      <Value>false</Value>
+      <Value>false</Value>
       <Value>*</Value>
       <Value>INACTIVE</Value>
       <Value>INACTIVE</Value>
@@ -626,21 +658,14 @@
       <Value>*</Value>
       <Value>random_mle</Value>
       <Value>optimization</Value>
+      <Value>wo_Dirac</Value>
     </Testcase>
     <Testcase TCNo="12">
       <Value>13</Value>
-      <Value>noduplicates</Value>
+      <Value>duplicates</Value>
       <Value>missing</Value>
       <Value>*</Value>
-      <Value>all_false</Value>
-      <Value>valid_function</Value>
-      <Value>*</Value>
-      <Value>*</Value>
-      <Value>*</Value>
-      <Value>true</Value>
-      <Value>*</Value>
-      <Value>*</Value>
-      <Value>*</Value>
+      <Value>some_true</Value>
       <Value>valid_function</Value>
       <Value>*</Value>
       <Value>*</Value>
@@ -649,9 +674,18 @@
       <Value>*</Value>
       <Value>*</Value>
       <Value>*</Value>
+      <Value>valid_function</Value>
+      <Value>*</Value>
+      <Value>*</Value>
+      <Value>*</Value>
+      <Value>*</Value>
+      <Value>INACTIVE</Value>
+      <Value>valid_function</Value>
+      <Value>NonlinFitness</Value>
       <Value>*</Value>
       <Value>turing_bi</Value>
       <Value>grid</Value>
+      <Value>*</Value>
     </Testcase>
     <Testcase TCNo="13">
       <Value>14</Value>
@@ -662,8 +696,8 @@
       <Value>nothing</Value>
       <Value>*</Value>
       <Value>*</Value>
+      <Value>true</Value>
       <Value>*</Value>
-      <Value>false</Value>
       <Value>*</Value>
       <Value>*</Value>
       <Value>*</Value>
@@ -672,12 +706,13 @@
       <Value>*</Value>
       <Value>*</Value>
       <Value>*</Value>
-      <Value>wo_infs</Value>
-      <Value>INACTIVE</Value>
-      <Value>LinFitness</Value>
+      <Value>*</Value>
+      <Value>*</Value>
+      <Value>*</Value>
       <Value>*</Value>
       <Value>random_mle</Value>
       <Value>optimization</Value>
+      <Value>*</Value>
     </Testcase>
     <Testcase TCNo="14">
       <Value>15</Value>
@@ -686,9 +721,9 @@
       <Value>*</Value>
       <Value>all_false</Value>
       <Value>*</Value>
-      <Value>all_infinite</Value>
       <Value>*</Value>
       <Value>*</Value>
+      <Value>false</Value>
       <Value>*</Value>
       <Value>*</Value>
       <Value>*</Value>
@@ -698,12 +733,13 @@
       <Value>with_Dirac</Value>
       <Value>*</Value>
       <Value>*</Value>
-      <Value>INACTIVE</Value>
-      <Value>valid_function</Value>
-      <Value>NonlinFitness</Value>
+      <Value>*</Value>
+      <Value>*</Value>
+      <Value>*</Value>
       <Value>*</Value>
       <Value>optimization_mle</Value>
       <Value>random</Value>
+      <Value>*</Value>
     </Testcase>
     <Testcase TCNo="15">
       <Value>16</Value>
@@ -713,7 +749,7 @@
       <Value>*</Value>
       <Value>*</Value>
       <Value>*</Value>
-      <Value>*</Value>
+      <Value>with_Dirac</Value>
       <Value>*</Value>
       <Value>*</Value>
       <Value>*</Value>
@@ -730,6 +766,7 @@
       <Value>*</Value>
       <Value>sampling_mle</Value>
       <Value>*</Value>
+      <Value>with_Dirac</Value>
     </Testcase>
     <Testcase TCNo="16">
       <Value>17</Value>
@@ -756,6 +793,7 @@
       <Value>*</Value>
       <Value>turing_bi</Value>
       <Value>*</Value>
+      <Value>INACTIVE</Value>
     </Testcase>
   </Testset>
   <Header>
@@ -783,12 +821,13 @@
     <Value>ITER_MAX</Value>
     <Value>MODELFITTER</Value>
     <Value>ACQUISITIONMAXIMIZER</Value>
+    <Value>NONPARAMETRIC_AMP_PRIORS</Value>
   </Header>
   <Stat-Data>
-    <ExecutionTime>0.026</ExecutionTime>
+    <ExecutionTime>0.125</ExecutionTime>
     <MaxDomainSize>4</MaxDomainSize>
     <MinDomainSize>1</MinDomainSize>
-    <TotalNoOfCombination>1134</TotalNoOfCombination>
+    <TotalNoOfCombination>1268</TotalNoOfCombination>
     <TotalNoOfTests>17</TotalNoOfTests>
     <Algorithm>IPOG</Algorithm>
   </Stat-Data>
