@@ -1,0 +1,32 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: >-
+  BOSS.jl (Bayesian Optimization with Semiparametric
+  Surrogate)
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Šimon
+    family-names: Soldát
+    email: soldasim@fel.cvut.cz
+repository-code: 'https://github.com/soldasim/BOSS.jl'
+abstract: >-
+  BOSS.jl is a Julia package for Bayesian optimization. It
+  provides a compact way to define an optimization problem
+  and a surrogate model, and solve the problem. It allows
+  changing the hyperparameters of the underlying algorithms,
+  and provides a simple interface to use custom algorithms
+  for the subtasks of fitting the model parameters and
+  optimizing the acquisition function.
+keywords:
+  - Bayesian optimization
+  - julia
+  - optimization
+  - blackbox optimization
+  - surrogate model
+  - Gaussian process
+license: MIT

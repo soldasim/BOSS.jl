@@ -2,7 +2,7 @@
 
 :warning:_BOSS.jl is a WIP and not registered yet._:warning:
 
-BOSS is a julia package for Bayesian optimization. It provides a compact way to define an optimization problem and a surrogate model and solve the problem. It allows to change the hyperparameters of the underlying algorithms and provides a simple interface to use custom algorithms for the subtasks of fitting the model parameters and optimizing the acquisition function.
+BOSS.jl is a Julia package for Bayesian optimization. It provides a compact way to define an optimization problem and a surrogate model, and solve the problem. It allows changing the hyperparameters of the underlying algorithms, and provides a simple interface to use custom algorithms for the subtasks of fitting the model parameters and optimizing the acquisition function.
 
 ## Problem Definition
 
@@ -33,3 +33,7 @@ A simple plotting script is provided to visualize the optimization process using
 ## Examples
 
 See https://github.com/Sheld5/BOSS.jl/tree/master/scripts for example usage.
+
+## Citation
+
+If you use this software, please cite it using provided `CITATION.cff` file.
