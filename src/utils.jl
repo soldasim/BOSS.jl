@@ -91,20 +91,10 @@ Exclude points exterior to the given `x` domain from the given `X` and `Y` data 
 and return new matrices `X_` and `Y_`.
 """
 function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; options::BossOptions)
-    @assert size(X)[2] == size(Y)[2]
-    datasize = size(X)[2]
-
-    exterior = fill(false, datasize)
-    for i in 1:datasize
-        in_domain(X[:,i], domain) || (exterior[i] = true)
-    end
-
-    options.info && any(exterior) && @warn "Some data are exterior to the domain and will be discarded!"
-    all(exterior) && return eltype(X)[;;], eltype(Y)[;;]
-    
-    X_ = reduce(hcat, (X[:,i] for i in 1:datasize if !exterior[i]))[:,:]
-    Y_ = reduce(hcat, (Y[:,i] for i in 1:datasize if !exterior[i]))[:,:]
-    return X_, Y_
+    interior = in_domain.(eachcol(X), Ref(domain))
+    all(interior) && return X, Y
+    options.info && @warn "Some data are exterior to the domain and will be discarded!"
+    return X[:,interior], Y[:,interior]
 end
 
 """
@@ -138,6 +128,7 @@ function update_parameters!(::Type{MLE}, data::ExperimentDataPrior,
         length_scales,
         amplitudes,
         noise_std,
+        true,  # consistent
     )
 end
 function update_parameters!(::Type{BI}, data::ExperimentDataPrior,
@@ -153,6 +144,7 @@ function update_parameters!(::Type{BI}, data::ExperimentDataPrior,
         length_scales,
         amplitudes,
         noise_std,
+        true,  # consistent
     )
 end
 function update_parameters!(::Type{T}, data::ExperimentDataPost{T},
@@ -165,6 +157,7 @@ function update_parameters!(::Type{T}, data::ExperimentDataPost{T},
     data.length_scales = length_scales
     data.amplitudes = amplitudes
     data.noise_std = noise_std
+    data.consistent = true
     return data
 end
 function update_parameters!(::Type{T}, data::ExperimentDataPost,
@@ -179,8 +172,21 @@ end
 """
 Add one (as vectors) or more (as matrices) datapoints to the dataset.
 """
-function add_data!(data::ExperimentData, X::AbstractArray{<:Real}, Y::AbstractArray{<:Real})
+function augment_dataset!(data::ExperimentDataPost, X::AbstractArray{<:Real}, Y::AbstractArray{<:Real})
     data.X = hcat(data.X, X)
     data.Y = hcat(data.Y, Y)
+    data.consistent = false
     return data
 end
+
+"""
+    consistent(::ExperimentData)
+
+Returns true if the parameters in the data are estimated
+using to the current dataset (X, Y).
+
+Returns false if the dataset have been augmented
+since the parameters have been estimated.
+"""
+consistent(data::ExperimentDataPrior) = false
+consistent(data::ExperimentDataPost) = data.consistent

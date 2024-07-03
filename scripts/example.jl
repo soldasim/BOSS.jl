@@ -99,15 +99,16 @@ end
 boss_options() = BossOptions(;
     info = true,
     debug = false,
-    callback = PlotCallback(Plots, f_true=x->blackbox(x; noise_std=0.)),
+    callback = PlotCallback(Plots;
+        f_true = x->blackbox(x; noise_std=0.),
+    ),
 )
 
 """
 An example usage of the BOSS algorithm with a MLE algorithm.
 """
-function main(problem=opt_problem(2), iters=20;
+function main(problem=opt_problem(2), iters=10;
     parallel = true,
-    options = boss_options(),
 )
     ### Model Fitter:
     # Maximum likelihood estimation
@@ -137,6 +138,7 @@ function main(problem=opt_problem(2), iters=20;
 
     acquisition = ExpectedImprovement()
     term_cond = IterLimit(iters)
+    options = boss_options()
 
     # Run BOSS:
     bo!(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)

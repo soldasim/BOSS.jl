@@ -37,12 +37,16 @@ function bo!(problem::BossProblem;
     options::BossOptions=BossOptions(),
 )
     initialize!(problem; options)
+    consistent(problem.data) || estimate_parameters!(problem, model_fitter; options)
+    options.callback(problem; model_fitter, acq_maximizer, acquisition, term_cond, options, first=true)
+    
     while term_cond(problem)
-        estimate_parameters!(problem, model_fitter; options)
         X = maximize_acquisition(problem, acquisition, acq_maximizer; options)
         eval_objective!(problem, X; options)
-        options.callback(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)
+        estimate_parameters!(problem, model_fitter; options)
+        options.callback(problem; model_fitter, acq_maximizer, acquisition, term_cond, options, first=false)
     end
+    
     return problem
 end
 
@@ -53,9 +57,8 @@ function bo!(problem::BossProblem{Missing};
     options::BossOptions=BossOptions(),
 )
     initialize!(problem; options)
-    estimate_parameters!(problem, model_fitter; options)
+    consistent(problem.data) || estimate_parameters!(problem, model_fitter; options)
     X = maximize_acquisition(problem, acquisition, acq_maximizer; options)
-    options.callback(problem; model_fitter, acq_maximizer, acquisition, options)
     return X
 end
 
@@ -71,7 +74,9 @@ function initialize!(problem::BossProblem; options::BossOptions)
     problem.data.X, problem.data.Y = exclude_exterior_points(problem.domain, problem.data.X, problem.data.Y; options)
     isempty(problem.data.X) && throw(ErrorException("Cannot start with empty dataset! Provide at least one interior initial point."))
 
-    problem.y_max = [isinf(c) ? Infinity() : c for c in problem.y_max]
+    if any(isinf.(problem.y_max))
+        problem.y_max = [isinf(c) ? Infinity() : c for c in problem.y_max]
+    end
 end
 
 """
@@ -105,14 +110,14 @@ Evaluate the objective function and update the data.
 function eval_objective!(problem::BossProblem, x::AbstractVector{<:Real}; options::BossOptions)
     options.info && @info "Evaluating objective function ..."
     y = problem.f(x)
-    add_data!(problem.data, x, y)
+    augment_dataset!(problem.data, x, y)
     options.info && @info "New data point: $x : $y"
     return y
 end
 function eval_objective!(problem::BossProblem, X::AbstractMatrix{<:Real}; options::BossOptions)
     options.info && @info "Evaluating objective function ..."
     Y = eval_points(Val(options.parallel_evals), problem.f, X)
-    add_data!(problem.data, X, Y)
+    augment_dataset!(problem.data, X, Y)
     options.info && @info "New data:" * reduce(*, ("\n\t$x : $y" for (x, y) in zip(eachcol(X), eachcol(Y))))
     return Y
 end

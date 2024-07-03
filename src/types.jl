@@ -172,6 +172,10 @@ Stores the data matrices `X`,`Y` as well as the optimized model parameters and h
         of the GP as a `x_dim`×`y_dim` matrix (or nothing if the model is parametric).
 - `amplitudes::Union{Nothing, <:AbstractVector{<:Real}}`: Amplitudes of the GP.
 - `noise_std::AbstractVector{<:Real}`: The MLE noise standard deviations of each `y` dimension.
+- `consistent::Bool`: True iff the parameters (`θ`, `length_scales`, `amplitudes`, `noise_std`)
+        have been fitted using the current dataset (`X`, `Y`).
+        Is set to `consistent = false` after updating the dataset,
+        and to `consistent = true` after re-fitting the parameters.
 
 See also: [`BOSS.ExperimentDataBI`](@ref)
 """
@@ -188,6 +192,7 @@ mutable struct ExperimentDataMLE{
     length_scales::L
     amplitudes::A
     noise_std::N
+    consistent::Bool
 end
 
 """
@@ -204,6 +209,10 @@ Stores the data matrices `X`,`Y` as well as the sampled model parameters and hyp
 - `amplitudes::Union{Nothing, <:AbstractVector{<:AbstractVector{<:Real}}}`: Samples of the amplitudes of the GP.
 - `noise_std::AbstractVector{<:AbstractVector{<:Real}}`: Samples of the noise standard deviations of each `y` dimension
         stored column-wise in a matrix.
+- `consistent::Bool`: True iff the parameters (`θ`, `length_scales`, `amplitudes`, `noise_std`)
+        have been fitted using the current dataset (`X`, `Y`).
+        Is set to `consistent = false` after updating the dataset,
+        and to `consistent = true` after re-fitting the parameters.
 
 See also: [`BOSS.ExperimentDataBI`](@ref)
 """
@@ -220,6 +229,7 @@ mutable struct ExperimentDataBI{
     length_scales::L
     amplitudes::A
     noise_std::N
+    consistent::Bool
 end
 
 
@@ -374,7 +384,8 @@ BossProblem(;
 
 """
 If an object `cb` of type `BossCallback` is passed to `BossOptions`,
-the method shown below will be called after every iteration of BO.
+the method shown below will be called before the BO procedure starts
+and after every iteration.
 
 ```
 cb(problem::BossProblem;
@@ -383,8 +394,12 @@ cb(problem::BossProblem;
     acquisition::AcquisitionFunction,
     term_cond::TermCond,
     options::BossOptions,
+    first::Bool,
 )
 ```
+
+The kwargs `first` is true on the first callback before the BO procedure starts,
+and is false on all subsequent callbacks after each iteration.
 
 See `PlotCallback` for an example usage of this feature for plotting.
 """
@@ -410,7 +425,8 @@ Stores miscellaneous settings of the BOSS algorithm.
         Determines whether to run multiple objective function evaluations
         within one batch in serial, parallel, or distributed fashion.
         (Only has an effect if batching AM is used.)
-- `callback::BossCallback`: If provided, `callback(::BossProblem; kwargs...)` will be called every iteration.
+- `callback::BossCallback`: If provided, `callback(::BossProblem; kwargs...)`
+        will be called before the BO procedure starts and after every iteration.
 
 See also: [`BOSS.boss!`](@ref)
 """

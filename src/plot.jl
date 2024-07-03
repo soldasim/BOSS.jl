@@ -23,81 +23,52 @@ but supports multi-dimensional `y`.
 - `yaxis::Symbol`: Used to change the y axis scale (`:identity`, `:log`).
 - `title::String`: The plot title.
 """
-struct PlotCallback{
+mutable struct PlotCallback{
     F<:Union{Nothing, Function},
-    A<:Union{Nothing, Function},
-    O<:Union{Nothing, AbstractArray{<:Real}},
 } <: BossCallback
     Plots::Module
+    prev_state::Union{Nothing, BossProblem}
     f_true::F
-    acquisition::A
-    acq_opt::O
     points::Int
     xaxis::Symbol
     yaxis::Symbol
     title::String
 end
 PlotCallback(Plots::Module;
-    f_true=nothing,
-    acquisition=nothing,
-    acq_opt=nothing,
-    points=200,
-    xaxis=:identity,
-    yaxis=:identity,
-    title="BOSS optimization problem",
-) = PlotCallback(Plots, f_true, acquisition, acq_opt, points, xaxis, yaxis, title)
+    f_true = nothing,
+    points = 200,
+    xaxis = :identity,
+    yaxis = :identity,
+    title = "BOSS optimization problem",
+) = PlotCallback(Plots, nothing, f_true, points, xaxis, yaxis, title)
 
-(plt::PlotCallback)(problem::BossProblem;
+function (plt::PlotCallback)(problem::BossProblem;
     acquisition::AcquisitionFunction,
     options::BossOptions,
+    first::Bool,
     kwargs...
-) = make_plot(plt, remove_last_point(problem), acquisition, get_acq_opt(problem); info=options.info)
-
-function remove_last_point(problem::BossProblem)
-    prob = deepcopy(problem)
-    prob.data.X = prob.data.X[:,1:end-1]
-    prob.data.Y = prob.data.Y[:,1:end-1]
-    return prob
+)
+    if first
+        plt.prev_state = deepcopy(problem)
+    else
+        acq_opt = problem.data.X[:,end]
+        make_plot(plt, plt.prev_state, acquisition, acq_opt; info=options.info)
+        plt.prev_state = deepcopy(problem)
+    end
 end
 
-function get_acq_opt(problem)
-    return problem.data.X[:,end]
-end
-
-"""
-Plot the current state of the optimization process.
-"""
 function make_plot(opt::PlotCallback, problem::BossProblem, acquisition::AcquisitionFunction, acq_opt::AbstractArray{<:Real}; info::Bool)
     info && @info "Plotting ..."
     acq = acquisition(problem, BossOptions())
-    opt_ = PlotCallback(
-        opt.Plots,
-        opt.f_true,
-        acq,
-        acq_opt,
-        opt.points,
-        opt.xaxis,
-        opt.yaxis,
-        opt.title,
-    )
-    display(plot_problem(opt_, problem))
+    display(plot_problem(opt, problem, acq, acq_opt))
 end
 
-"""
-    BOSS.plot_problem(opt::PlotOptions, problem::BossProblem)
-
-Plot the current state of the given optimization problem.
-
-Only works with 1-dimensional `x`, but supports multidimensional `y`.
-
-See also: [`BOSS.PlotOptions`](@ref)
-"""
-function plot_problem(opt::PlotCallback, problem::BossProblem)
+function plot_problem(opt::PlotCallback, problem::BossProblem, acq, acq_opt)
     @assert x_dim(problem) == 1
 
     subplots = opt.Plots.Plot[]
     push!(subplots, [plot_y_slice(opt, problem, dim) for dim in 1:y_dim(problem)]...)
-    isnothing(opt.acquisition) || push!(subplots, plot_acquisition(opt, problem))
+    push!(subplots, plot_acquisition(opt, problem, acq, acq_opt))
     
     opt.Plots.plot!(first(subplots); title=opt.title)
     opt.Plots.plot!(last(subplots); xlabel="x")
@@ -195,23 +166,21 @@ end
 ```
 Create a plot of the acquisition function.
 ```
-function plot_acquisition(opt::PlotCallback, problem::BossProblem)
+function plot_acquisition(opt::PlotCallback, problem::BossProblem, acq, acq_opt)
     @assert x_dim(problem) == 1
     lb, ub = first.(problem.domain.bounds)
 
     p = opt.Plots.plot(; ylabel="acquisition", xaxis=opt.xaxis, yaxis=opt.yaxis)
 
-    if !isnothing(opt.acquisition)
-        acq(x) = in_domain(x, problem.domain) ? opt.acquisition(x) : 0.
-        x_points = (opt.xaxis == :log) ? log_range(lb, ub, opt.points) : collect(LinRange(lb, ub, opt.points))
-        y_points = (x->acq([x])).(x_points)
-        opt.Plots.plot!(p, x_points, y_points; label="acquisition", color=ACQUISITION_COLOR)
+    acq_(x) = in_domain(x, problem.domain) ? acq(x) : 0.
+    x_points = (opt.xaxis == :log) ? log_range(lb, ub, opt.points) : collect(LinRange(lb, ub, opt.points))
+    y_points = (x->acq_([x])).(x_points)
+    opt.Plots.plot!(p, x_points, y_points; label="acquisition", color=ACQUISITION_COLOR)
 
-        if !isnothing(opt.acq_opt)
-            opts = eachcol(opt.acq_opt) |> collect
-            vals = acq.(opts)
-            opt.Plots.scatter!(p, opts, vals; label="optimum", color=ACQUISITION_COLOR)
-        end
+    if !isnothing(acq_opt)
+        opts = eachcol(acq_opt) |> collect
+        vals = acq_.(opts)
+        opt.Plots.scatter!(p, opts, vals; label="optimum", color=ACQUISITION_COLOR)
     end
 
     return p

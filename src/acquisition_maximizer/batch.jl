@@ -37,6 +37,6 @@ function speculative_evaluation!(problem::BossProblem, am::AcquisitionMaximizer,
     posterior = model_posterior(problem.model, problem.data)
     x = maximize_acquisition(am, acq, problem, options)
     y = posterior(x)[1]
-    add_data!(problem.data, x, y)
+    augment_dataset!(problem.data, x, y)
     return x
 end
