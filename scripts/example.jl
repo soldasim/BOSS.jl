@@ -120,11 +120,11 @@ function main(problem=opt_problem(2), iters=10;
     )
     # # Bayesian Inference (sampling)
     # model_fitter = TuringBI(;
-    #     sampler=BOSS.PG(20),
-    #     warmup=100,
-    #     samples_in_chain=10,
-    #     chain_count=8,
-    #     leap_size=5,
+    #     sampler = BOSS.PG(20),
+    #     warmup = 100,
+    #     samples_in_chain = 10,
+    #     chain_count = 8,
+    #     leap_size = 5,
     #     parallel,
     # )
 

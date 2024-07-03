@@ -4,7 +4,7 @@
 
 Terminates the BOSS algorithm after predefined number of iterations.
 
-See also: [`BOSS.bo!`](@ref)
+See also: [`bo!`](@ref)
 """
 mutable struct IterLimit <: TermCond
     iter::Int

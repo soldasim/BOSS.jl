@@ -30,7 +30,7 @@ function OptimizationAM(;
     autodiff=AutoForwardDiff(),
     kwargs...
 )
-    ((:lb in keys(kwargs)) || (:ub in keys(kwargs))) && @warn "The provided `:lb` and `:ub` kwargs of `BOSS.OptimizationAM` are ignored!\nUse the `domain` field of the `BOSS.BossProblem` instead."
+    ((:lb in keys(kwargs)) || (:ub in keys(kwargs))) && @warn "The provided `:lb` and `:ub` kwargs of `OptimizationAM` are ignored!\nUse the `domain` field of the `BossProblem` instead."
     isnothing(autodiff) && (autodiff = SciMLBase.NoAD())
     return OptimizationAM(algorithm, multistart, parallel, autodiff, kwargs)
 end

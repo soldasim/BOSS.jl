@@ -6,7 +6,7 @@ include("example.jl")
 A simple benchmark showcasing the speed-up achieved via parallelization with MLE.
 """
 function parallel_benchmark_mle()
-    options = BOSS.BossOptions(; info=false, plot_options=nothing)
+    options = BossOptions(; info=false, plot_options=nothing)
     
     seq_mle = @elapsed example_mle(; parallel=false, options)
     par_mle = @elapsed example_mle(; parallel=true, options)
@@ -20,7 +20,7 @@ end
 A simple benchmark showcasing the speed-up achieved via parallelization with BI.
 """
 function parallel_benchmark_bi()
-    options = BOSS.BossOptions(; info=false, plot_options=nothing)
+    options = BossOptions(; info=false, plot_options=nothing)
     
     seq_bi = @elapsed example_bi(; parallel=false, options)
     par_bi = @elapsed example_bi(; parallel=true, options)

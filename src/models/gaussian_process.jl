@@ -57,10 +57,10 @@ All dimensions are considered as discrete if `dims` is not provided.
 
 This structure is used internally by the BOSS algorithm.
 The end user of BOSS.jl is not expected to use this structure.
-Use the `BOSS.Domain` passed to the `BOSS.BossProblem`
+Use the `Domain` passed to the `BossProblem`
 to define discrete dimensions instead.
 
-See also: `BOSS.BossProblem`(@ref)
+See also: `BossProblem`(@ref)
 
 # Examples:
 ```julia-repl

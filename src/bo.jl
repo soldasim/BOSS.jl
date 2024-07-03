@@ -2,7 +2,7 @@
     bo!(problem::BossProblem{Function}; kwargs...)
     x = bo!(problem::BossProblem{Missing}; kwargs...)
 
-Solve the given optimization problem via Bayesian optimization with surrogate model
+Run the Bayesian optimization procedure to solve the given optimization problem
 or give a recommendation for the next evaluation point if `problem.f == missing`.
 
 # Arguments
@@ -20,11 +20,11 @@ or give a recommendation for the next evaluation point if `problem.f == missing`
 
 # References
 
-[`BOSS.BossProblem`](@ref),
-[`BOSS.ModelFitter`](@ref),
-[`BOSS.AcquisitionMaximizer`](@ref),
-[`BOSS.TermCond`](@ref),
-[`BOSS.BossOptions`](@ref)
+[`BossProblem`](@ref),
+[`ModelFitter`](@ref),
+[`AcquisitionMaximizer`](@ref),
+[`TermCond`](@ref),
+[`BossOptions`](@ref)
 
 # Examples
 See 'https://github.com/Sheld5/BOSS.jl/tree/master/scripts' for example usage.

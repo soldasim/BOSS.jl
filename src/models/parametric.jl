@@ -2,7 +2,7 @@
 """
 An abstract type for parametric surrogate models.
 
-See also: [`BOSS.LinModel`](@ref), [`BOSS.NonlinModel`](@ref)
+See also: [`LinModel`](@ref), [`NonlinModel`](@ref)
 """
 abstract type Parametric <: SurrogateModel end
 
@@ -11,8 +11,8 @@ abstract type Parametric <: SurrogateModel end
 
 A parametric surrogate model linear in its parameters.
 
-This model definition will provide better performance than the more general 'BOSS.NonlinModel' in the future.
-This feature is not implemented yet so it is equivalent to using `BOSS.NonlinModel` for now.
+This model definition will provide better performance than the more general 'NonlinModel' in the future.
+This feature is not implemented yet so it is equivalent to using `NonlinModel` for now.
 
 The linear model is defined as
     ϕs = lift(x)
@@ -52,7 +52,7 @@ LinModel(;
 
 A parametric surrogate model.
 
-If your model is linear, you can use `BOSS.LinModel` which will provide better performance in the future. (Not yet implemented.)
+If your model is linear, you can use `LinModel` which will provide better performance in the future. (Not yet implemented.)
 
 Define the model as `y = predict(x, θ)` where `θ` are the model parameters.
 

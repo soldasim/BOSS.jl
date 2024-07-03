@@ -10,7 +10,7 @@ Not suitable for problems with high dimensional domain.
 Can be used with constraints on `x`.
 
 # Arguments
-- `problem::BOSS.BossProblem`: Provide your defined optimization problem.
+- `problem::BossProblem`: Provide your defined optimization problem.
 - `steps::Vector{Float64}`: Defines the size of the grid gaps in each `x` dimension.
 
 # Keywords
@@ -23,7 +23,7 @@ struct GridAM <: AcquisitionMaximizer
     shuffle::Bool
 end
 function GridAM(;
-    problem::BOSS.BossProblem,
+    problem::BossProblem,
     steps,
     parallel=true,
     shuffle=true,

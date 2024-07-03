@@ -16,7 +16,7 @@ Structures derived from this type have to implement the following method:
 This method should return a function `acq(x::AbstractVector{<:Real}) = val::Real`,
 which is maximized to select the next evaluation function of blackbox function in each iteration.
 
-See also: [`BOSS.ExpectedImprovement`](@ref)
+See also: [`ExpectedImprovement`](@ref)
 """
 abstract type AcquisitionFunction end
 
@@ -28,7 +28,7 @@ abstract type AcquisitionFunction end
 """
 An abstract type for a surrogate model approximating the objective function.
 
-Example usage: `struct CustomModel <: BOSS.SurrogateModel ... end`
+Example usage: `struct CustomModel <: SurrogateModel ... end`
 
 All models should implement the following methods:
 `make_discrete(model::CustomModel, discrete::AbstractVector{<:Bool}) -> discrete_model::CustomModel`
@@ -39,9 +39,9 @@ All models should implement the following methods:
 `param_priors(model::CustomModel) -> (θ_priors::AbstractVector{<:UnivariateDistribution}, λ_priors::AbstractVector{<:MultivariateDistribution})
 
 See also:
-[`BOSS.LinModel`](@ref), [`BOSS.NonlinModel`](@ref),
-[`BOSS.Nonparametric`](@ref),
-[`BOSS.Semiparametric`](@ref)
+[`LinModel`](@ref), [`NonlinModel`](@ref),
+[`GaussianProcess`](@ref),
+[`Semiparametric`](@ref)
 """
 abstract type SurrogateModel end
 
@@ -61,7 +61,7 @@ Structures derived from this type have to implement the following method:
 This method should return the point of the input domain which maximizes the given acquisition function `acq` (as a vector)
 or a batch of points (as a column-wise matrix).
 
-See also: [`BOSS.OptimMaximizer`](@ref)
+See also: [`OptimizationAM`](@ref)
 """
 abstract type AcquisitionMaximizer end
 
@@ -91,7 +91,7 @@ This method should return a named tuple `(θ = ..., length_scales = ..., noise_s
 with either MLE model parameters (if `CustomAlg <: ModelFitter{MLE}`)
 or model parameter samples (if `CustomAlg <: ModelFitter{BI}`).
 
-See also: [`BOSS.OptimMLE`](@ref), [`BOSS.TuringBI`](@ref)
+See also: [`OptimizationMLE`](@ref), [`TuringBI`](@ref)
 """
 abstract type ModelFitter{T<:ModelFit} end
 
@@ -112,7 +112,7 @@ Structures derived from this type have to implement the following method:
 This method should return true to keep the optimization running
 and return false once the optimization is to be terminated.
 
-See also: [`BOSS.IterLimit`](@ref)
+See also: [`IterLimit`](@ref)
 """
 abstract type TermCond end
 
@@ -125,7 +125,7 @@ abstract type TermCond end
 Stores all the data collected during the optimization
 as well as the parameters and hyperparameters of the model.
 
-See also: [`BOSS.ExperimentDataPrior`](@ref), [`BOSS.ExperimentDataPost`](@ref)
+See also: [`ExperimentDataPrior`](@ref), [`ExperimentDataPost`](@ref)
 """
 abstract type ExperimentData end
 ExperimentData(args...) = ExperimentDataPrior(args...)
@@ -140,7 +140,7 @@ Stores the initial data.
 - `X::AbstractMatrix{<:Real}`: Contains the objective function inputs as columns.
 - `Y::AbstractMatrix{<:Real}`: Contains the objective function outputs as columns.
 
-See also: [`BOSS.ExperimentDataPost`](@ref)
+See also: [`ExperimentDataPost`](@ref)
 """
 mutable struct ExperimentDataPrior{
     T<:AbstractMatrix{<:Real},
@@ -156,7 +156,7 @@ ExperimentDataPrior(;
 """
 Stores the fitted/samples model parameters in addition to the data matrices `X`,`Y`.
 
-See also: [`BOSS.ExperimentDataPrior`](@ref), [`BOSS.ExperimentDataMLE`](@ref), [`BOSS.ExperimentDataBI`](@ref)
+See also: [`ExperimentDataPrior`](@ref), [`ExperimentDataMLE`](@ref), [`ExperimentDataBI`](@ref)
 """
 abstract type ExperimentDataPost{T<:ModelFit} <: ExperimentData end
 
@@ -177,7 +177,7 @@ Stores the data matrices `X`,`Y` as well as the optimized model parameters and h
         Is set to `consistent = false` after updating the dataset,
         and to `consistent = true` after re-fitting the parameters.
 
-See also: [`BOSS.ExperimentDataBI`](@ref)
+See also: [`ExperimentDataBI`](@ref)
 """
 mutable struct ExperimentDataMLE{
     T<:AbstractMatrix{<:Real},
@@ -214,7 +214,7 @@ Stores the data matrices `X`,`Y` as well as the sampled model parameters and hyp
         Is set to `consistent = false` after updating the dataset,
         and to `consistent = true` after re-fitting the parameters.
 
-See also: [`BOSS.ExperimentDataBI`](@ref)
+See also: [`ExperimentDataMLE`](@ref)
 """
 mutable struct ExperimentDataBI{
     T<:AbstractMatrix{<:Real},
@@ -241,7 +241,7 @@ measuring the quality of an output `y` of the objective function.
 
 Fitness is used by the `AcquisitionFunction` to determine promising points for future evaluations.
 
-See also: [`BOSS.AcquisitionFunction`](@ref), [`BOSS.NoFitness`](@ref), [`BOSS.LinFitness`](@ref), [`BOSS.NonlinFitness`](@ref)
+See also: [`AcquisitionFunction`](@ref), [`NoFitness`](@ref), [`LinFitness`](@ref), [`NonlinFitness`](@ref)
 """
 abstract type Fitness end
 
@@ -259,16 +259,16 @@ struct NoFitness <: Fitness end
 Used to define a linear fitness function 
 measuring the quality of an output `y` of the objective function.
 
-May provide better performance than the more general `BOSS.NonlinFitness`
+May provide better performance than the more general `NonlinFitness`
 as some acquisition functions can be calculated analytically with linear fitness
 functions whereas this may not be possible with a nonlinear fitness function.
 
-See also: [`BOSS.NonlinFitness`](@ref)
+See also: [`NonlinFitness`](@ref)
 
 # Example
 A fitness function `f(y) = y[1] + a * y[2] + b * y[3]` can be defined as:
 ```julia-repl
-julia> BOSS.LinFitness([1., a, b])
+julia> LinFitness([1., a, b])
 ```
 """
 struct LinFitness{
@@ -284,9 +284,9 @@ end
 Used to define a general nonlinear fitness function
 measuring the quality of an output `y` of the objective function.
 
-If your fitness function is linear, use `BOSS.LinFitness` instead for better performance.
+If your fitness function is linear, use `LinFitness` instead for better performance.
 
-See also: [`BOSS.LinFitness`](@ref)
+See also: [`LinFitness`](@ref)
 
 # Example
 ```julia-repl
@@ -310,7 +310,7 @@ Describes the optimization domain.
 - `cons::Union{Nothing, Function}`: Used to define arbitrary nonlinear constraints on `x`.
         Feasible points `x` must satisfy `all(cons(x) .> 0.)`. An appropriate acquisition
         maximizer which can handle nonlinear constraints must be used if `cons` is provided.
-        (See [`BOSS.AcquisitionMaximizer`](@ref).)
+        (See [`AcquisitionMaximizer`](@ref).)
 """
 struct Domain{
     B<:AbstractBounds,
@@ -346,17 +346,17 @@ Defines the whole optimization problem for the BOSS algorithm.
     while satisfying the constraints `f(x) <= y_max`.
 
 # Keywords
-- `fitness::Fitness`: The fitness function. See [`BOSS.Fitness`](@ref).
+- `fitness::Fitness`: The fitness function. See [`Fitness`](@ref).
 - `f::Union{Function, Missing}`: The objective blackbox function.
-- `domain::Domain`: The domain of `x`. See [`BOSS.Domain`](@ref).
+- `domain::Domain`: The domain of `x`. See [`Domain`](@ref).
 - `y_max`: The constraints on `y`. (See the definition above.)
-- `model::SurrogateModel`: See [`BOSS.SurrogateModel`](@ref).
+- `model::SurrogateModel`: See [`SurrogateModel`](@ref).
 - `noise_std_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions
         of the noise standard deviations of each `y` dimension.
 - `data::ExperimentData`: The initial data of objective function evaluations.
-        See [`BOSS.ExperimentDataPrior`].
+        See [`ExperimentDataPrior`].
 
-See also: [`BOSS.boss!`](@ref)
+See also: [`bo!`](@ref)
 """
 mutable struct BossProblem{
     F<:Any,
@@ -428,7 +428,7 @@ Stores miscellaneous settings of the BOSS algorithm.
 - `callback::BossCallback`: If provided, `callback(::BossProblem; kwargs...)`
         will be called before the BO procedure starts and after every iteration.
 
-See also: [`BOSS.boss!`](@ref)
+See also: [`bo!`](@ref)
 """
 struct BossOptions{
     CB<:BossCallback
