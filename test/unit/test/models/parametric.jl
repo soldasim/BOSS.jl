@@ -157,7 +157,7 @@ end
         domain = BOSS.Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
         model,
-        noise_var_priors = fill(BOSS.Dirac(1e-8), 2),
+        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         data = BOSS.ExperimentDataPrior(X, Y),
     )
 
@@ -191,7 +191,7 @@ end
             out([2., 2.]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}},
             length(out([2., 2.])[1]) == 2,
             length(out([2., 2.])[2]) == 2,
-            out([2., 2.])[2] == [1e-8, 1e-8],
+            out([2., 2.])[2] == [1e-4, 1e-4],
             all(out([2., 2.])[2] == out([3., 3.])[2]),
             all(out([10., 10.])[2] == out([11., 11.])[2]),
         )
@@ -203,8 +203,8 @@ end
             out isa Vector,
             out[1]([2., 2.]) isa Tuple{<:Real, <:Real},
             out[2]([2., 2.]) isa Tuple{<:Real, <:Real},
-            out[1]([2., 2.])[2] == 1e-8,
-            out[2]([2., 2.])[2] == 1e-8,
+            out[1]([2., 2.])[2] == 1e-4,
+            out[2]([2., 2.])[2] == 1e-4,
             out[1]([2., 2.])[2] == out[1]([3., 3.])[2],
             out[2]([2., 2.])[2] == out[2]([3., 3.])[2],
             out[1]([10., 10.])[2] == out[1]([11., 11.])[2],
@@ -213,7 +213,7 @@ end
     end
 end
 
-@testset "model_loglike(model, noise_var_priors, data)" begin
+@testset "model_loglike(model, noise_std_priors, data)" begin
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
@@ -233,12 +233,12 @@ end
         param_priors = fill(BOSS.Normal(), 4),
         discrete = nothing,
     )
-    noise_var_priors = fill(BOSS.LogNormal(1., 1.), 2)
+    noise_std_priors = fill(BOSS.LogNormal(), 2)
     data = BOSS.ExperimentDataPrior(X, Y)
 
     @param_test BOSS.model_loglike begin
-        @params lin_model, deepcopy(noise_var_priors), deepcopy(data)
-        @params nonlin_model, deepcopy(noise_var_priors), deepcopy(data)
+        @params lin_model, deepcopy(noise_std_priors), deepcopy(data)
+        @params nonlin_model, deepcopy(noise_std_priors), deepcopy(data)
         @success (
             out isa Function,
             out([1., 1., 1., 1.], Float64[;;], Float64[], [1., 1.]) isa Real,
@@ -308,7 +308,7 @@ end
     end
 end
 
-@testset "model_data_loglike(model, θ, noise_vars, X, Y)" begin
+@testset "model_data_loglike(model, θ, noise_std, X, Y)" begin
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
@@ -343,8 +343,8 @@ end
         )
     end
 
-    t_noise_vars(σ2; model, Y) = BOSS.model_data_loglike(deepcopy(model), [1., 1., 1., 1.], σ2, deepcopy(X), deepcopy(Y))
-    @param_test (model, Y) -> (σ2 -> t_noise_vars(σ2; model, Y)) begin
+    t_noise_std(σ; model, Y) = BOSS.model_data_loglike(deepcopy(model), [1., 1., 1., 1.], σ, deepcopy(X), deepcopy(Y))
+    @param_test (model, Y) -> (σ -> t_noise_std(σ; model, Y)) begin
         @params lin_model, Y
         @params nonlin_model, Y
         @success out([0.1, 0.1]) > out([1., 1.]) > out([10., 10.])  # because model fits the data

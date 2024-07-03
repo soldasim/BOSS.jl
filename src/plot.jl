@@ -147,8 +147,8 @@ function plot_y_slice(opt::PlotCallback, problem::BossProblem, dim::Int)
             # MLE -> best fit
             predict = model_posterior(problem.model, problem.data)
             y_points = (x->predict([x])[1][dim]).(x_points)
-            var_points = (x->predict([x])[2][dim]).(x_points)
-            opt.Plots.plot!(p, x_points, y_points; ribbon=var_points, label="model", color=MODEL_COLOR)
+            std_points = (x->predict([x])[2][dim]).(x_points)
+            opt.Plots.plot!(p, x_points, y_points; ribbon=std_points, label="model", color=MODEL_COLOR)
             ylims = update_ylims(ylims, y_points)
         
         else
@@ -156,7 +156,7 @@ function plot_y_slice(opt::PlotCallback, problem::BossProblem, dim::Int)
             predicts = model_posterior(problem.model, problem.data)
             for i in eachindex(predicts)
                 y_points = (x->predicts[i]([x])[1][dim]).(x_points)
-                # var_points = (x->predicts[i]([x])[2][dim]).(x_points)
+                # std_points = (x->predicts[i]([x])[2][dim]).(x_points)
                 label = (i == 1) ? "model samples" : nothing
                 opt.Plots.plot!(p, x_points, y_points; label, color=MODEL_SAMPLE_COLOR, style=:dash, alpha=0.2)
             end

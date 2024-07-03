@@ -116,28 +116,28 @@ make_discrete(m::NonlinModel, discrete::AbstractVector{<:Bool}) =
     NonlinModel(m.predict, m.param_priors, discrete)
 
 model_posterior(model::Parametric, data::ExperimentDataMLE; split::Bool=false) =
-    model_posterior(model, data.θ, data.noise_vars; split)
+    model_posterior(model, data.θ, data.noise_std; split)
 model_posterior(model::Parametric, data::ExperimentDataBI; split::Bool=false) = 
-    model_posterior.(Ref(model), data.θ, data.noise_vars; split)
+    model_posterior.(Ref(model), data.θ, data.noise_std; split)
 
 function model_posterior(
     model::Parametric,
     θ::AbstractVector{<:Real},
-    noise_vars::AbstractVector{<:Real};
+    noise_std::AbstractVector{<:Real};
     split::Bool,
 )
     if split
-        return [(x) -> (model(x, θ)[i], noise_vars[i]) for i in eachindex(noise_vars)]
+        return [(x) -> (model(x, θ)[i], noise_std[i]) for i in eachindex(noise_std)]
     else
-        return (x) -> (model(x, θ), noise_vars)
+        return (x) -> (model(x, θ), noise_std)
     end
 end
 
-function model_loglike(model::Parametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
-    function loglike(θ, λ, α, noise_vars)
+function model_loglike(model::Parametric, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
+    function loglike(θ, λ, α, noise_std)
         ll_params = model_params_loglike(model, θ)
-        ll_data = model_data_loglike(model, θ, noise_vars, data.X, data.Y)
-        ll_noise = noise_loglike(noise_var_priors, noise_vars)
+        ll_data = model_data_loglike(model, θ, noise_std, data.X, data.Y)
+        ll_noise = noise_loglike(noise_std_priors, noise_std)
         return ll_params + ll_data + ll_noise
     end
 end
@@ -149,11 +149,11 @@ end
 function model_data_loglike(
     model::Parametric,
     θ::AbstractVector{<:Real},
-    noise_vars::AbstractVector{<:Real},
+    noise_std::AbstractVector{<:Real},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
-    ll_datum(x, y) = logpdf(MvNormal(model(x, θ), sqrt.(noise_vars)), y)
+    ll_datum(x, y) = logpdf(MvNormal(model(x, θ), noise_std), y)
     return mapreduce(d -> ll_datum(d...), +, zip(eachcol(X), eachcol(Y)))
 end
 

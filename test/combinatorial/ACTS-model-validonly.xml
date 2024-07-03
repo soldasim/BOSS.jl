@@ -804,7 +804,7 @@
     <Value>DISCRETE</Value>
     <Value>CONS</Value>
     <Value>Y_MAX</Value>
-    <Value>NOISE_VAR_PRIORS</Value>
+    <Value>NOISE_STD_PRIORS</Value>
     <Value>MODELFITTER_PARALLEL</Value>
     <Value>ACQUISITIONMAXIMIZER_PARALLEL</Value>
     <Value>ACQUISITION</Value>

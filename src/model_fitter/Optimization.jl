@@ -9,7 +9,7 @@ Finds the MLE of the model parameters and hyperparameters using the Optimization
 - `multistart::Int`: The number of optimization restarts.
 - `parallel::Bool`: If `parallel=true` then the individual restarts are run in parallel.
 - `softplus_hyperparams::Bool`: If `softplus_hyperparams=true` then the softplus function
-        is applied to GP hyperparameters (length-scales & amplitudes) and noise variances
+        is applied to GP hyperparameters (length-scales & amplitudes) and noise deviations
         to ensure positive values during optimization.
 - `softplus_params::Union{Bool, Vector{Bool}}`: Defines to which parameters of the parametric
         model should the softplus function be applied to ensure positive values.
@@ -53,11 +53,11 @@ function estimate_parameters(opt::OptimizationMLE, problem::BossProblem, options
     end
 
     # Generate optimization starts.
-    starts = reduce(hcat, (vectorize(sample_params(problem.model, problem.noise_var_priors)) for _ in 1:opt.multistart))
+    starts = reduce(hcat, (vectorize(sample_params(problem.model, problem.noise_std_priors)) for _ in 1:opt.multistart))
     starts = starts[:,:]  # make sure `starts` is a `Matrix` (relevant when `opt.multistart == 1`)
 
     # Define the optimization objective.
-    loglike = model_loglike(problem.model, problem.noise_var_priors, problem.data)
+    loglike = model_loglike(problem.model, problem.noise_std_priors, problem.data)
     loglike_vec = (params) -> loglike(devectorize(params)...)
     
     # Construct the optimization problem.

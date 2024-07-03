@@ -7,7 +7,7 @@
 
 # Input Names
 # The last input `VALID` signifies whether the given test case should succeed or fail.
-XY,f,bounds,discrete,cons,y_max,noise_var_priors,ModelFitter_parallel,AcquisitionMaximizer_parallel,Acquisition,Parametric_predict,Parametric_theta_priors,Nonparametric_mean,Nonparametric_kernel,Nonparametric_length_scale_priors,Semiparametric_mean,MODEL,LinFitness_coefs,NonlinFitness_fit,FITNESS,iter_max,ModelFitter,AcquisitionMaximizer,Nonparametric_amp_priors,VALID
+XY,f,bounds,discrete,cons,y_max,noise_std_priors,ModelFitter_parallel,AcquisitionMaximizer_parallel,Acquisition,Parametric_predict,Parametric_theta_priors,Nonparametric_mean,Nonparametric_kernel,Nonparametric_length_scale_priors,Semiparametric_mean,MODEL,LinFitness_coefs,NonlinFitness_fit,FITNESS,iter_max,ModelFitter,AcquisitionMaximizer,Nonparametric_amp_priors,VALID
 
 # `iter_max > 1`
 *,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,2,*,*,*,true

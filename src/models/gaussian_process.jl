@@ -1,6 +1,6 @@
 
 """
-The minimal value of length scales and noise variance used for GPs to avoid numerical issues.
+The minimal value of length scales and noise deviation used for GPs to avoid numerical issues.
 """
 const MIN_PARAM_VALUE = 1e-8
 
@@ -101,9 +101,9 @@ make_discrete(k::Kernel, discrete::AbstractVector{<:Bool}) = DiscreteKernel(k, d
 make_discrete(k::DiscreteKernel, discrete::AbstractVector{<:Bool}) = make_discrete(k.kernel, discrete)
 
 model_posterior(model::GaussianProcess, data::ExperimentDataMLE; split::Bool=false) =
-    model_posterior(model, data.X, data.Y, data.length_scales, data.amplitudes, data.noise_vars; split)
+    model_posterior(model, data.X, data.Y, data.length_scales, data.amplitudes, data.noise_std; split)
 model_posterior(model::GaussianProcess, data::ExperimentDataBI; split::Bool=false) =
-    model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.length_scales, data.amplitudes, data.noise_vars; split)
+    model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.length_scales, data.amplitudes, data.noise_std; split)
 
 function model_posterior(
     model::GaussianProcess,
@@ -111,12 +111,12 @@ function model_posterior(
     Y::AbstractMatrix{<:Real},
     λ::AbstractMatrix{<:Real},
     α::AbstractVector{<:Real},
-    noise_vars::AbstractVector{<:Real};
+    noise_std::AbstractVector{<:Real};
     split::Bool,
 )
-    y_dim = length(noise_vars)
+    y_dim = length(noise_std)
     means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]
-    posts = model_posterior.(means, Ref(model.kernel), Ref(X), eachrow(Y), eachcol(λ), α, noise_vars)
+    posts = model_posterior.(means, Ref(model.kernel), Ref(X), eachrow(Y), eachcol(λ), α, noise_std)
     
     if split
         return posts
@@ -135,10 +135,13 @@ function model_posterior(
     y::AbstractVector{<:Real},
     λ::AbstractVector{<:Real},
     α::Real,
-    noise_var::Real,
+    noise_std::Real,
 )
-    posterior_gp = AbstractGPs.posterior(finite_gp(mean, kernel, X, λ, α, noise_var), y)
-    return (x) -> first.(mean_and_var(posterior_gp(hcat(x))))
+    posterior_gp = AbstractGPs.posterior(finite_gp(mean, kernel, X, λ, α, noise_std), y)
+    return function post(x)
+        μ, var = first.(mean_and_var(posterior_gp(hcat(x))))
+        return μ, sqrt.(var)
+    end
 end
 
 """
@@ -150,25 +153,25 @@ function finite_gp(
     X::AbstractMatrix{<:Real},
     length_scales::AbstractVector{<:Real},
     amplitude::Real,
-    noise_var::Real;
+    noise_std::Real;
     min_param_val::Real=MIN_PARAM_VALUE,
 )
     # for numerical stability
     length_scales = max.(length_scales, min_param_val)
-    noise_var = max(noise_var, min_param_val)
+    noise_std = max(noise_std, min_param_val)
 
     kernel = (amplitude^2) * with_lengthscale(kernel, length_scales)
-    return finite_gp_(mean, kernel, X, noise_var)
+    return finite_gp_(mean, kernel, X, noise_std)
 end
 
-finite_gp_(::Nothing, kernel::Kernel, X::AbstractMatrix{<:Real}, noise_var::Real) = GP(kernel)(X, noise_var)
-finite_gp_(mean::Function, kernel::Kernel, X::AbstractMatrix{<:Real}, noise_var::Real) = GP(mean, kernel)(X, noise_var)
+finite_gp_(::Nothing, kernel::Kernel, X::AbstractMatrix{<:Real}, noise_std::Real) = GP(kernel)(X, noise_std^2)
+finite_gp_(mean::Function, kernel::Kernel, X::AbstractMatrix{<:Real}, noise_std::Real) = GP(mean, kernel)(X, noise_std^2)
 
-function model_loglike(model::GaussianProcess, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
-    function loglike(θ, λ, α, noise_vars)
+function model_loglike(model::GaussianProcess, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
+    function loglike(θ, λ, α, noise_std)
         ll_params = model_params_loglike(model, λ, α)
-        ll_data = model_data_loglike(model, λ, α, noise_vars, data.X, data.Y)
-        ll_noise = noise_loglike(noise_var_priors, noise_vars)
+        ll_data = model_data_loglike(model, λ, α, noise_std, data.X, data.Y)
+        ll_noise = noise_loglike(noise_std_priors, noise_std)
         return ll_params + ll_data + ll_noise
     end
 end
@@ -183,17 +186,17 @@ function model_data_loglike(
     model::GaussianProcess,
     λ::AbstractMatrix{<:Real},
     α::AbstractVector{<:Real},
-    noise_vars::AbstractVector{<:Real},
+    noise_std::AbstractVector{<:Real},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
     y_dim = size(Y)[1]
     means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]
-    function ll_data_dim(X, y, mean, length_scales, amp, noise_var)
-        gp = finite_gp(mean, model.kernel, X, length_scales, amp, noise_var)
+    function ll_data_dim(X, y, mean, length_scales, amp, noise_std)
+        gp = finite_gp(mean, model.kernel, X, length_scales, amp, noise_std)
         return logpdf(gp, y)
     end
-    return mapreduce(p -> ll_data_dim(X, p...), +, zip(eachrow(Y), means, eachcol(λ), α, noise_vars))
+    return mapreduce(p -> ll_data_dim(X, p...), +, zip(eachrow(Y), means, eachcol(λ), α, noise_std))
 end
 
 function sample_params(model::GaussianProcess)

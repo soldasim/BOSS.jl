@@ -176,7 +176,7 @@ end
             amp_priors = fill(BOSS.LogNormal(), 2),
             length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
         ),
-        noise_var_priors = fill(BOSS.Dirac(1e-8), 2),
+        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         data = BOSS.ExperimentDataPrior(X, Y),
     )
 

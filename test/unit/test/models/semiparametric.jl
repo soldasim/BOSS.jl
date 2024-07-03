@@ -21,7 +21,7 @@
                 length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
             ),
         ),
-        noise_var_priors = fill(BOSS.Dirac(1e-8), 2),
+        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         data = BOSS.ExperimentDataPrior(X, Y),
     )
     BOSS.estimate_parameters!(problem, BOSS.SamplingMLE(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
@@ -50,7 +50,7 @@
     end
 end
 
-@testset "model_loglike(model, noise_var_priors, data)" begin
+@testset "model_loglike(model, noise_std_priors, data)" begin
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
     
@@ -67,11 +67,11 @@ end
             length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
         ),
     )
-    noise_var_priors = fill(BOSS.LogNormal(1., 1.), 2)
+    noise_std_priors = fill(BOSS.LogNormal(), 2)
     data = BOSS.ExperimentDataPrior(X, Y)
 
     @param_test BOSS.model_loglike begin
-        @params deepcopy(model), deepcopy(noise_var_priors), deepcopy(data)
+        @params deepcopy(model), deepcopy(noise_std_priors), deepcopy(data)
         @success (
             out isa Function,
             out([1., 1., 1., 1.], [1.;1.;; 1.;1.;;], [1., 1.], [1., 1.]) isa Real,

@@ -48,7 +48,7 @@ function construct_problem(val)
         f = val("f"),
         domain,
         model,
-        noise_var_priors = val("noise_var_priors"),
+        noise_std_priors = val("noise_std_priors"),
         y_max = val("y_max"),
         data,
     )    

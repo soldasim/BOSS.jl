@@ -34,9 +34,9 @@ make_discrete(m::Semiparametric, discrete::AbstractVector{<:Bool}) =
     Semiparametric(make_discrete(m.parametric, discrete), make_discrete(m.nonparametric, discrete))
 
 model_posterior(model::Semiparametric, data::ExperimentDataMLE; split::Bool=false) =
-    model_posterior(model, data.X, data.Y, data.θ, data.length_scales, data.amplitudes, data.noise_vars; split)
+    model_posterior(model, data.X, data.Y, data.θ, data.length_scales, data.amplitudes, data.noise_std; split)
 model_posterior(model::Semiparametric, data::ExperimentDataBI; split::Bool=false) =
-    model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.θ, data.length_scales, data.amplitudes, data.noise_vars; split)
+    model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.θ, data.length_scales, data.amplitudes, data.noise_std; split)
 
 function model_posterior(
     model::Semiparametric,
@@ -45,17 +45,17 @@ function model_posterior(
     θ::AbstractVector{<:Real},
     λ::AbstractMatrix{<:Real},
     α::AbstractVector{<:Real},
-    noise_vars::AbstractVector{<:Real};
+    noise_std::AbstractVector{<:Real};
     split::Bool, 
 )
-    return model_posterior(add_mean(model.nonparametric, model.parametric(θ)), X, Y, λ, α, noise_vars; split)
+    return model_posterior(add_mean(model.nonparametric, model.parametric(θ)), X, Y, λ, α, noise_std; split)
 end
 
-function model_loglike(model::Semiparametric, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
-    function loglike(θ, λ, α, noise_vars)
+function model_loglike(model::Semiparametric, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
+    function loglike(θ, λ, α, noise_std)
         ll_params = model_params_loglike(model, θ, λ, α)
-        ll_data = model_data_loglike(model, θ, λ, α, noise_vars, data.X, data.Y)
-        ll_noise = noise_loglike(noise_var_priors, noise_vars)
+        ll_data = model_data_loglike(model, θ, λ, α, noise_std, data.X, data.Y)
+        ll_noise = noise_loglike(noise_std_priors, noise_std)
         return ll_params + ll_data + ll_noise
     end
 end
@@ -71,7 +71,7 @@ function model_data_loglike(
     θ::AbstractVector{<:Real},
     λ::AbstractMatrix{<:Real},
     α::AbstractVector{<:Real},
-    noise_vars::AbstractVector{<:Real},
+    noise_std::AbstractVector{<:Real},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
@@ -79,7 +79,7 @@ function model_data_loglike(
         add_mean(model.nonparametric, model.parametric(θ)),
         λ,
         α,
-        noise_vars,
+        noise_std,
         X,
         Y,
     )

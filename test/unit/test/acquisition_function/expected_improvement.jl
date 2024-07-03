@@ -5,7 +5,7 @@
         f = x -> [sin(x[1])],
         domain = BOSS.Domain(; bounds=([0.], [10.])),
         model = BOSS.Nonparametric(; amp_priors=[BOSS.LogNormal()], length_scale_priors=[BOSS.MvLogNormal(ones(1), ones(1))]),
-        noise_var_priors = [BOSS.Dirac(0.1)],
+        noise_std_priors = [BOSS.Dirac(0.1)],
         data = BOSS.ExperimentDataPrior(hcat([1.,2.,3.]...), hcat(sin.([1.,2.,3.])...)),
     )
     options = BOSS.BossOptions(; info=false)
@@ -99,7 +99,7 @@ end
     end
 end
 
-@testset "expected_improvement(fitness, mean, var, ϵ_samples, best_yet)" begin
+@testset "expected_improvement(fitness, mean, std, ϵ_samples, best_yet)" begin
     lin_fitness = BOSS.LinFitness([1., 0.])
     nonlin_fitness = BOSS.NonlinFitness(x -> x[1])
     ϵ_samples = [
@@ -135,7 +135,7 @@ end
     end
 end
 
-@testset "feas_prob(mean, var, constraints)" begin
+@testset "feas_prob(mean, std, constraints)" begin
     @param_test BOSS.feas_prob begin
         @params [0., 0.], [0., 0.], nothing
         @success out == 1.

@@ -1,12 +1,12 @@
 
 # - - - Objective Function - - - - -
 
-function OBJ_FUNC(x; noise_var=0.01)
+function OBJ_FUNC(x; noise_std=0.1)
     y = exp(x[1]/10) * cos(2*x[1])
     z = (1/2)^6 * (x[1]^2 - (15.)^2)
     
-    y += rand(BOSS.Normal(0., sqrt(noise_var)))
-    z += rand(BOSS.Normal(0., sqrt(noise_var)))
+    y += rand(BOSS.Normal(0., noise_std))
+    z += rand(BOSS.Normal(0., noise_std))
 
     return [y,z]
 end
@@ -24,7 +24,7 @@ const INPUT_NAMES = [
     "discrete",
     "cons",
     "y_max",
-    "noise_var_priors",
+    "noise_std_priors",
     "ModelFitter_parallel",
     "AcquisitionMaximizer_parallel",
     "Acquisition",
@@ -87,7 +87,7 @@ const y_max_DICT = Dict(
     "*" => [Inf, 0.],
 )
 
-const noise_var_priors_DICT = Dict(
+const noise_std_priors_DICT = Dict(
     "with_Dirac" => fill(BOSS.Dirac(0.1), 2),
     "wo_Dirac" => fill(BOSS.LogNormal(-2.3, 1.), 2),
     "*" => fill(BOSS.Dirac(0.1), 2),

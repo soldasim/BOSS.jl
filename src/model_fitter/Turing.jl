@@ -40,25 +40,25 @@ TuringBI(;
 ) = TuringBI(sampler, warmup, samples_in_chain, chain_count, leap_size, parallel)
 
 function estimate_parameters(turing::TuringBI, problem::BossProblem, options::BossOptions)
-    return sample_params(turing, problem.model, problem.noise_var_priors, problem.data.X, problem.data.Y)
+    return sample_params(turing, problem.model, problem.noise_std_priors, problem.data.X, problem.data.Y)
 end
 
 Turing.@model function turing_model(
     model::Parametric,
-    noise_var_priors::AbstractVector{<:UnivariateDistribution},
+    noise_std_priors::AbstractVector{<:UnivariateDistribution},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
     θ ~ product_distribution(model.param_priors)
-    noise_vars ~ product_distribution(noise_var_priors)
+    noise_std ~ product_distribution(noise_std_priors)
 
     means = model.(eachcol(X), Ref(θ))
     
-    Y ~ product_distribution(Distributions.MvNormal.(means, Ref(noise_vars)))
+    Y ~ product_distribution(Distributions.MvNormal.(means, Ref(noise_std)))
 end
 Turing.@model function turing_model(
     model::GaussianProcess,
-    noise_var_priors::AbstractVector{<:UnivariateDistribution},
+    noise_std_priors::AbstractVector{<:UnivariateDistribution},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
@@ -66,16 +66,16 @@ Turing.@model function turing_model(
 
     length_scales ~ product_distribution(model.length_scale_priors)
     amplitudes ~ product_distribution(model.amp_priors)
-    noise_vars ~ product_distribution(noise_var_priors)
+    noise_std ~ product_distribution(noise_std_priors)
     
-    gps = [finite_gp(model.mean, model.kernel, X, length_scales[:,i], amplitudes[i], noise_vars[i]) for i in 1:y_dim]
+    gps = [finite_gp(model.mean, model.kernel, X, length_scales[:,i], amplitudes[i], noise_std[i]) for i in 1:y_dim]
 
     Yt = transpose(Y)
     Yt ~ product_distribution(gps)
 end
 Turing.@model function turing_model(
     model::Semiparametric,
-    noise_var_priors::AbstractVector{<:UnivariateDistribution},
+    noise_std_priors::AbstractVector{<:UnivariateDistribution},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
@@ -84,10 +84,10 @@ Turing.@model function turing_model(
     θ ~ product_distribution(model.parametric.param_priors)
     length_scales ~ product_distribution(model.nonparametric.length_scale_priors)
     amplitudes ~ product_distribution(model.nonparametric.amp_priors)
-    noise_vars ~ product_distribution(noise_var_priors)
+    noise_std ~ product_distribution(noise_std_priors)
 
     mean = model.parametric(θ)
-    gps = [finite_gp(x->mean(x)[i], model.nonparametric.kernel, X, length_scales[:,i], amplitudes[i], noise_vars[i]) for i in 1:y_dim]
+    gps = [finite_gp(x->mean(x)[i], model.nonparametric.kernel, X, length_scales[:,i], amplitudes[i], noise_std[i]) for i in 1:y_dim]
     
     Yt = transpose(Y)
     Yt ~ product_distribution(gps)
@@ -96,58 +96,58 @@ end
 function sample_params(
     turing::TuringBI,
     model::Parametric,
-    noise_var_priors::AbstractVector{<:UnivariateDistribution},
+    noise_std_priors::AbstractVector{<:UnivariateDistribution},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
     x_dim, y_dim = size(X)[1], size(Y)[1]
     θ_len, λ_len, α_len = param_counts(model)
 
-    tm = turing_model(model, noise_var_priors, X, Y)
+    tm = turing_model(model, noise_std_priors, X, Y)
     chains = sample_params_turing(turing, tm)
 
     θs = get_samples(chains, "θ", (θ_len,))
-    noise_vars = get_samples(chains, "noise_vars", (y_dim,))
+    noise_std = get_samples(chains, "noise_std", (y_dim,))
 
-    return θs, nothing, nothing, noise_vars
+    return θs, nothing, nothing, noise_std
 end
 function sample_params(
     turing::TuringBI,
     model::GaussianProcess,
-    noise_var_priors::AbstractVector{<:UnivariateDistribution},
+    noise_std_priors::AbstractVector{<:UnivariateDistribution},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )
     x_dim, y_dim = size(X)[1], size(Y)[1]
     
-    tm = turing_model(model, noise_var_priors, X, Y)
+    tm = turing_model(model, noise_std_priors, X, Y)
     chains = sample_params_turing(turing, tm)
     
     length_scales = get_samples(chains, "length_scales", (x_dim, y_dim))
     amplitudes = get_samples(chains, "amplitudes", (y_dim,))
-    noise_vars = get_samples(chains, "noise_vars", (y_dim,))
+    noise_std = get_samples(chains, "noise_std", (y_dim,))
 
-    return nothing, length_scales, amplitudes, noise_vars
+    return nothing, length_scales, amplitudes, noise_std
 end
 function sample_params(
     turing::TuringBI,
     model::Semiparametric,
-    noise_var_priors::AbstractVector{<:UnivariateDistribution},
+    noise_std_priors::AbstractVector{<:UnivariateDistribution},
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
 )    
     x_dim, y_dim = size(X)[1], size(Y)[1]
     θ_len, λ_len, α_len = param_counts(model)
     
-    tm = turing_model(model, noise_var_priors, X, Y)
+    tm = turing_model(model, noise_std_priors, X, Y)
     chains = sample_params_turing(turing, tm)
 
     θs = get_samples(chains, "θ", (θ_len,))
     length_scales = get_samples(chains, "length_scales", (x_dim, y_dim))
     amplitudes = get_samples(chains, "amplitudes", (y_dim,))
-    noise_vars = get_samples(chains, "noise_vars", (y_dim,))
+    noise_std = get_samples(chains, "noise_std", (y_dim,))
 
-    return θs, length_scales, amplitudes, noise_vars
+    return θs, length_scales, amplitudes, noise_std
 end
 
 function sample_params_turing(turing::TuringBI, turing_model)

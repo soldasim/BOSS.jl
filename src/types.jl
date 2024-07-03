@@ -32,10 +32,10 @@ Example usage: `struct CustomModel <: BOSS.SurrogateModel ... end`
 
 All models should implement the following methods:
 `make_discrete(model::CustomModel, discrete::AbstractVector{<:Bool}) -> discrete_model::CustomModel`
-`model_posterior(model::CustomModel, data::ExperimentDataMLE; split::Bool) -> (x -> mean, var) <or> [(x -> mean_i, var_i) for i in 1:y_dim]`
-`model_posterior(model::CustomModel, data::ExperimentDataBI; split::Bool) -> [(x -> mean, var) for each sample] <or> [[(x -> mean_i, var_i) for i in 1:y_dim] for each sample]`
-`model_loglike(model::CustomModel, noise_var_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData) -> (θ, length_scales, noise_vars -> loglike)`
-`sample_params(model::CustomModel, noise_var_priors::AbstractVector{<:UnivariateDistribution}) -> (θ_sample::AbstractVector{<:Real}, λ_sample::AbstractMatrix{<:Real}, noise_vars_sample::AbstractVector{<:Real})`
+`model_posterior(model::CustomModel, data::ExperimentDataMLE; split::Bool) -> (x -> mean, std) <or> [(x -> mean_i, std_i) for i in 1:y_dim]`
+`model_posterior(model::CustomModel, data::ExperimentDataBI; split::Bool) -> [(x -> mean, std) for each sample] <or> [[(x -> mean_i, std_i) for i in 1:y_dim] for each sample]`
+`model_loglike(model::CustomModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData) -> (θ, length_scales, noise_std -> loglike)`
+`sample_params(model::CustomModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}) -> (θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_std::AbstractVector{<:Real})`
 `param_priors(model::CustomModel) -> (θ_priors::AbstractVector{<:UnivariateDistribution}, λ_priors::AbstractVector{<:MultivariateDistribution})
 
 See also:
@@ -87,7 +87,7 @@ Example: `struct CustomFitter <: ModelFitter{MLE} ... end` or `struct CustomFitt
 Structures derived from this type have to implement the following method:
 `estimate_parameters(model_fitter::CustomFitter, problem::BossProblem; info::Bool)`.
 
-This method should return a named tuple `(θ = ..., length_scales = ..., noise_vars = ...)`
+This method should return a named tuple `(θ = ..., length_scales = ..., noise_std = ...)`
 with either MLE model parameters (if `CustomAlg <: ModelFitter{MLE}`)
 or model parameter samples (if `CustomAlg <: ModelFitter{BI}`).
 
@@ -171,7 +171,7 @@ Stores the data matrices `X`,`Y` as well as the optimized model parameters and h
 - `length_scales::Union{Nothing, <:AbstractMatrix{<:Real}}`: Contains the MLE length scales
         of the GP as a `x_dim`×`y_dim` matrix (or nothing if the model is parametric).
 - `amplitudes::Union{Nothing, <:AbstractVector{<:Real}}`: Amplitudes of the GP.
-- `noise_vars::AbstractVector{<:Real}`: The MLE noise variances of each `y` dimension.
+- `noise_std::AbstractVector{<:Real}`: The MLE noise standard deviations of each `y` dimension.
 
 See also: [`BOSS.ExperimentDataBI`](@ref)
 """
@@ -187,7 +187,7 @@ mutable struct ExperimentDataMLE{
     θ::P
     length_scales::L
     amplitudes::A
-    noise_vars::N
+    noise_std::N
 end
 
 """
@@ -202,7 +202,7 @@ Stores the data matrices `X`,`Y` as well as the sampled model parameters and hyp
     of the length scales of the GP as a vector of `x_dim`×`y_dim` matrices
     (or nothing if the model is parametric).
 - `amplitudes::Union{Nothing, <:AbstractVector{<:AbstractVector{<:Real}}}`: Samples of the amplitudes of the GP.
-- `noise_vars::AbstractVector{<:AbstractVector{<:Real}}`: Samples of the noise variances of each `y` dimension
+- `noise_std::AbstractVector{<:AbstractVector{<:Real}}`: Samples of the noise standard deviations of each `y` dimension
         stored column-wise in a matrix.
 
 See also: [`BOSS.ExperimentDataBI`](@ref)
@@ -219,7 +219,7 @@ mutable struct ExperimentDataBI{
     θ::P
     length_scales::L
     amplitudes::A
-    noise_vars::N
+    noise_std::N
 end
 
 
@@ -313,8 +313,8 @@ struct Domain{
 end
 function Domain(;
     bounds,
-    discrete=fill(false, length(first(bounds))),
-    cons=nothing,
+    discrete = fill(false, length(first(bounds))),
+    cons = nothing,
 )
     @assert length(bounds[1]) == length(bounds[2]) == length(discrete)
     return Domain(bounds, discrete, cons)
@@ -341,8 +341,8 @@ Defines the whole optimization problem for the BOSS algorithm.
 - `domain::Domain`: The domain of `x`. See [`BOSS.Domain`](@ref).
 - `y_max`: The constraints on `y`. (See the definition above.)
 - `model::SurrogateModel`: See [`BOSS.SurrogateModel`](@ref).
-- `noise_var_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions
-        of the noise variances of each `y` dimension.
+- `noise_std_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions
+        of the noise standard deviations of each `y` dimension.
 - `data::ExperimentData`: The initial data of objective function evaluations.
         See [`BOSS.ExperimentDataPrior`].
 
@@ -356,7 +356,7 @@ mutable struct BossProblem{
     domain::Domain
     y_max::AbstractVector{<:Real}
     model::SurrogateModel
-    noise_var_priors::AbstractVector{<:UnivariateDistribution}
+    noise_std_priors::AbstractVector{<:UnivariateDistribution}
     data::ExperimentData
 end
 BossProblem(;
@@ -364,10 +364,10 @@ BossProblem(;
     f,
     domain,
     model,
-    noise_var_priors,
-    y_max=fill(Inf, length(noise_var_priors)),
+    noise_std_priors,
+    y_max = fill(Inf, length(noise_std_priors)),
     data,
-) = BossProblem(fitness, f, domain, y_max, model, noise_var_priors, data)
+) = BossProblem(fitness, f, domain, y_max, model, noise_std_priors, data)
 
 
 # - - - - - - - - Boss Options - - - - - - - -
@@ -423,10 +423,10 @@ struct BossOptions{
     callback::CB
 end
 function BossOptions(;
-    info=true,
-    debug=false,
-    parallel_evals=:parallel,
-    callback=NoCallback(),
+    info = true,
+    debug = false,
+    parallel_evals = :parallel,
+    callback = NoCallback(),
 )
     @assert parallel_evals in [:serial, :parallel, :distributed]
     return BossOptions(info, debug, parallel_evals, callback)

@@ -1,5 +1,5 @@
 
-@testset "sample_params(model, noise_var_priors)" begin
+@testset "sample_params(model, noise_std_priors)" begin
     @param_test BOSS.sample_params begin
         @params (
             BOSS.LinModel(;
@@ -94,7 +94,7 @@
     end
 end
 
-@testset "vectorize_params(θ, λ, noise_vars, activation_function, activation_mask, skip_mask)" begin
+@testset "vectorize_params(θ, λ, noise_std, activation_function, activation_mask, skip_mask)" begin
     activation_function(x) = -x
     BOSS.inverse(activation_function) = activation_function
     
@@ -123,7 +123,7 @@ end
     end
 end
 
-@testset "vectorize_params(θ, λ, α, noise_vars)" begin
+@testset "vectorize_params(θ, λ, α, noise_std)" begin
     @param_test BOSS.vectorize_params begin
         @params [1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1]
         @success (
@@ -321,7 +321,7 @@ end
     end
 end
 
-@testset "create_dirac_skip_mask(θ_priors, λ_priors, α_priors, noise_var_priors)" begin
+@testset "create_dirac_skip_mask(θ_priors, λ_priors, α_priors, noise_std_priors)" begin
     @param_test BOSS.create_dirac_skip_mask begin
         @params fill(BOSS.Normal(), 4), BOSS.MultivariateDistribution[], BOSS.UnivariateDistribution[], fill(BOSS.LogNormal(), 2)
         @success out == (fill(true, 6), Float64[])

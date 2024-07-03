@@ -9,7 +9,7 @@
             amp_priors = fill(BOSS.LogNormal(), 2),
             length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
         ),
-        noise_var_priors = fill(BOSS.Dirac(1e-8), 2),
+        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         data = BOSS.ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
     )
     turing = BOSS.TuringBI(;
@@ -50,9 +50,9 @@ end
     end
 end
 
-noise_loglike(noise_var_priors, noise_vars) = mapreduce(p -> logpdf(p...), +, zip(noise_var_priors, noise_vars))
+noise_loglike(noise_std_priors, noise_std) = mapreduce(p -> logpdf(p...), +, zip(noise_std_priors, noise_std))
 
-@testset "noise_loglike(noise_var_priors, noise_vars)" begin
+@testset "noise_loglike(noise_std_priors, noise_std)" begin
     @param_test BOSS.noise_loglike begin
         # TODO: Add different priors loaded from a collection.
         @params fill(BOSS.LogNormal(), 2), [0.1, 0.1]

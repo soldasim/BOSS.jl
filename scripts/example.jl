@@ -10,12 +10,12 @@ Random.seed!(555)
 # We have an unknown noisy function 'blackbox(x)=y,z' and we want to maximize y s.t. z < 0 on domain x ∈ [0,20].
 
 # The unknown blackbox function.
-function blackbox(x; noise_var=0.01)
+function blackbox(x; noise_std=0.1)
     y = exp(x[1]/10) * cos(2*x[1])
     z = (1/2)^6 * (x[1]^2 - (15.)^2)
     
-    y += rand(Normal(0., sqrt(noise_var)))
-    z += rand(Normal(0., sqrt(noise_var)))
+    y += rand(Normal(0., noise_std))
+    z += rand(Normal(0., noise_std))
 
     return [y,z]
 end
@@ -49,8 +49,8 @@ function bad_parametric_model()
 end
 
 # Our prediction about the noise and GP length scales.
-noise_var_priors() = fill(truncated(Normal(0., 0.01); lower=0.), 2)  # noise variance prior
-# noise_var_priors() = fill(Dirac(0.01), 2)                           # predefined noise variance value
+noise_std_priors() = fill(truncated(Normal(0., 0.1); lower=0.), 2)  # noise std prior
+# noise_std_priors() = fill(Dirac(0.1), 2)                            # predefined noise std value
 length_scale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2)
 # length_scale_priors() = fill(Product(fill(Dirac(1.), 1)), 2)
 amplitude_priors() = fill(truncated(Normal(0., 5.); lower=0.), 2)
@@ -91,7 +91,7 @@ function opt_problem(init_data=4)
         domain,
         y_max = [Inf, 0.],
         model,
-        noise_var_priors = noise_var_priors(),
+        noise_std_priors = noise_std_priors(),
         data = ExperimentDataPrior(data...),
     )
 end
@@ -99,7 +99,7 @@ end
 boss_options() = BossOptions(;
     info = true,
     debug = false,
-    callback = PlotCallback(Plots, f_true=x->blackbox(x; noise_var=0.)),
+    callback = PlotCallback(Plots, f_true=x->blackbox(x; noise_std=0.)),
 )
 
 """

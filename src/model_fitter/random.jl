@@ -9,5 +9,5 @@ Can be useful with `RandomSelectAM` to avoid unnecessary model parameter estimat
 struct RandomMLE <: ModelFitter{MLE} end
 
 function estimate_parameters(::RandomMLE, problem::BossProblem, options::BossOptions)
-    return sample_params(problem.model, problem.noise_var_priors)
+    return sample_params(problem.model, problem.noise_std_priors)
 end

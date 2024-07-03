@@ -1,25 +1,25 @@
 
 """
-Transform all model parameters and noise variances into one parameter vector.
+Transform all model parameters and noise deviations into one parameter vector.
 """
 function vectorize_params(
-    θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, α::AbstractVector{<:Real}, noise_vars::AbstractVector{<:Real},
+    θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, α::AbstractVector{<:Real}, noise_std::AbstractVector{<:Real},
     activation_function::Function,
     activation_mask::AbstractVector{Bool},
     skip_mask::AbstractVector{Bool},
 )
-    params = vectorize_params(θ, λ, α, noise_vars)
+    params = vectorize_params(θ, λ, α, noise_std)
     params .= cond_func(inverse(activation_function)).(activation_mask, params)
     params = params[skip_mask]
     return params
 end
 
-function vectorize_params(θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, α::AbstractVector{<:Real}, noise_vars::AbstractVector{<:Real})
+function vectorize_params(θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, α::AbstractVector{<:Real}, noise_std::AbstractVector{<:Real})
     λ = vectorize_length_scales(λ)
     
     # skip empty params for type stability
-    nonempty_params = filter(!isempty, (θ, λ, α, noise_vars))
-    isempty(nonempty_params) && return promote_type(eltype.((θ, λ, α, noise_vars))...)[]
+    nonempty_params = filter(!isempty, (θ, λ, α, noise_std))
+    isempty(nonempty_params) && return promote_type(eltype.((θ, λ, α, noise_std))...)[]
 
     params = reduce(vcat, nonempty_params)
     return params
@@ -53,11 +53,11 @@ function devectorize_params(model::SurrogateModel, params::AbstractVector{<:Real
     cumsums = [0, θ_len, θ_len + λ_len, θ_len + λ_len + α_len]
 
     θ, λ, α = (params[cumsums[i]+1:cumsums[i+1]] for i in 1:3)
-    noise_vars = params[cumsums[end]+1:end]
+    noise_std = params[cumsums[end]+1:end]
 
     λ = devectorize_length_scales(λ, λ_shape)
 
-    return θ, λ, α, noise_vars
+    return θ, λ, α, noise_std
 end
 
 vectorize_length_scales(λ::AbstractMatrix) =
@@ -70,8 +70,8 @@ devectorize_length_scales(λ::AbstractVector, λ_shape::Tuple{<:Int, <:Int}) =
 Create a binary mask describing to which positions of the vectorized parameters
 will the activation function be applied.
 
-The activation function will be applited to all noise variances and GP length scales
-if `mask_noisevar_and_lengthscales=true`.
+The activation function will be applited to all noise deviations and GP hyperaparameters
+if `mask_hyperparams = true`.
 
 Use the binary vector `mask_theta` to define to which model parameters
 will the activation function be applied as well.
@@ -108,10 +108,10 @@ function create_params_mask(mask_params::Vector{Bool}, θ_len::Int)
 end
 
 create_dirac_skip_mask(problem::BossProblem) =
-    create_dirac_skip_mask(problem.model, problem.noise_var_priors)
+    create_dirac_skip_mask(problem.model, problem.noise_std_priors)
 
-create_dirac_skip_mask(model::SurrogateModel, noise_var_priors::AbstractVector{<:UnivariateDistribution}) =
-    create_dirac_skip_mask(param_priors(model)..., noise_var_priors)
+create_dirac_skip_mask(model::SurrogateModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}) =
+    create_dirac_skip_mask(param_priors(model)..., noise_std_priors)
 
 """
 Create a binary mask to skip all parameters with Dirac priors
@@ -123,7 +123,7 @@ function create_dirac_skip_mask(
     θ_priors::AbstractVector{<:UnivariateDistribution},
     λ_priors::AbstractVector{<:MultivariateDistribution},
     α_priors::AbstractVector{<:UnivariateDistribution},
-    noise_var_priors::AbstractVector{<:UnivariateDistribution},
+    noise_std_priors::AbstractVector{<:UnivariateDistribution},
 )
     priors = Union{Nothing, UnivariateDistribution}[]
     # θ
@@ -138,8 +138,8 @@ function create_dirac_skip_mask(
     end
     # α
     append!(priors, α_priors)
-    # noise_vars
-    append!(priors, noise_var_priors)
+    # noise_std
+    append!(priors, noise_std_priors)
     
     params_total = length(priors)
     skip_mask = fill(true, params_total)

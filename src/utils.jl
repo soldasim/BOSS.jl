@@ -80,8 +80,8 @@ end
 """
 Return the posterior predictive distribution of the Gaussian Process.
 
-The posterior is a function `mean, var = predict(x)`
-which gives the mean and variance of the predictive distribution as a function of `x`.
+The posterior is a function `predict(x) -> (mean, std)`
+which gives the mean and std of the predictive distribution as a function of `x`.
 """
 model_posterior(prob::BossProblem) =
     model_posterior(prob.model, prob.data)
@@ -129,7 +129,7 @@ function update_parameters!(::Type{MLE}, data::ExperimentDataPrior,
     θ,
     length_scales,
     amplitudes,
-    noise_vars,
+    noise_std,
 )
     return ExperimentDataMLE(
         data.X,
@@ -137,14 +137,14 @@ function update_parameters!(::Type{MLE}, data::ExperimentDataPrior,
         θ,
         length_scales,
         amplitudes,
-        noise_vars,
+        noise_std,
     )
 end
 function update_parameters!(::Type{BI}, data::ExperimentDataPrior,
     θ,
     length_scales,
     amplitudes,
-    noise_vars,
+    noise_std,
 )
     return ExperimentDataBI(
         data.X,
@@ -152,26 +152,26 @@ function update_parameters!(::Type{BI}, data::ExperimentDataPrior,
         θ,
         length_scales,
         amplitudes,
-        noise_vars,
+        noise_std,
     )
 end
 function update_parameters!(::Type{T}, data::ExperimentDataPost{T},
     θ,
     length_scales,
     amplitudes,
-    noise_vars,
+    noise_std,
 ) where {T<:ModelFit}
     data.θ = θ
     data.length_scales = length_scales
     data.amplitudes = amplitudes
-    data.noise_vars = noise_vars
+    data.noise_std = noise_std
     return data
 end
 function update_parameters!(::Type{T}, data::ExperimentDataPost,
     θ,
     length_scales,
     amplitudes,
-    noise_vars,
+    noise_std,
 ) where {T<:ModelFit}
     throw(ArgumentError("Inconsistent experiment data!\nCannot switch from MLE to BI or vice-versa."))
 end
