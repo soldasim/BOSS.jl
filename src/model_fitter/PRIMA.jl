@@ -2,13 +2,13 @@
 """
     NewuoaMLE(PRIMA; kwargs...)
 
+⚠ The `NewuoaMLE` is deprecated.
+Use `OptimizationMLE(Newuoa(), ...)` with `using OptimizationPRIMA` instead.
+
 Finds the MLE of the model parameters and hyperparameters using the NEWUOA algorithm from the PRIMA package.
 
 To use `NewuoaMLE` you need to `] add PRIMA`, evaluate `using PRIMA`
 and pass the `PRIMA` module to `NewuoaMLE`.
-
-Eventually the new algorithm implementations from Prima will be added to Optimization.jl
-making `NewuoaMLE` redundant. (See https://github.com/SciML/Optimization.jl/issues/593.)
 
 # Arguments
 - `prima::Module`: Provide the `PRIMA` module as it is not a direct dependency of BOSS.
@@ -30,6 +30,15 @@ struct NewuoaMLE <: ModelFitter{MLE}
     apply_softplus::Bool
     softplus_params::Union{Vector{Bool}, Nothing}
     kwargs::Base.Pairs{Symbol, <:Any}
+
+    function NewuoaMLE(params...)
+        Base.depwarn(
+            "The `NewuoaMLE` model fitter is deprecated." *
+            "\nUse `OptimizationMLE(Newuoa(), ...)` with `using OptimizationPRIMA` instead.",
+            :OptimizationMLE,
+        )
+        return new(params...)
+    end
 end
 function NewuoaMLE(prima;
     multistart=200,

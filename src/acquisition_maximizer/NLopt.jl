@@ -2,6 +2,9 @@
 """
     NLoptAM(NLopt::Module; kwargs...)
 
+⚠ The `NLoptAM` is deprecated.
+Use `OptimizationAM` with `using OptimizationNLopt` instead.
+
 Maximizes the acquisition function using the NLopt.jl library.
 
 Can handle constraints on `x` if according optimization algorithm is selected.
@@ -27,6 +30,15 @@ struct NLoptAM <: AcquisitionMaximizer
     parallel::Bool
     cons_tol::Float64
     kwargs::Base.Pairs{Symbol, <:Any}
+
+    function NLoptAM(params...)
+        Base.depwarn(
+            "The `NLoptAM` acquisition maximizer is deprecated." *
+            "\nUse `OptimizationAM` with `using OptimizationNLopt` instead.",
+            :OptimizationAM,
+        )
+        return new(params...)
+    end
 end
 function NLoptAM(nlopt;
     algorithm,

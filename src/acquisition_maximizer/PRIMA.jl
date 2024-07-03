@@ -2,13 +2,13 @@
 """
     CobylaAM(PRIMA::Module; kwargs...)
 
+⚠ The `CobylaAM` is deprecated.
+Use `OptimizationAM(Cobyla(), ...)` with `using OptimizationPRIMA` instead.
+
 Maximizes the acquisition function using the new implementation of CobylaAM.
 
 To use `CobylaAM` you need to `] add PRIMA`, evaluate `using PRIMA`
 and pass the `PRIMA` module to `CobylaAM`.
-
-Eventually the new algorithm implementations from Prima will be added to Optimization.jl
-making `CobylaAM` redundant. (See https://github.com/SciML/Optimization.jl/issues/593.)
 
 # Arguments
 - `prima::Module`: Provide the `PRIMA` module as it is not a direct dependency of BOSS.
@@ -23,6 +23,15 @@ struct CobylaAM <: AcquisitionMaximizer
     multistart::Int
     parallel::Bool
     kwargs::Base.Pairs{Symbol, <:Any}
+
+    function CobylaAM(params...)
+        Base.depwarn(
+            "The `CobylaAM` acquisition maximizer is deprecated." *
+            "\nUse `OptimizationAM(Cobyla(), ...)` with `using OptimizationPRIMA` instead.",
+            :OptimizationAM,
+        )
+        return new(params...)
+    end
 end
 function CobylaAM(prima;
     multistart=200,
