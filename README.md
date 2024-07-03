@@ -4,6 +4,8 @@
 
 BOSS.jl is a Julia package for Bayesian optimization. It provides a compact way to define an optimization problem and a surrogate model, and solve the problem. It allows changing the hyperparameters of the underlying algorithms, and provides a simple interface to use custom algorithms for the subtasks of fitting the model parameters and optimizing the acquisition function.
 
+See the [documentation](https://soldasim.github.io/BOSS.jl/) for example usage.
+
 ## Problem Definition
 
 The problem is defined as follows:
