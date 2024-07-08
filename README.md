@@ -1,10 +1,8 @@
 # BOSS (Bayesian Optimization with Semiparametric Surrogate)
 
-:warning:_BOSS.jl is a WIP and not registered yet._:warning:
+BOSS.jl is a Julia package for Bayesian optimization. It provides a compact way to define an optimization problem and a surrogate model, and solve the problem. It allows changing the algorithms used for the subtasks of fitting the surrogate model and optimizing the acquisition function. Simple interfaces are defined for the use of custom surrogate models and/or algorithms for the subtasks. (See [1] for more information about Bayesian optimization.)
 
-BOSS.jl is a Julia package for Bayesian optimization. It provides a compact way to define an optimization problem and a surrogate model, and solve the problem. It allows changing the hyperparameters of the underlying algorithms, and provides a simple interface to use custom algorithms for the subtasks of fitting the model parameters and optimizing the acquisition function.
-
-See the [documentation](https://soldasim.github.io/BOSS.jl/) for example usage.
+See the [documentation](https://soldasim.github.io/BOSS.jl/) for more information.
 
 ## Problem Definition
 
@@ -30,11 +28,16 @@ BOSS also provides a simple interface for the use of other custom alagorithms/li
 
 ## Plotting
 
-A simple plotting script is provided to visualize the optimization process using the Plots.jl package. To use this feature pass the `Plots` module via the `BOSS.PlotOptions` structure to the BOSS algorithm.
+A simple plotting script is provided to visualize the optimization process using the Plots.jl package. Use the `PlotCallback` to utilize this feature.
 
 ## Examples
 
-See https://github.com/Sheld5/BOSS.jl/tree/master/scripts for example usage.
+See the [documentation](https://soldasim.github.io/BOSS.jl/dev/example/) for example usage.
+
+## References
+
+[1] Bobak Shahriari et al. “Taking the human out of the loop: A review of Bayesian
+optimization”. In: Proceedings of the IEEE 104.1 (2015), pp. 148–175
 
 ## Citation
 

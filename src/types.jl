@@ -1,4 +1,11 @@
 
+"""
+    bounds = ([0, 0], [1, 1])
+
+const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
+
+Defines box constraints.
+"""
 const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 
 
@@ -31,12 +38,12 @@ An abstract type for a surrogate model approximating the objective function.
 Example usage: `struct CustomModel <: SurrogateModel ... end`
 
 All models should implement the following methods:
-`make_discrete(model::CustomModel, discrete::AbstractVector{<:Bool}) -> discrete_model::CustomModel`
-`model_posterior(model::CustomModel, data::ExperimentDataMLE; split::Bool) -> (x -> mean, std) <or> [(x -> mean_i, std_i) for i in 1:y_dim]`
-`model_posterior(model::CustomModel, data::ExperimentDataBI; split::Bool) -> [(x -> mean, std) for each sample] <or> [[(x -> mean_i, std_i) for i in 1:y_dim] for each sample]`
-`model_loglike(model::CustomModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData) -> (θ, length_scales, noise_std -> loglike)`
-`sample_params(model::CustomModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}) -> (θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_std::AbstractVector{<:Real})`
-`param_priors(model::CustomModel) -> (θ_priors::AbstractVector{<:UnivariateDistribution}, λ_priors::AbstractVector{<:MultivariateDistribution})
+- `make_discrete(model::CustomModel, discrete::AbstractVector{<:Bool}) -> discrete_model::CustomModel`
+- `model_posterior(model::CustomModel, data::ExperimentDataMLE; split::Bool) -> (x -> mean, std) <or> [(x -> mean_i, std_i) for i in 1:y_dim]`
+- `model_posterior(model::CustomModel, data::ExperimentDataBI; split::Bool) -> [(x -> mean, std) for each sample] <or> [[(x -> mean_i, std_i) for i in 1:y_dim] for each sample]`
+- `model_loglike(model::CustomModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData) -> (θ, length_scales, noise_std -> loglike)`
+- `sample_params(model::CustomModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}) -> (θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_std::AbstractVector{<:Real})`
+- `param_priors(model::CustomModel) -> (θ_priors::AbstractVector{<:UnivariateDistribution}, λ_priors::AbstractVector{<:MultivariateDistribution})`
 
 See also:
 [`LinModel`](@ref), [`NonlinModel`](@ref),
