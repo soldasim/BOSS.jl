@@ -39,7 +39,7 @@ Example usage: `struct CustomModel <: SurrogateModel ... end`
 
 All models should implement the following methods:
 - `make_discrete(model::CustomModel, discrete::AbstractVector{<:Bool}) -> discrete_model::CustomModel`
-- `model_posterior(model::CustomModel, data::ExperimentDataMLE; split::Bool) -> (x -> mean, std) <or> [(x -> mean_i, std_i) for i in 1:y_dim]`
+- `model_posterior(model::CustomModel, data::ExperimentDataMAP; split::Bool) -> (x -> mean, std) <or> [(x -> mean_i, std_i) for i in 1:y_dim]`
 - `model_posterior(model::CustomModel, data::ExperimentDataBI; split::Bool) -> [(x -> mean, std) for each sample] <or> [[(x -> mean_i, std_i) for i in 1:y_dim] for each sample]`
 - `model_loglike(model::CustomModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData) -> (θ, length_scales, noise_std -> loglike)`
 - `sample_params(model::CustomModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}) -> (θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_std::AbstractVector{<:Real})`
@@ -79,26 +79,26 @@ abstract type AcquisitionMaximizer end
 
 """
 An abstract type used to differentiate between
-MLE (Maximum Likelihood Estimation) optimizers and BI (Bayesian Inference) samplers.
+MAP (Maximum A Posteriori) optimizers and BI (Bayesian Inference) samplers.
 """
 abstract type ModelFit end
-struct MLE <: ModelFit end
+struct MAP <: ModelFit end
 struct BI <: ModelFit end
 
 """
 Specifies the library/algorithm used for model parameter estimation.
 Inherit this type to define a custom model-fitting algorithms.
 
-Example: `struct CustomFitter <: ModelFitter{MLE} ... end` or `struct CustomFitter <: ModelFitter{BI} ... end`
+Example: `struct CustomFitter <: ModelFitter{MAP} ... end` or `struct CustomFitter <: ModelFitter{BI} ... end`
 
 Structures derived from this type have to implement the following method:
 `estimate_parameters(model_fitter::CustomFitter, problem::BossProblem; info::Bool)`.
 
 This method should return a named tuple `(θ = ..., length_scales = ..., noise_std = ...)`
-with either MLE model parameters (if `CustomAlg <: ModelFitter{MLE}`)
+with either MAP model parameters (if `CustomAlg <: ModelFitter{MAP}`)
 or model parameter samples (if `CustomAlg <: ModelFitter{BI}`).
 
-See also: [`OptimizationMLE`](@ref), [`TuringBI`](@ref)
+See also: [`OptimizationMAP`](@ref), [`TuringBI`](@ref)
 """
 abstract type ModelFitter{T<:ModelFit} end
 
@@ -163,7 +163,7 @@ ExperimentDataPrior(;
 """
 Stores the fitted/samples model parameters in addition to the data matrices `X`,`Y`.
 
-See also: [`ExperimentDataPrior`](@ref), [`ExperimentDataMLE`](@ref), [`ExperimentDataBI`](@ref)
+See also: [`ExperimentDataPrior`](@ref), [`ExperimentDataMAP`](@ref), [`ExperimentDataBI`](@ref)
 """
 abstract type ExperimentDataPost{T<:ModelFit} <: ExperimentData end
 
@@ -173,12 +173,12 @@ Stores the data matrices `X`,`Y` as well as the optimized model parameters and h
 # Fields
 - `X::AbstractMatrix{<:Real}`: Contains the objective function inputs as columns.
 - `Y::AbstractMatrix{<:Real}`: Contains the objective function outputs as columns.
-- `θ::Union{Nothing, <:AbstractVector{<:Real}}`: Contains the MLE parameters
+- `θ::Union{Nothing, <:AbstractVector{<:Real}}`: Contains the MAP parameters
         of the parametric model (or nothing if the model is nonparametric).
-- `length_scales::Union{Nothing, <:AbstractMatrix{<:Real}}`: Contains the MLE length scales
+- `length_scales::Union{Nothing, <:AbstractMatrix{<:Real}}`: Contains the MAP length scales
         of the GP as a `x_dim`×`y_dim` matrix (or nothing if the model is parametric).
 - `amplitudes::Union{Nothing, <:AbstractVector{<:Real}}`: Amplitudes of the GP.
-- `noise_std::AbstractVector{<:Real}`: The MLE noise standard deviations of each `y` dimension.
+- `noise_std::AbstractVector{<:Real}`: The MAP noise standard deviations of each `y` dimension.
 - `consistent::Bool`: True iff the parameters (`θ`, `length_scales`, `amplitudes`, `noise_std`)
         have been fitted using the current dataset (`X`, `Y`).
         Is set to `consistent = false` after updating the dataset,
@@ -186,13 +186,13 @@ Stores the data matrices `X`,`Y` as well as the optimized model parameters and h
 
 See also: [`ExperimentDataBI`](@ref)
 """
-mutable struct ExperimentDataMLE{
+mutable struct ExperimentDataMAP{
     T<:AbstractMatrix{<:Real},
     P<:Union{Nothing, <:AbstractVector{<:Real}},
     L<:Union{Nothing, <:AbstractMatrix{<:Real}},
     A<:Union{Nothing, <:AbstractVector{<:Real}},
     N<:AbstractVector{<:Real},
-} <: ExperimentDataPost{MLE}
+} <: ExperimentDataPost{MAP}
     X::T
     Y::T
     θ::P
@@ -221,7 +221,7 @@ Stores the data matrices `X`,`Y` as well as the sampled model parameters and hyp
         Is set to `consistent = false` after updating the dataset,
         and to `consistent = true` after re-fitting the parameters.
 
-See also: [`ExperimentDataMLE`](@ref)
+See also: [`ExperimentDataMAP`](@ref)
 """
 mutable struct ExperimentDataBI{
     T<:AbstractMatrix{<:Real},

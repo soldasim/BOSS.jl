@@ -1,14 +1,14 @@
 
 """
-    NewuoaMLE(PRIMA; kwargs...)
+    NewuoaMAP(PRIMA; kwargs...)
 
-⚠ The `NewuoaMLE` is deprecated.
-Use `OptimizationMLE(Newuoa(), ...)` with `using OptimizationPRIMA` instead.
+⚠ The `NewuoaMAP` is deprecated.
+Use `OptimizationMAP(Newuoa(), ...)` with `using OptimizationPRIMA` instead.
 
-Finds the MLE of the model parameters and hyperparameters using the NEWUOA algorithm from the PRIMA package.
+Finds the MAP of the model parameters and hyperparameters using the NEWUOA algorithm from the PRIMA package.
 
-To use `NewuoaMLE` you need to `] add PRIMA`, evaluate `using PRIMA`
-and pass the `PRIMA` module to `NewuoaMLE`.
+To use `NewuoaMAP` you need to `] add PRIMA`, evaluate `using PRIMA`
+and pass the `PRIMA` module to `NewuoaMAP`.
 
 # Arguments
 - `prima::Module`: Provide the `PRIMA` module as it is not a direct dependency of BOSS.
@@ -23,7 +23,7 @@ and pass the `PRIMA` module to `NewuoaMLE`.
         model should the softplus function be applied. Defaults to `nothing` equivalent to all falses.
 - Other keywords are passed to the optimization algorithm. See https://github.com/libprima/PRIMA.jl. 
 """
-struct NewuoaMLE <: ModelFitter{MLE}
+struct NewuoaMAP <: ModelFitter{MAP}
     prima::Module
     multistart::Int
     parallel::Bool
@@ -31,26 +31,26 @@ struct NewuoaMLE <: ModelFitter{MLE}
     softplus_params::Union{Vector{Bool}, Nothing}
     kwargs::Base.Pairs{Symbol, <:Any}
 
-    function NewuoaMLE(params...)
+    function NewuoaMAP(params...)
         Base.depwarn(
-            "The `NewuoaMLE` model fitter is deprecated." *
-            "\nUse `OptimizationMLE(Newuoa(), ...)` with `using OptimizationPRIMA` instead.",
-            :OptimizationMLE,
+            "The `NewuoaMAP` model fitter is deprecated." *
+            "\nUse `OptimizationMAP(Newuoa(), ...)` with `using OptimizationPRIMA` instead.",
+            :OptimizationMAP,
         )
         return new(params...)
     end
 end
-function NewuoaMLE(prima;
+function NewuoaMAP(prima;
     multistart=200,
     parallel=true,
     apply_softplus=true,
     softplus_params=nothing,
     kwargs...
 )
-    return NewuoaMLE(prima, multistart, parallel, apply_softplus, softplus_params, kwargs)
+    return NewuoaMAP(prima, multistart, parallel, apply_softplus, softplus_params, kwargs)
 end
 
-function estimate_parameters(optimizer::NewuoaMLE, problem::BossProblem, options::BossOptions)
+function estimate_parameters(optimizer::NewuoaMAP, problem::BossProblem, options::BossOptions)
     # Prepare necessary parameter transformations.
     softplus_mask = create_activation_mask(problem, optimizer.apply_softplus, optimizer.softplus_params)
     skip_mask, skipped_values = create_dirac_skip_mask(problem)

@@ -20,9 +20,9 @@ BOSS can be used with purely parametric models (via the `BOSS.Parametric` type),
 
 ## Algorithms
 
-BOSS offers both MLE estimation of model parameters and Bayesian inference (BI) via sampling. 
+BOSS offers both MAP estimation of model parameters and Bayesian inference (BI) via sampling. 
 
-Currently, the Optimization.jl library is supported for the MLE estimation and the Turing.jl library is supported for the BI sampling. The Optimization.jl library is supported for the acquisition function maximization.
+Currently, the Optimization.jl library is supported for the MAP estimation and the Turing.jl library is supported for the BI sampling. The Optimization.jl library is supported for the acquisition function maximization.
 
 BOSS also provides a simple interface for the use of other custom alagorithms/libraries for model-fitting and/or acquisition maximization by extending the abstract types `BOSS.ModelFitter` and `BOSS.AcquisitionMaximizer`.
 

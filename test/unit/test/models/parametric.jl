@@ -180,8 +180,8 @@ end
 
     problem_lin = problem(lin_model)
     problem_nonlin = problem(nonlin_model)
-    BOSS.estimate_parameters!(problem_lin, BOSS.SamplingMLE(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
-    BOSS.estimate_parameters!(problem_nonlin, BOSS.SamplingMLE(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
+    BOSS.estimate_parameters!(problem_lin, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
+    BOSS.estimate_parameters!(problem_nonlin, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
 
     @param_test (m, d) -> BOSS.model_posterior(m, d; split=false) begin
         @params problem_lin.model, problem_lin.data

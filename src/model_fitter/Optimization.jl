@@ -1,8 +1,8 @@
 
 """
-    OptimizationMLE(; kwargs...)
+    OptimizationMAP(; kwargs...)
 
-Finds the MLE of the model parameters and hyperparameters using the Optimization.jl package.
+Finds the MAP estimate of the model parameters and hyperparameters using the Optimization.jl package.
 
 # Keywords
 - `algorithm::Any`: Defines the optimization algorithm.
@@ -16,9 +16,9 @@ Finds the MLE of the model parameters and hyperparameters using the Optimization
         Supplying a boolean instead of a binary vector turns the softplus on/off for all parameters.
         Defaults to `false` meaning the softplus is applied to no parameters.
 """
-struct OptimizationMLE{
+struct OptimizationMAP{
     A<:Any,
-} <: ModelFitter{MLE}
+} <: ModelFitter{MAP}
     algorithm::A
     multistart::Int
     parallel::Bool
@@ -27,7 +27,7 @@ struct OptimizationMLE{
     autodiff::SciMLBase.AbstractADType
     kwargs::Base.Pairs{Symbol, <:Any}
 end
-function OptimizationMLE(;
+function OptimizationMAP(;
     algorithm,
     multistart=200,
     parallel=true,
@@ -37,10 +37,10 @@ function OptimizationMLE(;
     kwargs...
 )
     isnothing(autodiff) && (autodiff = SciMLBase.NoAD())
-    return OptimizationMLE(algorithm, multistart, parallel, softplus_hyperparams, softplus_params, autodiff, kwargs)
+    return OptimizationMAP(algorithm, multistart, parallel, softplus_hyperparams, softplus_params, autodiff, kwargs)
 end
 
-function estimate_parameters(opt::OptimizationMLE, problem::BossProblem, options::BossOptions; return_all::Bool=false)
+function estimate_parameters(opt::OptimizationMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)
     # Prepare necessary parameter transformations.
     softplus_mask = create_activation_mask(problem, opt.softplus_hyperparams, opt.softplus_params)
     skip_mask, skipped_values = create_dirac_skip_mask(problem)

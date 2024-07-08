@@ -115,13 +115,13 @@ end
 """
 Update model parameters.
 """
-function update_parameters!(::Type{MLE}, data::ExperimentDataPrior,
+function update_parameters!(::Type{MAP}, data::ExperimentDataPrior,
     θ,
     length_scales,
     amplitudes,
     noise_std,
 )
-    return ExperimentDataMLE(
+    return ExperimentDataMAP(
         data.X,
         data.Y,
         θ,
@@ -166,7 +166,7 @@ function update_parameters!(::Type{T}, data::ExperimentDataPost,
     amplitudes,
     noise_std,
 ) where {T<:ModelFit}
-    throw(ArgumentError("Inconsistent experiment data!\nCannot switch from MLE to BI or vice-versa."))
+    throw(ArgumentError("Inconsistent experiment data!\nCannot switch from MAP to BI or vice-versa."))
 end
 
 """

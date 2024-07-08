@@ -100,7 +100,7 @@ make_discrete(m::GaussianProcess, discrete::AbstractVector{<:Bool}) =
 make_discrete(k::Kernel, discrete::AbstractVector{<:Bool}) = DiscreteKernel(k, discrete)
 make_discrete(k::DiscreteKernel, discrete::AbstractVector{<:Bool}) = make_discrete(k.kernel, discrete)
 
-model_posterior(model::GaussianProcess, data::ExperimentDataMLE; split::Bool=false) =
+model_posterior(model::GaussianProcess, data::ExperimentDataMAP; split::Bool=false) =
     model_posterior(model, data.X, data.Y, data.length_scales, data.amplitudes, data.noise_std; split)
 model_posterior(model::GaussianProcess, data::ExperimentDataBI; split::Bool=false) =
     model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.length_scales, data.amplitudes, data.noise_std; split)

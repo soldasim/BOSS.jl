@@ -33,7 +33,7 @@ Semiparametric(;
 make_discrete(m::Semiparametric, discrete::AbstractVector{<:Bool}) =
     Semiparametric(make_discrete(m.parametric, discrete), make_discrete(m.nonparametric, discrete))
 
-model_posterior(model::Semiparametric, data::ExperimentDataMLE; split::Bool=false) =
+model_posterior(model::Semiparametric, data::ExperimentDataMAP; split::Bool=false) =
     model_posterior(model, data.X, data.Y, data.θ, data.length_scales, data.amplitudes, data.noise_std; split)
 model_posterior(model::Semiparametric, data::ExperimentDataBI; split::Bool=false) =
     model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.θ, data.length_scales, data.amplitudes, data.noise_std; split)

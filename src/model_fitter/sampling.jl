@@ -1,20 +1,20 @@
 
 """
-    SamplingMLE()
+    SamplingMAP()
 
 Optimizes the model parameters by sampling them from their prior distributions
-and selecting the best sample in sense of MLE.
+and selecting the best sample in sense of MAP.
 """
-struct SamplingMLE <: ModelFitter{MLE}
+struct SamplingMAP <: ModelFitter{MAP}
     samples::Int
     parallel::Bool
 end
-SamplingMLE(;
+SamplingMAP(;
     samples,
     parallel=true,
-) = SamplingMLE(samples, parallel)
+) = SamplingMAP(samples, parallel)
 
-function estimate_parameters(opt::SamplingMLE, problem::BossProblem, options::BossOptions)
+function estimate_parameters(opt::SamplingMAP, problem::BossProblem, options::BossOptions)
     loglike = model_loglike(problem.model, problem.noise_std_priors, problem.data)
     sample_() = sample_params(problem.model, problem.noise_std_priors)
     fitness_(p) = loglike(p...)

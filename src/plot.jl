@@ -114,8 +114,8 @@ function plot_y_slice(opt::PlotCallback, problem::BossProblem, dim::Int)
 
     # model
     if problem.data isa ExperimentDataPost
-        if problem.data isa ExperimentDataPost{MLE}
-            # MLE -> best fit
+        if problem.data isa ExperimentDataPost{MAP}
+            # MAP -> best fit
             predict = model_posterior(problem.model, problem.data)
             y_points = (x->predict([x])[1][dim]).(x_points)
             std_points = (x->predict([x])[2][dim]).(x_points)

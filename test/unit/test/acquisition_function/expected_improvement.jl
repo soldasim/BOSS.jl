@@ -9,7 +9,7 @@
         data = BOSS.ExperimentDataPrior(hcat([1.,2.,3.]...), hcat(sin.([1.,2.,3.])...)),
     )
     options = BOSS.BossOptions(; info=false)
-    BOSS.estimate_parameters!(problem, BOSS.RandomMLE(); options)
+    BOSS.estimate_parameters!(problem, BOSS.RandomMAP(); options)
 
     @param_test BOSS.ExpectedImprovement() begin
         @params problem, options

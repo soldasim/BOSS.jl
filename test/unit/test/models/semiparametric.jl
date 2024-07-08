@@ -24,7 +24,7 @@
         noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         data = BOSS.ExperimentDataPrior(X, Y),
     )
-    BOSS.estimate_parameters!(problem, BOSS.SamplingMLE(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
+    BOSS.estimate_parameters!(problem, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
 
     @param_test (m, d) -> BOSS.model_posterior(m, d; split=false) begin
         @params problem.model, problem.data

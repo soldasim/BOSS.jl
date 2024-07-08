@@ -122,11 +122,11 @@ The `ExperimentDataPriors` structure is used to pass the initial dataset to the 
 ExperimentDataPrior
 ```
 
-The `ExperimentDataPost` types contain the estimated model (hyper)parameters in addition to the dataset. The `ExperimentDataMLE` structure contains MLE estimate of the parameters in case a maximum likelihood estimation (MLE) model fitter is used, and the `ExperimentDataBI` structure contains samples of the parameters in case a Bayesian inference (BI) model fitter is used.
+The `ExperimentDataPost` types contain the estimated model (hyper)parameters in addition to the dataset. The `ExperimentDataMAP` structure contains the MAP estimate of the parameters in case a MAP model fitter is used, and the `ExperimentDataBI` structure contains samples of the parameters in case a Bayesian inference model fitter is used.
 
 ```@docs
 ExperimentDataPost
-ExperimentDataMLE
+ExperimentDataMAP
 ExperimentDataBI
 ```
 
@@ -139,10 +139,10 @@ ModelFitter
 ModelFit
 ```
 
-The `OptimizationMLE` model fitter can be used to utilize any optimization algorithm from the Optimization.jl package in order to find the MLE estimate of the (hyper)parameters. (See the example usage.)
+The `OptimizationMAP` model fitter can be used to utilize any optimization algorithm from the Optimization.jl package in order to find the MAP estimate of the (hyper)parameters. (See the example usage.)
 
 ```@docs
-OptimizationMLE
+OptimizationMAP
 ```
 
 The `TuringBI` model fitter can be used to utilize the Turing.jl library in order to sample the (hyper)parameters from the posterior given by the current dataset.
@@ -151,16 +151,16 @@ The `TuringBI` model fitter can be used to utilize the Turing.jl library in orde
 TuringBI
 ```
 
-The `SamplingMLE` model fitter preforms MLE estimation by sampling the parameters from their priors and maximizing the posterior probability over the samples. This is a trivial model fitter suitable for simple experimentation with BOSS.jl and/or Bayesian optimization. A more sophisticated model fitter such as `OptimizationMLE` or `TuringBI` should be used to solve real problems.
+The `SamplingMAP` model fitter preforms MAP estimation by sampling the parameters from their priors and maximizing the posterior probability over the samples. This is a trivial model fitter suitable for simple experimentation with BOSS.jl and/or Bayesian optimization. A more sophisticated model fitter such as `OptimizationMAP` or `TuringBI` should be used to solve real problems.
 
 ```@docs
-SamplingMLE
+SamplingMAP
 ```
 
-The `RandomMLE` model fitter samples random parameter values from their priors. It does NOT optimize for the most probable parameters in any way. This model fitter is provided solely for easy experimentation with BOSS.jl and should not be used to solve problems.
+The `RandomMAP` model fitter samples random parameter values from their priors. It does NOT optimize for the most probable parameters in any way. This model fitter is provided solely for easy experimentation with BOSS.jl and should not be used to solve problems.
 
 ```@docs
-RandomMLE
+RandomMAP
 ```
 
 ## Acquisition Maximizer

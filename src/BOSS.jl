@@ -11,7 +11,7 @@ export Domain
 # Experiment Data
 export ExperimentData
 export ExperimentDataPrior, ExperimentDataPost
-export ExperimentDataMLE, ExperimentDataBI
+export ExperimentDataMAP, ExperimentDataBI
 
 # Surrogate Models
 export SurrogateModel
@@ -20,11 +20,11 @@ export Nonparametric, GaussianProcess
 export Semiparametric
 
 # Model Fitters
-export ModelFit, MLE, BI
+export ModelFit, MAP, BI
 export ModelFitter
-export RandomMLE
-export SamplingMLE
-export OptimizationMLE
+export RandomMAP
+export SamplingMAP
+export OptimizationMAP
 export TuringBI
 
 # Acquisition Maximizers

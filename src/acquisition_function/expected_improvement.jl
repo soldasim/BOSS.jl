@@ -24,7 +24,7 @@ an averaged posterior of the model posterior samples is used for the prediction 
 
 # Keywords
 - `ϵ_samples::Int`: Controls how many samples are used to approximate EI.
-        The `ϵ_samples` keyword is *ignored* unless `MLE` model fitter and `NonlinFitness` are used!
+        The `ϵ_samples` keyword is *ignored* unless `MAP` model fitter and `NonlinFitness` are used!
         In case of `BI` model fitter, the number of samples is instead set equal to the number of posterior samples.
         In case of `LinearFitness`, the expected improvement can be calculated analytically.
 
@@ -37,7 +37,7 @@ an averaged posterior of the model posterior samples is used for the prediction 
         Defaults to `true`.
 """
 struct ExpectedImprovement <: AcquisitionFunction
-    ϵ_samples::Int  # only used in case of MLE and NonlinFitness
+    ϵ_samples::Int  # only used in case of MAP and NonlinFitness
     cons_safe::Bool
 end
 function ExpectedImprovement(;

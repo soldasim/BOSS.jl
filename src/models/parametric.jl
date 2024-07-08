@@ -119,7 +119,7 @@ make_discrete(m::LinModel, discrete::AbstractVector{<:Bool}) =
 make_discrete(m::NonlinModel, discrete::AbstractVector{<:Bool}) =
     NonlinModel(m.predict, m.param_priors, discrete)
 
-model_posterior(model::Parametric, data::ExperimentDataMLE; split::Bool=false) =
+model_posterior(model::Parametric, data::ExperimentDataMAP; split::Bool=false) =
     model_posterior(model, data.θ, data.noise_std; split)
 model_posterior(model::Parametric, data::ExperimentDataBI; split::Bool=false) = 
     model_posterior.(Ref(model), data.θ, data.noise_std; split)

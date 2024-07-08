@@ -83,7 +83,7 @@ function construct_model(::Val{:Semiparametric}, val)
 end
 
 function construct_model_fitter(::Val{:Optimization}, val)
-    return BOSS.OptimizationMLE(;
+    return BOSS.OptimizationMAP(;
         algorithm = NEWUOA(),
         multistart = 2,#200,  # low to improve test runtime
         parallel = val("ModelFitter_parallel"),
@@ -102,13 +102,13 @@ function construct_model_fitter(::Val{:Turing}, val)
     )
 end
 function construct_model_fitter(::Val{:Sampling}, val)
-    return BOSS.SamplingMLE(;
+    return BOSS.SamplingMAP(;
         samples = 2,#200,  # low to improve test runtime
         parallel = val("ModelFitter_parallel"),
     )
 end
 function construct_model_fitter(::Val{:Random}, val)
-    return BOSS.RandomMLE()
+    return BOSS.RandomMAP()
 end
 
 function construct_acq_maximizer(::Val{:Optimization}, val, problem)

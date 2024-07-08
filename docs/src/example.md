@@ -131,12 +131,12 @@ length_scale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2
 
 We can specify the algorithm used to fit the model hyperparameters using the [`ModelFitter`](@ref) type.
 
-We can fit the hyperparameters in a MLE fashion using the [`OptimizationMLE`](@ref) model fitter together with any algorithm from `Optimization.jl` and its extensions.
+We can fit the hyperparameters in a MAP fashion using the [`OptimizationMAP`](@ref) model fitter together with any algorithm from `Optimization.jl` and its extensions.
 
 ```julia
 using OptimizationPRIMA
 
-mle_fitter() = OptimizationMLE(;
+map_fitter() = OptimizationMAP(;
     algorithm = NEWUOA(),
     multistart = 20,
     parallel = true,
@@ -157,7 +157,7 @@ bi_fitter() = TuringBI(;
 )
 ```
 
-See also [`SamplingMLE`](@ref) and [`RandomMLE`](@ref) for more trivial model fitters suitable for simple experimentation with the package.
+See also [`SamplingMAP`](@ref) and [`RandomMAP`](@ref) for more trivial model fitters suitable for simple experimentation with the package.
 
 ## Acquisition Maximizer
 
@@ -211,7 +211,7 @@ Once we define the problem and all hyperparameters, we can run the BO procedure 
 
 ```julia
 bo!(problem();
-    model_fitter = mle_fitter(), # or `bi_fitter()`
+    model_fitter = map_fitter(), # or `bi_fitter()`
     acq_maximizer = acq_maximizer(),
     acquisition = ExpectedImprovement(),
     term_cond = IterLimit(10),
