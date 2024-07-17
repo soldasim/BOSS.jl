@@ -12,7 +12,10 @@ makedocs(sitename="BOSS.jl";
 
 deploydocs(;
     repo = "github.com/soldasim/BOSS.jl",
+    devbranch = "dev",
+    devurl = "dev",
     versions = [
         "stable" => "v^",
-    ]
+        "dev" => "dev",
+    ],
 )
