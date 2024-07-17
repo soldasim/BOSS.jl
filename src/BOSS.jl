@@ -1,7 +1,10 @@
 module BOSS
 
 # functions
-export bo!, result
+export bo!
+export augment_dataset!
+export model_posterior
+export result
 
 # Problem Definition
 export BossProblem
