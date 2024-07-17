@@ -78,6 +78,8 @@ function result(problem::BossProblem)
 end
 
 """
+    model_posterior(::BossProblem) -> (x -> mean, std)
+
 Return the posterior predictive distribution of the Gaussian Process.
 
 The posterior is a function `predict(x) -> (mean, std)`
@@ -170,6 +172,9 @@ function update_parameters!(::Type{T}, data::ExperimentDataPost,
 end
 
 """
+    augment_dataset!(data::ExperimentDataPost, x::AbstractVector{<:Real}, y::AbstractVector{<:Real})
+    augment_dataset!(data::ExperimentDataPost, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real})
+
 Add one (as vectors) or more (as matrices) datapoints to the dataset.
 """
 function augment_dataset!(data::ExperimentDataPost, X::AbstractArray{<:Real}, Y::AbstractArray{<:Real})

@@ -1,13 +1,13 @@
+# Data Types & Structures
 
-# Documentation
+The following diagram showcases the type hierarchy of all BOSS inputs and hyperparameters.
 
-## Main Function
+| | | | | |
+| --- | --- | --- | --- | --- |
+| | | ![BOSS Pipeline](img/boss_inputs.drawio.png) | | |
+| | | | | |
 
-The main function `bo!(::BossProblem; kwargs...)` performs the Bayesian optimization. It augments the dataset and updates the model parameters and/or hyperparameters.
-
-```@docs
-bo!
-```
+This reminder of this page contains documentation for all exported types and structures.
 
 ## Problem Definition
 
@@ -225,12 +225,6 @@ IterLimit
 
 ## Miscellaneous
 
-The `result` function can be used to extract the best found point from the dataset.
-
-```@docs
-result
-```
-
 The `BossOptions` structure is used to define miscellaneous hyperparameters of the BOSS.jl package.
 
 ```@docs
@@ -250,7 +244,7 @@ The `PlotCallback` provides plots the state of the BO procedure in every iterati
 PlotCallback
 ```
 
-## References
+# References
 
 [1] Bobak Shahriari et al. “Taking the human out of the loop: A review of Bayesian
 optimization”. In: Proceedings of the IEEE 104.1 (2015), pp. 148–175
