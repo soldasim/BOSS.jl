@@ -65,7 +65,7 @@ end
 """
 Perform necessary actions and check the problem definition before initiating the optimization.
 """
-function initialize!(problem::BossProblem; options::BossOptions)
+function initialize!(problem::BossProblem; options::BossOptions=BossOptions())
     if any(problem.domain.discrete)
         problem.domain = make_discrete(problem.domain)
         problem.model = make_discrete(problem.model, problem.domain.discrete)
@@ -82,7 +82,7 @@ end
 """
 Estimate the model parameters & hyperparameters using the given `model_fitter` algorithm.
 """
-function estimate_parameters!(problem::BossProblem, model_fitter::ModelFitter{T}; options::BossOptions) where {T}
+function estimate_parameters!(problem::BossProblem, model_fitter::ModelFitter{T}; options::BossOptions=BossOptions()) where {T}
     options.info && @info "Estimating model parameters ..."
     params = estimate_parameters(model_fitter, problem, options)
     problem.data = update_parameters!(T, problem.data, params...)
@@ -91,7 +91,7 @@ end
 """
 Maximize the given `acquisition` function via the given `acq_maximizer` algorithm to find the optimal next evaluation point.
 """
-function maximize_acquisition(problem::BossProblem, acquisition::AcquisitionFunction, acq_maximizer::AcquisitionMaximizer; options::BossOptions)
+function maximize_acquisition(problem::BossProblem, acquisition::AcquisitionFunction, acq_maximizer::AcquisitionMaximizer; options::BossOptions=BossOptions())
     options.info && @info "Maximizing acquisition function ..."
     X = maximize_acquisition(acq_maximizer, acquisition, problem, options)
     options.info && check_new_points(X, problem)
@@ -107,14 +107,14 @@ end
 """
 Evaluate the objective function and update the data.
 """
-function eval_objective!(problem::BossProblem, x::AbstractVector{<:Real}; options::BossOptions)
+function eval_objective!(problem::BossProblem, x::AbstractVector{<:Real}; options::BossOptions=BossOptions())
     options.info && @info "Evaluating objective function ..."
     y = problem.f(x)
     augment_dataset!(problem.data, x, y)
     options.info && @info "New data point: $x : $y"
     return y
 end
-function eval_objective!(problem::BossProblem, X::AbstractMatrix{<:Real}; options::BossOptions)
+function eval_objective!(problem::BossProblem, X::AbstractMatrix{<:Real}; options::BossOptions=BossOptions())
     options.info && @info "Evaluating objective function ..."
     Y = eval_points(Val(options.parallel_evals), problem.f, X)
     augment_dataset!(problem.data, X, Y)
