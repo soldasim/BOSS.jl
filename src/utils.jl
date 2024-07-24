@@ -92,7 +92,7 @@ model_posterior(prob::BossProblem) =
 Exclude points exterior to the given `x` domain from the given `X` and `Y` data matrices
 and return new matrices `X_` and `Y_`.
 """
-function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; options::BossOptions)
+function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; options::BossOptions=BossOptions())
     interior = in_domain.(eachcol(X), Ref(domain))
     all(interior) && return X, Y
     options.info && @warn "Some data are exterior to the domain and will be discarded!"
