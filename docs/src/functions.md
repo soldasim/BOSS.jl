@@ -27,5 +27,7 @@ The "Recommender mode" is used if the objective function is `missing`. In this m
 ```@docs
 augment_dataset!
 model_posterior
+model_posterior_slice
+average_posteriors
 result
 ```
