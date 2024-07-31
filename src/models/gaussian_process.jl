@@ -100,10 +100,8 @@ make_discrete(m::GaussianProcess, discrete::AbstractVector{<:Bool}) =
 make_discrete(k::Kernel, discrete::AbstractVector{<:Bool}) = DiscreteKernel(k, discrete)
 make_discrete(k::DiscreteKernel, discrete::AbstractVector{<:Bool}) = make_discrete(k.kernel, discrete)
 
-model_posterior(model::GaussianProcess, data::ExperimentDataMAP; split::Bool=false) =
-    model_posterior(model, data.X, data.Y, data.length_scales, data.amplitudes, data.noise_std; split)
-model_posterior(model::GaussianProcess, data::ExperimentDataBI; split::Bool=false) =
-    model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.length_scales, data.amplitudes, data.noise_std; split)
+model_posterior(model::GaussianProcess, data::ExperimentDataMAP) =
+    model_posterior(model, data.X, data.Y, data.length_scales, data.amplitudes, data.noise_std)
 
 function model_posterior(
     model::GaussianProcess,
@@ -111,24 +109,38 @@ function model_posterior(
     Y::AbstractMatrix{<:Real},
     λ::AbstractMatrix{<:Real},
     α::AbstractVector{<:Real},
-    noise_std::AbstractVector{<:Real};
-    split::Bool,
+    noise_std::AbstractVector{<:Real},
 )
     y_dim = length(noise_std)
     means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]
-    posts = model_posterior.(means, Ref(model.kernel), Ref(X), eachrow(Y), eachcol(λ), α, noise_std)
+    slices = model_posterior_slice.(means, Ref(model.kernel), Ref(X), eachrow(Y), eachcol(λ), α, noise_std)
     
-    if split
-        return posts
-    else
-        return function post(x)
-            ys = map(p->p(x), posts)
-            first.(ys), last.(ys)
-        end
+    function post(x::AbstractVector{<:Real})
+        μ, std = post(hcat(x))
+        return μ[:,1], std[:,1]
     end
+    function post(x::AbstractMatrix{<:Real})
+        preds = map(p->p(x), slices)
+        μ = mapreduce(pred -> pred[1]', vcat, preds)
+        std = mapreduce(pred -> pred[2]', vcat, preds)
+        return μ, std
+    end
+    return post
 end
 
-function model_posterior(
+function model_posterior_slice(model::GaussianProcess, data::ExperimentDataMAP, slice::Int)
+    return model_posterior_slice(
+        isnothing(model.mean) ? nothing : (x -> model.mean(x)[slice]),
+        model.kernel,
+        data.X,
+        data.Y[slice,:],
+        data.length_scales[:,slice],
+        data.amplitudes[slice],
+        data.noise_std[slice],
+    )
+end
+
+function model_posterior_slice(
     mean::Union{Nothing, Function},
     kernel::Kernel,
     X::AbstractMatrix{<:Real},
@@ -138,10 +150,16 @@ function model_posterior(
     noise_std::Real,
 )
     posterior_gp = AbstractGPs.posterior(finite_gp(mean, kernel, X, λ, α, noise_std), y)
-    return function post(x)
-        μ, var = first.(mean_and_var(posterior_gp(hcat(x))))
+    
+    function post(x::AbstractVector{<:Real})
+        μ, std = post(hcat(x))
+        return μ[1], std[1]
+    end
+    function post(X::AbstractMatrix{<:Real})
+        μ, var = mean_and_var(posterior_gp(X))
         return μ, sqrt.(var)
     end
+    return post
 end
 
 """

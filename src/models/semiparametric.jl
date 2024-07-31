@@ -33,23 +33,11 @@ Semiparametric(;
 make_discrete(m::Semiparametric, discrete::AbstractVector{<:Bool}) =
     Semiparametric(make_discrete(m.parametric, discrete), make_discrete(m.nonparametric, discrete))
 
-model_posterior(model::Semiparametric, data::ExperimentDataMAP; split::Bool=false) =
-    model_posterior(model, data.X, data.Y, data.θ, data.length_scales, data.amplitudes, data.noise_std; split)
-model_posterior(model::Semiparametric, data::ExperimentDataBI; split::Bool=false) =
-    model_posterior.(Ref(model), Ref(data.X), Ref(data.Y), data.θ, data.length_scales, data.amplitudes, data.noise_std; split)
+model_posterior(model::Semiparametric, data::ExperimentDataMAP) =
+    model_posterior(add_mean(model.nonparametric, model.parametric(data.θ)), data)
 
-function model_posterior(
-    model::Semiparametric,
-    X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real},
-    θ::AbstractVector{<:Real},
-    λ::AbstractMatrix{<:Real},
-    α::AbstractVector{<:Real},
-    noise_std::AbstractVector{<:Real};
-    split::Bool, 
-)
-    return model_posterior(add_mean(model.nonparametric, model.parametric(θ)), X, Y, λ, α, noise_std; split)
-end
+model_posterior_slice(model::Semiparametric, data::ExperimentDataMAP) =
+    model_posterior_slice(add_mean(model.nonparametric, model.parametric(data.θ)), data)
 
 function model_loglike(model::Semiparametric, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
     function loglike(θ, λ, α, noise_std)

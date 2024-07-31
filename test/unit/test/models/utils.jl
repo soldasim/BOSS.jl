@@ -50,8 +50,6 @@ end
     end
 end
 
-noise_loglike(noise_std_priors, noise_std) = mapreduce(p -> logpdf(p...), +, zip(noise_std_priors, noise_std))
-
 @testset "noise_loglike(noise_std_priors, noise_std)" begin
     @param_test BOSS.noise_loglike begin
         # TODO: Add different priors loaded from a collection.

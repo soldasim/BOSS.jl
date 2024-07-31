@@ -78,17 +78,6 @@ function result(problem::BossProblem)
 end
 
 """
-    model_posterior(::BossProblem) -> (x -> mean, std)
-
-Return the posterior predictive distribution of the Gaussian Process.
-
-The posterior is a function `predict(x) -> (mean, std)`
-which gives the mean and std of the predictive distribution as a function of `x`.
-"""
-model_posterior(prob::BossProblem) =
-    model_posterior(prob.model, prob.data)
-
-"""
 Exclude points exterior to the given `x` domain from the given `X` and `Y` data matrices
 and return new matrices `X_` and `Y_`.
 """
@@ -195,3 +184,70 @@ since the parameters have been estimated.
 """
 consistent(data::ExperimentDataPrior) = false
 consistent(data::ExperimentDataPost) = data.consistent
+
+"""
+    eachsample(::ExperimentData)
+
+Return a `BISamples` iterator over the hyperparameter samples contained in the data.
+"""
+eachsample(data::ExperimentDataBI) = BISamples(data)
+
+"""
+    get_sample(::ExperimentData, ::Int)
+
+Return a single hyperparameter sample as an instance of `ExperimentDataMAP`.
+"""
+function get_sample(data::ExperimentDataBI, idx::Int)
+    return ExperimentDataMAP(
+        data.X,
+        data.Y,
+        isnothing(data.θ) ? nothing : data.θ[idx],
+        isnothing(data.length_scales) ? nothing : data.length_scales[idx],
+        isnothing(data.amplitudes) ? nothing : data.amplitudes[idx],
+        data.noise_std[idx],
+        data.consistent,
+    )
+end
+
+"""
+    sample_count(::ExperimentDataBI)
+
+Return the number of hyperparameter samples stored in the data.
+"""
+function sample_count(data::ExperimentDataBI)
+    len = length(data.noise_std)
+    check_len(p) = length(p) == len
+    check_len(::Nothing) = true
+    @assert check_len.((data.θ, data.length_scales, data.amplitudes)) |> all
+    return len
+end
+
+"""
+Iterator over BI samples contained in `ExperimentDataBI` structure.
+The returned elements are instances of `ExperimentDataMAP`.
+"""
+struct BISamples
+    data::ExperimentDataBI
+    length::Int
+end
+BISamples(data::ExperimentDataBI) = BISamples(data, sample_count(data))
+
+Base.getindex(samples::BISamples, idx::Int) = get_sample(samples.data, idx)
+Base.length(samples::BISamples) = samples.length
+Base.eltype(::BISamples) = ExperimentDataMAP
+
+function Base.iterate(samples::BISamples)
+    if samples.length == 0
+        return nothing
+    else
+        return samples[1], 1
+    end
+end
+function Base.iterate(samples::BISamples, state::Int)
+    state += 1
+    if state > samples.length
+        return nothing
+    else
+        return samples[state], state
+    end
+end

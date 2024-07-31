@@ -100,10 +100,12 @@ end
     )
     BOSS.estimate_parameters!(problem, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
 
-    @param_test (m, d) -> BOSS.model_posterior(m, d; split=false) begin
+    @param_test BOSS.model_posterior begin
         @params problem.model, problem.data
         @success (
             out isa Function,
+
+            # vector
             out([2., 2.]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}},
             length(out([2., 2.])[1]) == 2,
             length(out([2., 2.])[2]) == 2,
@@ -115,30 +117,64 @@ end
             isapprox.(out([100., 100.])[1], [1., 1.]; atol=0.01) |> all,
             all(out([2., 2.])[2] .< out([3., 3.])[2]),
             all(out([10., 10.])[2] .< out([11., 11.])[2]),
+            
+            # matrix
+            out([1.;1.;; 2.;2.;; 3.;3.;;]) isa Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}},
+            size(out([1.;1.;; 2.;2.;; 3.;3.;;])[1]) == (2, 3),
+            size(out([1.;1.;; 2.;2.;; 3.;3.;;])[2]) == (2, 3),
+            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][:,1], out([1., 1.])[1]; atol=1e-8) |> all,
+            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][:,2], out([2., 2.])[1]; atol=1e-8) |> all,
+            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][:,3], out([3., 3.])[1]; atol=1e-8) |> all,
+            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][:,1], out([1., 1.])[2]; atol=1e-8) |> all,
+            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][:,2], out([2., 2.])[2]; atol=1e-8) |> all,
+            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][:,3], out([3., 3.])[2]; atol=1e-8) |> all,
         )
     end
-    @param_test (m, d) -> BOSS.model_posterior(m, d; split=true) begin
-        @params problem.model, problem.data
+end
+
+@testset "model_posterior_slice(model, data, slice)" begin
+    problem = BOSS.BossProblem(;
+        fitness = BOSS.LinFitness([1., 0.]),
+        f = x -> x,
+        domain = BOSS.Domain(; bounds=([0., 0.], [10., 10.])),
+        y_max = [Inf, 5.],
+        model = BOSS.Nonparametric(;
+            mean = x -> [1., 1.],
+            amp_priors = fill(BOSS.LogNormal(), 2),
+            length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+        ),
+        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
+        data = BOSS.ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
+    )
+    BOSS.estimate_parameters!(problem, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
+
+    @param_test BOSS.model_posterior_slice begin
+        @params problem.model, problem.data, 1
+        @params problem.model, problem.data, 2
         @success (
-            out isa Vector,
-            out[1]([2., 2.]) isa Tuple{<:Real, <:Real},
-            out[2]([2., 2.]) isa Tuple{<:Real, <:Real},
-            isapprox(out[1]([2., 2.])[1], 2.; atol=0.01),
-            isapprox(out[2]([2., 2.])[1], 2.; atol=0.01),
-            isapprox(out[1]([5., 5.])[1], 5.; atol=0.01),
-            isapprox(out[2]([5., 5.])[1], 5.; atol=0.01),
-            isapprox(out[1]([8., 8.])[1], 8.; atol=0.01),
-            isapprox(out[2]([8., 8.])[1], 8.; atol=0.01),
-            out[1]([1., 1.])[1] < 2.,
-            out[2]([1., 1.])[1] < 2.,
-            out[1]([4., 4.])[1] < 5.,
-            out[2]([4., 4.])[1] < 5.,
-            isapprox(out[1]([100., 100.])[1], 1.; atol=0.01),
-            isapprox(out[2]([100., 100.])[1], 1.; atol=0.01),
-            out[1]([2., 2.])[2] < out[1]([3., 3.])[2],
-            out[2]([2., 2.])[2] < out[2]([3., 3.])[2],
-            out[1]([10., 10.])[2] < out[1]([11., 11.])[2],
-            out[2]([10., 10.])[2] < out[2]([11., 11.])[2],
+            out isa Function,
+
+            # vector
+            out([2., 2.]) isa Tuple{<:Real, <:Real},
+            isapprox(out([2., 2.])[1], 2.; atol=0.01),
+            isapprox(out([5., 5.])[1], 5.; atol=0.01),
+            isapprox(out([8., 8.])[1], 8.; atol=0.01),
+            out([1., 1.])[1] < 2.,
+            out([4., 4.])[1] < 5.,
+            isapprox(out([100., 100.])[1], 1.; atol=0.01),
+            out([2., 2.])[2] < out([3., 3.])[2],
+            out([10., 10.])[2] .< out([11., 11.])[2],
+
+            # matrix
+            out([1.;1.;; 2.;2.;; 3.;3.;;]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}},
+            length(out([1.;1.;; 2.;2.;; 3.;3.;;])[1]) == 3,
+            length(out([1.;1.;; 2.;2.;; 3.;3.;;])[2]) == 3,
+            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][1], out([1., 1.])[1]; atol=1e-8),
+            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][2], out([2., 2.])[1]; atol=1e-8),
+            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][3], out([3., 3.])[1]; atol=1e-8),
+            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][1], out([1., 1.])[2]; atol=1e-8),
+            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][2], out([2., 2.])[2]; atol=1e-8),
+            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][3], out([3., 3.])[2]; atol=1e-8),
         )
     end
 end

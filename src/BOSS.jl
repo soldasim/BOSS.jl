@@ -3,7 +3,7 @@ module BOSS
 # functions
 export bo!
 export augment_dataset!
-export model_posterior
+export model_posterior, model_posterior_slice, average_posteriors
 export result
 
 # Problem Definition
