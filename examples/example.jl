@@ -105,14 +105,14 @@ boss_options() = BossOptions(;
 )
 
 """
-An example usage of the BOSS algorithm with a MLE algorithm.
+An example usage of the BOSS algorithm with a MAP algorithm.
 """
 function main(problem=opt_problem(2), iters=10;
     parallel = true,
 )
     ### Model Fitter:
     # Maximum likelihood estimation
-    model_fitter = OptimizationMLE(;
+    model_fitter = OptimizationMAP(;
         algorithm = NEWUOA(),
         multistart = 20,
         parallel,
