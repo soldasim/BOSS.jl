@@ -34,10 +34,12 @@ Return true iff `y` satisfies the given constraints.
 """
 is_feasible(y::AbstractVector{<:Real}, y_max::AbstractVector{<:Real}) = all(y .<= y_max)
 
-x_dim(domain::Domain) = length(domain.discrete)
 x_dim(problem::BossProblem) = length(problem.domain.discrete)
+x_dim(domain::Domain) = length(domain.discrete)
+x_dim(data::ExperimentData) = size(data.X)[1]
 
 y_dim(problem::BossProblem) = length(problem.y_max)
+y_dim(data::ExperimentData) = size(data.Y)[1]
 
 cons_dim(domain::Domain) = isnothing(domain.cons) ? 0 : length(domain.cons(mean(domain.bounds)))
 cons_dim(problem::BossProblem) = cons_dim(problem.domain)
