@@ -94,31 +94,31 @@
     end
 end
 
-@testset "vectorize_params(θ, λ, noise_std, activation_function, activation_mask, skip_mask)" begin
+@testset "vectorize_params(params, activation_function, activation_mask, skip_mask)" begin
     activation_function(x) = -x
     BOSS.inverse(activation_function) = activation_function
     
     @param_test BOSS.vectorize_params begin
-        @params [1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1], activation_function, fill(false, 11), fill(true, 11)
+        @params ([1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1]), activation_function, fill(false, 11), fill(true, 11)
         @success out == [1., 2., 3., 4., 4., 5., 5., 1., 1., 0.1, 0.1]
 
-        @params [1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1], activation_function, fill(true, 11), fill(true, 11)
+        @params ([1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1]), activation_function, fill(true, 11), fill(true, 11)
         @success out == -1. * [1., 2., 3., 4., 4., 5., 5., 1., 1., 0.1, 0.1]
 
-        @params [1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1], activation_function, vcat([true, false, true], fill(false, 8)), fill(true, 11)
+        @params ([1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1]), activation_function, vcat([true, false, true], fill(false, 8)), fill(true, 11)
         @success out == [-1., 2., -3., 4., 4., 5., 5., 1., 1., 0.1, 0.1]
 
-        @params [1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1], activation_function, fill(false, 11), vcat(fill(true, 3), fill(false, 8))
+        @params ([1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1]), activation_function, fill(false, 11), vcat(fill(true, 3), fill(false, 8))
         @success out == [1., 2., 3.]
 
-        @params [1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1], activation_function, vcat([true, false, true], fill(false, 8)), vcat(fill(true, 3), fill(false, 8))
+        @params ([1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1]), activation_function, vcat([true, false, true], fill(false, 8)), vcat(fill(true, 3), fill(false, 8))
         @success out == [-1., 2., -3.]
 
-        @params [1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1], activation_function, vcat([true, false, true], fill(false, 8)), vcat([true, false, true], fill(true, 8))
+        @params ([1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1]), activation_function, vcat([true, false, true], fill(false, 8)), vcat([true, false, true], fill(true, 8))
         @success out == [-1., -3., 4., 4., 5., 5., 1., 1., 0.1, 0.1]
 
-        @params [1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1], activation_function, fill(false, 11), fill(false, 11)
-        @params [1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1], activation_function, fill(true, 11), fill(false, 11)
+        @params ([1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1]), activation_function, fill(false, 11), fill(false, 11)
+        @params ([1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1]), activation_function, fill(true, 11), fill(false, 11)
         @success out == Float64[]
     end
 end

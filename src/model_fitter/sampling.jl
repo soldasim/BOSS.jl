@@ -4,6 +4,10 @@
 
 Optimizes the model parameters by sampling them from their prior distributions
 and selecting the best sample in sense of MAP.
+
+# Keywords
+- `samples::Int`: The number of drawn samples.
+- `parallel::Bool`: The sampling is performed in parallel if `parallel=true`.
 """
 struct SamplingMAP <: ModelFitter{MAP}
     samples::Int
@@ -14,23 +18,43 @@ SamplingMAP(;
     parallel=true,
 ) = SamplingMAP(samples, parallel)
 
-function estimate_parameters(opt::SamplingMAP, problem::BossProblem, options::BossOptions)
+function estimate_parameters(opt::SamplingMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)
     loglike = model_loglike(problem.model, problem.noise_std_priors, problem.data)
     sample_() = sample_params(problem.model, problem.noise_std_priors)
     fitness_(p) = loglike(p...)
 
-    if opt.parallel
-        counts = get_sample_counts(opt.samples, Threads.nthreads())
-        ptasks = [Threads.@spawn sampling_optim(sample_, fitness_, c) for c in counts]
-        results = fetch.(ptasks)
-        params = [res[1] for res in results]
-        vals = [res[2] for res in results]
-        b = argmax(vals)
-        return params[b]
-    else
-        params, _ = sampling_optim(sample_, fitness_, opt.samples)
-        return params
-    end
+    params, fit = sample(Val(return_all), Val(opt.parallel), opt, sample_, fitness_)
+    return params, fit
+end
+
+function sample(return_all::Val{false}, parallel::Val{false}, opt::SamplingMAP, sample_func, fitness_func)
+    params, val = sampling_optim(sample_func, fitness_func, opt.samples)
+    return params, val
+end
+function sample(return_all::Val{true}, parallel::Val{false}, opt::SamplingMAP, sample_func, fitness_func)
+    samples, vals = sampling_simple(sample_func, fitness_func, opt.samples)
+    return samples, vals
+end
+
+function sample(return_all::Val{false}, parallel::Val{true}, opt::SamplingMAP, sample_func, fitness_func)
+    counts = get_sample_counts(opt.samples, Threads.nthreads())
+    ptasks = [Threads.@spawn sampling_optim(sample_func, fitness_func, c) for c in counts]
+    results = fetch.(ptasks)
+    
+    params = first.(results)
+    vals = last.(results)
+    b = argmax(vals)
+    return params[b], vals[b]
+end
+function sample(return_all::Val{true}, parallel::Val{true}, opt::SamplingMAP, sample_func, fitness_func)
+    counts = get_sample_counts(opt.samples, Threads.nthreads())
+    ptasks = [Threads.@spawn sampling_simple(sample_func, fitness_func, c) for c in counts]
+    results = fetch.(ptasks)
+
+    # `filter` out empty vectors for type stability
+    samples = vcat(filter(!isempty, first.(results))...)
+    vals = vcat(filter(!isempty, last.(results))...)
+    return samples, vals
 end
 
 function sampling_optim(sample_func, fitness_func, samples)
@@ -45,6 +69,12 @@ function sampling_optim(sample_func, fitness_func, samples)
         end
     end
     return best_p, best_v
+end
+
+function sampling_simple(sample_func, fitness_func, sample_count)
+    samples = [sample_func() for _ in 1:sample_count]
+    vals = fitness_func.(samples)
+    return samples, vals
 end
 
 function get_sample_counts(samples, tasks)

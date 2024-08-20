@@ -103,12 +103,21 @@ function construct_model_fitter(::Val{:Turing}, val)
 end
 function construct_model_fitter(::Val{:Sampling}, val)
     return BOSS.SamplingMAP(;
-        samples = 2,#200,  # low to improve test runtime
+        samples = 10,#200,  # low to improve test runtime
         parallel = val("ModelFitter_parallel"),
     )
 end
 function construct_model_fitter(::Val{:Random}, val)
     return BOSS.RandomMAP()
+end
+function construct_model_fitter(::Val{:SampleOpt}, val)
+    return BOSS.SampleOptMAP(;
+        samples = 10,#200,  # low to improve test runtime
+        algorithm = NEWUOA(),
+        multistart = 2,#200,  # low to improve test runtime
+        parallel = val("ModelFitter_parallel"),
+        rhoend = 1e-2,
+    )
 end
 
 function construct_acq_maximizer(::Val{:Optimization}, val, problem)

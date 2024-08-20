@@ -27,7 +27,7 @@ export ModelFit, MAP, BI
 export ModelFitter
 export RandomMAP
 export SamplingMAP
-export OptimizationMAP
+export OptimizationMAP, SampleOptMAP
 export TuringBI
 
 # Acquisition Maximizers

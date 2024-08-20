@@ -42,7 +42,6 @@ const INPUT_NAMES = [
     "iter_max",
     "ModelFitter",
     "AcquisitionMaximizer",
-    "VALID",
 ]
 
 
@@ -188,10 +187,11 @@ const iter_max_DICT = Dict(
 )
 
 const ModelFitter_DICT = Dict(
-    "optimization_mle" => :Optimization,
+    "optimization_map" => :Optimization,
     "turing_bi" => :Turing,
-    "sampling_mle" => :Sampling,
-    "random_mle" => :Random,
+    "sampling_map" => :Sampling,
+    "random_map" => :Random,
+    "sample_opt_map" => :SampleOpt,
     "*" => :Optimization,
 )
 

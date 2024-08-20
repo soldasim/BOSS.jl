@@ -14,14 +14,10 @@ include("file_utils.jl")
         @testset "Test $i" begin
             script = create_problem(val)
             
-            if val("VALID")
-                if ismissing(val("f"))
-                    @test script() isa AbstractVector{<:Real}
-                else
-                    @test script() isa BOSS.BossProblem
-                end
+            if ismissing(val("f"))
+                @test script() isa AbstractVector{<:Real}
             else
-                @test_throws Exception script()
+                @test script() isa BOSS.BossProblem
             end
         end
     end

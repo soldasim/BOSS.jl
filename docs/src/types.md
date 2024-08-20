@@ -163,6 +163,12 @@ The `RandomMAP` model fitter samples random parameter values from their priors. 
 RandomMAP
 ```
 
+The `SampleOptMAP` model fitter combines the `SamplingMAP` and `OptimizationMAP`. It first samples many model parameter samples from their priors, and subsequently runs multiple optimization runs initiated at the best samples.
+
+```@docs
+SampleOptMAP
+```
+
 ## Acquisition Maximizer
 
 The `AcquisitionMaximizer` type is used to define the algorithm used to maximize the acquisition function.
