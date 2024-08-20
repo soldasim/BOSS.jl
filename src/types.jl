@@ -8,6 +8,18 @@ Defines box constraints.
 """
 const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 
+"""
+Represents all model (hyper)parameters.
+
+`ModelParams` is a tuple of `θ, length_scales, amplitudes, noise_std` in this order.
+"""
+const ModelParams = Tuple{
+    <:AbstractVector{<:Real},
+    <:AbstractMatrix{<:Real},
+    <:AbstractVector{<:Real},
+    <:AbstractVector{<:Real},
+}
+
 
 # - - - - - - - - Acquisition Functions - - - - - - - -
 
@@ -94,9 +106,13 @@ Example: `struct CustomFitter <: ModelFitter{MAP} ... end` or `struct CustomFitt
 Structures derived from this type have to implement the following method:
 `estimate_parameters(model_fitter::CustomFitter, problem::BossProblem; info::Bool)`.
 
-This method should return a named tuple `(θ = ..., length_scales = ..., noise_std = ...)`
-with either MAP model parameters (if `CustomAlg <: ModelFitter{MAP}`)
-or model parameter samples (if `CustomAlg <: ModelFitter{BI}`).
+This method should return a tuple `(params, val)`.
+The returned `params` should be a named tuple `(θ = ..., length_scale = ..., amplitudes = ..., noise_std = ...)`
+containing the best parameter values (if `CustomAlg <: ModelFitter{MAP}`)
+or parameter samples (if `CustomAlg <: ModelFitter{BI}`).
+The returned `val` should be the log likelihood of the parameters (if `CustomAlg <: ModelFitter{MAP}`),
+or a vector of log likelihoods of the individual parameter samples (if `CustomAlg <: ModelFitter{BI}`),
+or `nothing`.
 
 See also: [`OptimizationMAP`](@ref), [`TuringBI`](@ref)
 """

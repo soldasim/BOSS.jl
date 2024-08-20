@@ -40,7 +40,7 @@ TuringBI(;
 ) = TuringBI(sampler, warmup, samples_in_chain, chain_count, leap_size, parallel)
 
 function estimate_parameters(turing::TuringBI, problem::BossProblem, options::BossOptions)
-    return sample_params(turing, problem.model, problem.noise_std_priors, problem.data.X, problem.data.Y)
+    return sample_params(turing, problem.model, problem.noise_std_priors, problem.data.X, problem.data.Y), nothing
 end
 
 Turing.@model function turing_model(

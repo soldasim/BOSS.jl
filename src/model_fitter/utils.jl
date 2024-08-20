@@ -3,12 +3,12 @@
 Transform all model parameters and noise deviations into one parameter vector.
 """
 function vectorize_params(
-    θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, α::AbstractVector{<:Real}, noise_std::AbstractVector{<:Real},
+    params::ModelParams,
     activation_function::Function,
     activation_mask::AbstractVector{Bool},
     skip_mask::AbstractVector{Bool},
 )
-    params = vectorize_params(θ, λ, α, noise_std)
+    params = vectorize_params(params...)
     params .= cond_func(inverse(activation_function)).(activation_mask, params)
     params = params[skip_mask]
     return params
