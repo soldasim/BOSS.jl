@@ -1,8 +1,11 @@
 using OptimizationPRIMA
 
+include("file_utils.jl")
 include("input_values.jl")
 include("dummy_problem.jl")
-include("file_utils.jl")
+
+using .FileUtils
+using .InputValues
 
 @testset "Combinatorial Tests" begin
     @info "Running Combinatorial Tests ..."

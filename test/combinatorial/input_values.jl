@@ -1,3 +1,19 @@
+module InputValues
+
+export get_input_vals
+
+import ..PARALLEL_TESTS
+using ..BOSS
+using ..FileUtils
+
+
+# - - - List of All Inputs - - - - -
+
+"""
+The names of all parametrized BOSS inputs used in combinatorial testing.
+"""
+const INPUT_NAMES = load_var_names()
+
 
 # - - - Objective Function - - - - -
 
@@ -10,39 +26,6 @@ function OBJ_FUNC(x; noise_std=0.1)
 
     return [y,z]
 end
-
-
-# - - - List of All Inputs - - - - -
-
-"""
-The names of all parametrized BOSS inputs used in combinatorial testing.
-"""
-const INPUT_NAMES = [
-    "XY",
-    "f",
-    "bounds",
-    "discrete",
-    "cons",
-    "y_max",
-    "noise_std_priors",
-    "ModelFitter_parallel",
-    "AcquisitionMaximizer_parallel",
-    "Acquisition",
-    "Parametric_predict",
-    "Parametric_theta_priors",
-    "Nonparametric_mean",
-    "Nonparametric_kernel",
-    "Nonparametric_amp_priors",
-    "Nonparametric_length_scale_priors",
-    "Semiparametric_mean",
-    "MODEL",
-    "LinFitness_coefs",
-    "NonlinFitness_fit",
-    "FITNESS",
-    "iter_max",
-    "ModelFitter",
-    "AcquisitionMaximizer",
-]
 
 
 # - - - ValueName-to-Value Dicitionaries - - - - -
@@ -231,3 +214,5 @@ the input variable names to concrete values.
 function get_input_vals(comb)
     return var -> INPUT_DICT[var][comb[var]]
 end
+
+end # module InputValues
