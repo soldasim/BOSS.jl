@@ -1,9 +1,9 @@
-# ACTS Test Suite Generation: Wed Aug 21 10:43:50 CEST 2024
+# ACTS Test Suite Generation: Sat Aug 24 12:38:18 CEST 2024
 #  '*' represents don't care value 
 # Degree of interaction coverage: 2
 # Number of parameters: 24
-# Maximum number of values per parameter: 5
-# Number of configurations: 21
+# Maximum number of values per parameter: 3
+# Number of configurations: 17
 
 # VARIABLE NAMES
 XY,f,bounds,discrete,cons,y_max,ModelFitter_parallel,AcquisitionMaximizer_parallel,Acquisition,Parametric_predict,Parametric_theta_priors,Nonparametric_mean,Nonparametric_kernel,Nonparametric_length_scale_priors,Semiparametric_mean,MODEL,LinFitness_coefs,NonlinFitness_fit,FITNESS,ModelFitter,AcquisitionMaximizer,Nonparametric_amp_priors,noise_std_priors,iter_max
@@ -12,24 +12,20 @@ XY,f,bounds,discrete,cons,y_max,ModelFitter_parallel,AcquisitionMaximizer_parall
 *,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,2
 
 # COMBINATIONS
-duplicates,missing,all_finite,all_false,nothing,all_infinite,false,false,EI,valid_function,with_Dirac,INACTIVE,valid,wo_Dirac,nothing,Semiparametric,INACTIVE,valid_function,NonlinFitness,optimization_map,grid,wo_Dirac,wo_Dirac,1
-noduplicates,valid_function,all_finite,some_true,valid_function,some_finite,true,true,EI,valid_function,wo_Dirac,INACTIVE,INACTIVE,INACTIVE,INACTIVE,Parametric,wo_infs,INACTIVE,LinFitness,optimization_map,random,INACTIVE,with_Dirac,1
+duplicates,missing,all_finite,all_false,nothing,all_infinite,false,false,EI,valid_function,with_Dirac,INACTIVE,valid,wo_Dirac,nothing,Semiparametric,INACTIVE,valid_function,NonlinFitness,turing_bi,grid,wo_Dirac,wo_Dirac,1
+noduplicates,valid_function,all_finite,some_true,valid_function,some_finite,true,true,EI,valid_function,wo_Dirac,INACTIVE,INACTIVE,INACTIVE,INACTIVE,Parametric,wo_infs,INACTIVE,LinFitness,sampling_map,sampling,INACTIVE,with_Dirac,1
 duplicates,valid_function,all_finite,all_false,valid_function,all_infinite,true,false,EI,INACTIVE,INACTIVE,valid_function,valid,with_Dirac,INACTIVE,Nonparametric,wo_infs,INACTIVE,LinFitness,optimization_map,optimization,with_Dirac,wo_Dirac,1
-noduplicates,missing,all_finite,some_true,nothing,some_finite,false,true,EI,valid_function,with_Dirac,INACTIVE,valid,with_Dirac,nothing,Semiparametric,INACTIVE,valid_function,NonlinFitness,turing_bi,random,with_Dirac,with_Dirac,1
-noduplicates,valid_function,*,all_false,valid_function,some_finite,true,false,*,valid_function,wo_Dirac,*,valid,wo_Dirac,nothing,Semiparametric,wo_infs,INACTIVE,LinFitness,turing_bi,optimization,wo_Dirac,with_Dirac,*
-noduplicates,missing,all_finite,some_true,nothing,all_infinite,true,true,EI,INACTIVE,INACTIVE,nothing,valid,wo_Dirac,INACTIVE,Nonparametric,INACTIVE,valid_function,NonlinFitness,turing_bi,grid,with_Dirac,with_Dirac,1
-duplicates,missing,all_finite,all_false,nothing,all_infinite,false,false,EI,valid_function,with_Dirac,INACTIVE,INACTIVE,INACTIVE,INACTIVE,Parametric,INACTIVE,valid_function,NonlinFitness,sampling_map,optimization,INACTIVE,wo_Dirac,1
-duplicates,valid_function,*,some_true,valid_function,some_finite,false,true,*,*,wo_Dirac,*,valid,with_Dirac,nothing,Semiparametric,wo_infs,INACTIVE,LinFitness,sampling_map,grid,wo_Dirac,wo_Dirac,*
-noduplicates,missing,*,all_false,nothing,some_finite,false,true,*,INACTIVE,INACTIVE,valid_function,*,wo_Dirac,INACTIVE,Nonparametric,wo_infs,INACTIVE,LinFitness,sampling_map,random,wo_Dirac,with_Dirac,*
-duplicates,valid_function,all_finite,some_true,valid_function,all_infinite,true,false,EI,valid_function,with_Dirac,INACTIVE,INACTIVE,INACTIVE,INACTIVE,Parametric,INACTIVE,valid_function,NonlinFitness,random_map,grid,INACTIVE,with_Dirac,1
-noduplicates,missing,*,all_false,nothing,all_infinite,false,true,*,*,wo_Dirac,*,valid,with_Dirac,nothing,Semiparametric,wo_infs,INACTIVE,LinFitness,random_map,random,with_Dirac,wo_Dirac,*
-duplicates,valid_function,*,some_true,valid_function,some_finite,false,false,*,INACTIVE,INACTIVE,nothing,*,wo_Dirac,*,Nonparametric,wo_infs,INACTIVE,LinFitness,random_map,optimization,wo_Dirac,wo_Dirac,*
-noduplicates,missing,all_finite,all_false,valid_function,all_infinite,true,true,EI,valid_function,with_Dirac,INACTIVE,INACTIVE,INACTIVE,INACTIVE,Parametric,wo_infs,INACTIVE,LinFitness,sample_opt_map,grid,INACTIVE,with_Dirac,1
-duplicates,valid_function,*,some_true,nothing,some_finite,false,false,*,*,wo_Dirac,*,valid,with_Dirac,nothing,Semiparametric,INACTIVE,valid_function,NonlinFitness,sample_opt_map,random,with_Dirac,wo_Dirac,*
-*,*,*,some_true,*,*,*,true,*,INACTIVE,INACTIVE,valid_function,*,wo_Dirac,*,Nonparametric,INACTIVE,valid_function,NonlinFitness,sample_opt_map,optimization,wo_Dirac,*,*
-duplicates,*,*,*,*,*,*,*,*,*,*,valid_function,*,*,*,*,*,*,*,turing_bi,grid,*,wo_Dirac,*
-*,*,*,*,*,*,*,*,*,*,*,valid_function,*,*,*,*,*,*,*,random_map,*,*,*,*
-*,*,*,all_false,*,*,*,*,*,*,*,nothing,*,with_Dirac,*,*,*,*,*,optimization_map,random,*,*,*
-*,*,*,*,*,*,true,*,*,*,*,nothing,*,*,*,*,*,*,*,sampling_map,*,with_Dirac,*,*
-*,*,*,*,*,*,*,*,*,*,*,nothing,*,*,*,*,*,*,*,sample_opt_map,*,*,*,*
-*,*,*,*,*,*,*,*,*,*,*,*,INACTIVE,INACTIVE,*,Parametric,*,*,*,turing_bi,*,INACTIVE,*,*
+noduplicates,missing,all_finite,some_true,nothing,some_finite,false,true,EI,INACTIVE,INACTIVE,nothing,valid,wo_Dirac,INACTIVE,Nonparametric,INACTIVE,valid_function,NonlinFitness,sampling_map,grid,wo_Dirac,with_Dirac,1
+noduplicates,missing,*,all_false,valid_function,some_finite,false,false,*,INACTIVE,INACTIVE,nothing,valid,with_Dirac,INACTIVE,Nonparametric,wo_infs,INACTIVE,LinFitness,turing_bi,sampling,with_Dirac,with_Dirac,*
+noduplicates,valid_function,*,some_true,nothing,some_finite,true,true,*,valid_function,with_Dirac,INACTIVE,*,with_Dirac,nothing,Semiparametric,INACTIVE,valid_function,NonlinFitness,optimization_map,optimization,wo_Dirac,with_Dirac,*
+duplicates,valid_function,*,some_true,valid_function,all_infinite,false,true,*,*,*,valid_function,*,wo_Dirac,*,*,INACTIVE,valid_function,NonlinFitness,turing_bi,sampling,wo_Dirac,wo_Dirac,*
+duplicates,missing,*,all_false,nothing,all_infinite,false,false,*,valid_function,wo_Dirac,INACTIVE,valid,with_Dirac,nothing,Semiparametric,wo_infs,INACTIVE,LinFitness,sampling_map,optimization,with_Dirac,wo_Dirac,*
+duplicates,valid_function,*,some_true,valid_function,*,true,true,*,*,wo_Dirac,*,*,wo_Dirac,nothing,*,INACTIVE,valid_function,NonlinFitness,optimization_map,grid,with_Dirac,with_Dirac,*
+duplicates,missing,*,all_false,nothing,all_infinite,false,false,*,*,with_Dirac,*,INACTIVE,INACTIVE,INACTIVE,Parametric,INACTIVE,valid_function,NonlinFitness,turing_bi,optimization,INACTIVE,wo_Dirac,*
+noduplicates,missing,*,all_false,*,*,true,true,*,*,*,*,INACTIVE,INACTIVE,*,Parametric,wo_infs,INACTIVE,LinFitness,optimization_map,grid,INACTIVE,wo_Dirac,*
+duplicates,valid_function,*,some_true,nothing,some_finite,true,false,*,*,*,nothing,*,*,*,*,*,*,*,optimization_map,sampling,*,wo_Dirac,*
+noduplicates,missing,*,*,nothing,all_infinite,*,*,*,*,*,valid_function,*,with_Dirac,*,*,*,*,*,sampling_map,grid,*,with_Dirac,*
+*,*,*,*,valid_function,*,true,*,*,*,wo_Dirac,*,*,*,nothing,Semiparametric,wo_infs,INACTIVE,LinFitness,turing_bi,sampling,wo_Dirac,*,*
+*,*,*,*,valid_function,*,*,*,*,*,with_Dirac,*,*,*,*,*,wo_infs,INACTIVE,LinFitness,sampling_map,sampling,with_Dirac,*,*
+*,*,*,*,*,all_infinite,false,*,*,*,*,nothing,*,wo_Dirac,*,*,wo_infs,INACTIVE,LinFitness,optimization_map,optimization,*,*,*
+*,*,*,*,*,some_finite,*,*,*,*,*,valid_function,*,*,*,*,*,*,*,*,*,*,*,*

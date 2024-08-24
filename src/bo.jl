@@ -93,7 +93,7 @@ Maximize the given `acquisition` function via the given `acq_maximizer` algorith
 """
 function maximize_acquisition(problem::BossProblem, acquisition::AcquisitionFunction, acq_maximizer::AcquisitionMaximizer; options::BossOptions=BossOptions())
     options.info && @info "Maximizing acquisition function ..."
-    X = maximize_acquisition(acq_maximizer, acquisition, problem, options)
+    X, _ = maximize_acquisition(acq_maximizer, acquisition, problem, options)
     options.info && check_new_points(X, problem)
     return X
 end

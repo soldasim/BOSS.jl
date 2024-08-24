@@ -173,16 +173,18 @@ const ModelFitter_DICT = Dict(
     "optimization_map" => :Optimization,
     "turing_bi" => :Turing,
     "sampling_map" => :Sampling,
-    "random_map" => :Random,
-    "sample_opt_map" => :SampleOpt,
-    "*" => :Optimization,
+    "random_map" => :Random,            # as default only
+    # "sample_opt_map" => :SampleOpt,   # excluded from tests
+    "*" => :Random,
 )
 
 const AcquisitionMaximizer_DICT = Dict(
     "optimization" => :Optimization,
     "grid" => :Grid,
-    "random" => :Random,
-    "*" => :Optimization,
+    "sampling" => :Sampling,
+    "random" => :Random,                # as defualt only
+    # "sample_opt" => :SampleOpt,       # excluded from tests
+    "*" => :Random,
 )
 
 const VALID_DICT = Dict(

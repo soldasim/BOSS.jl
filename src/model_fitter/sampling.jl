@@ -40,11 +40,9 @@ function sample(return_all::Val{false}, parallel::Val{true}, opt::SamplingMAP, s
     counts = get_sample_counts(opt.samples, Threads.nthreads())
     ptasks = [Threads.@spawn sampling_optim(sample_func, fitness_func, c) for c in counts]
     results = fetch.(ptasks)
-    
-    params = first.(results)
-    vals = last.(results)
-    b = argmax(vals)
-    return params[b], vals[b]
+
+    best = argmax(last.(results))
+    return results[best]
 end
 function sample(return_all::Val{true}, parallel::Val{true}, opt::SamplingMAP, sample_func, fitness_func)
     counts = get_sample_counts(opt.samples, Threads.nthreads())
@@ -57,10 +55,10 @@ function sample(return_all::Val{true}, parallel::Val{true}, opt::SamplingMAP, sa
     return samples, vals
 end
 
-function sampling_optim(sample_func, fitness_func, samples)
+function sampling_optim(sample_func, fitness_func, sample_count::Int)
     best_p = nothing
     best_v = -Inf
-    for _ in 1:samples
+    for _ in 1:sample_count
         p = sample_func()
         v = fitness_func(p)
         if v > best_v
@@ -71,17 +69,8 @@ function sampling_optim(sample_func, fitness_func, samples)
     return best_p, best_v
 end
 
-function sampling_simple(sample_func, fitness_func, sample_count)
+function sampling_simple(sample_func, fitness_func, sample_count::Int)
     samples = [sample_func() for _ in 1:sample_count]
     vals = fitness_func.(samples)
     return samples, vals
-end
-
-function get_sample_counts(samples, tasks)
-    base = floor(samples / tasks) |> Int
-    diff = samples - (tasks * base)
-    counts = Vector{Int}(undef, tasks)
-    counts[1:diff] .= base + 1
-    counts[diff+1:end] .= base
-    return counts
 end

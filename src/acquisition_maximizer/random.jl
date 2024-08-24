@@ -19,7 +19,7 @@ function maximize_acquisition(::RandomAM, ::AcquisitionFunction, problem::BossPr
             x = random_x(domain)
         end
     end
-    return x
+    return x, nothing
 end
 
 function random_x(domain)

@@ -1,6 +1,4 @@
 
-# - - - GENERATING OPTIMIZATION STARTING POINTS - - - - -
-
 """
     random_start(bounds) -> x
 

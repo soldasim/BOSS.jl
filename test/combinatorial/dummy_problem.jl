@@ -82,6 +82,12 @@ function construct_model(::Val{:Semiparametric}, val)
     )
 end
 
+function construct_model_fitter(::Val{:Sampling}, val)
+    return BOSS.SamplingMAP(;
+        samples = 10,#200,  # low to improve test runtime
+        parallel = val("ModelFitter_parallel"),
+    )
+end
 function construct_model_fitter(::Val{:Optimization}, val)
     return BOSS.OptimizationMAP(;
         algorithm = NEWUOA(),
@@ -90,6 +96,15 @@ function construct_model_fitter(::Val{:Optimization}, val)
         rhoend = 1e-2,
     )
 end
+# function construct_model_fitter(::Val{:SampleOpt}, val)
+#     return BOSS.SampleOptMAP(;
+#         samples = 10,#200,  # low to improve test runtime
+#         algorithm = NEWUOA(),
+#         multistart = 2,#200,  # low to improve test runtime
+#         parallel = val("ModelFitter_parallel"),
+#         rhoend = 1e-2,
+#     )
+# end
 function construct_model_fitter(::Val{:Turing}, val)
     # low sample count to improve test runtime
     return BOSS.TuringBI(;
@@ -101,25 +116,17 @@ function construct_model_fitter(::Val{:Turing}, val)
         parallel = val("ModelFitter_parallel"),
     )
 end
-function construct_model_fitter(::Val{:Sampling}, val)
-    return BOSS.SamplingMAP(;
-        samples = 10,#200,  # low to improve test runtime
-        parallel = val("ModelFitter_parallel"),
-    )
-end
 function construct_model_fitter(::Val{:Random}, val)
     return BOSS.RandomMAP()
 end
-function construct_model_fitter(::Val{:SampleOpt}, val)
-    return BOSS.SampleOptMAP(;
+
+function construct_acq_maximizer(::Val{:Sampling}, val, problem)
+    return BOSS.SamplingAM(;
+        x_prior = BOSS.product_distribution(BOSS.Uniform.(val("bounds")...)),
         samples = 10,#200,  # low to improve test runtime
-        algorithm = NEWUOA(),
-        multistart = 2,#200,  # low to improve test runtime
-        parallel = val("ModelFitter_parallel"),
-        rhoend = 1e-2,
+        parallel = val("AcquisitionMaximizer_parallel"),
     )
 end
-
 function construct_acq_maximizer(::Val{:Optimization}, val, problem)
     return BOSS.OptimizationAM(;
         algorithm = isnothing(val("cons")) ? BOBYQA() : COBYLA(),
@@ -128,6 +135,16 @@ function construct_acq_maximizer(::Val{:Optimization}, val, problem)
         rhoend = 1e-2,
     )
 end
+# function construct_acq_maximizer(::Val{:SampleOpt}, val, problem)
+#     return BOSS.SampleOptAM(;
+#         x_prior = BOSS.product_distribution(BOSS.Uniform.(val("bounds")...)),
+#         samples = 10,#200,  # low to improve test runtime
+#         algorithm = isnothing(val("cons")) ? BOBYQA() : COBYLA(),
+#         multistart = 2,#20,  # low to improve test runtime
+#         parallel = val("AcquisitionMaximizer_parallel"),
+#         rhoend = 1e-2,
+#     )
+# end
 function construct_acq_maximizer(::Val{:Grid}, val, problem)
     return BOSS.GridAM(;
         problem,
