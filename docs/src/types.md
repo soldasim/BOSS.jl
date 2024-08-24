@@ -189,10 +189,24 @@ The `GridAM` maximizes the acquisition function by evaluating all points on a fi
 GridAM
 ```
 
+The `SamplingAM` samples random candidate points from the given `x_prior` distribution
+and selects the sample with maximal acquisition value.
+
+```@docs
+SamplingAM
+```
+
 The `RandomAM` simply returns a random point. It does NOT perform any optimization. This acquisition maximizer is provided solely for easy experimentation with BOSS.jl and should not be used to solve problems.
 
 ```@docs
 RandomAM
+```
+
+The `SampleOptAM` samples many candidate points from the given `x_prior` distribution,
+and subsequently performs multiple optimization runs initiated from the best samples.
+
+```@docs
+SampleOptAM
 ```
 
 The `SequentialBatchAM` can be used as a wrapper of any of the other acquisition maximizers. It returns a batch of promising points for future evaluations instead of a single point, and thus allows for evaluation of the objective function in batches.

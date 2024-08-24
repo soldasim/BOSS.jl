@@ -222,7 +222,7 @@ end
         @params (
             BOSS.Nonparametric(;
                 amp_priors = fill(BOSS.Dirac(1.), 2),
-                length_scale_priors = fill(BOSS.Product(fill(BOSS.Dirac(1.), 2)), 2),
+                length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
             ),
             [1.;1.;; 1.;1.;;],
             [1., 1.],
@@ -232,7 +232,7 @@ end
         @params (
             BOSS.Nonparametric(;
                 amp_priors = fill(BOSS.Dirac(1.), 2),
-                length_scale_priors = fill(BOSS.Product(fill(BOSS.Dirac(1.), 2)), 2),
+                length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
             ),
             [1.;1.;; 5.;5.;;],
             [1., 1.],
@@ -247,7 +247,7 @@ end
     model = BOSS.Nonparametric(;
         mean = x -> [0.],
         amp_priors = fill(BOSS.LogNormal(), 1),
-        length_scale_priors = fill(BOSS.Product(fill(BOSS.Dirac(1.), 1)), 1),
+        length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 1)), 1),
     )
 
     @param_test BOSS.model_data_loglike begin

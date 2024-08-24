@@ -46,15 +46,21 @@ end
 function maximize_acquisition(opt::GridAM, acquisition::AcquisitionFunction, problem::BossProblem, options::BossOptions)
     acq = acquisition(problem, options)
     points_ = opt.shuffle ? (opt.points |> deepcopy |> shuffle) : opt.points
-    if opt.parallel
-        vals = Vector{Float64}(undef, length(points_))
-        Threads.@threads for i in eachindex(points_)
-            p = points_[i]
-            v = acq(p)
-            vals[i] = v
-        end
-        return points_[argmax(vals)]
-    else
-        return argmax(acq, points_)
+    x, val = optimize(Val(opt.parallel), opt, acq, points_)
+    return x, val
+end
+
+function optimize(parallel::Val{false}, opt::GridAM, acq, points::Vector{Vector{Float64}})
+    best = argmax(acq, points)
+    return best, acq(best)
+end
+function optimize(parallel::Val{true}, opt::GridAM, acq, points::Vector{Vector{Float64}})
+    vals = Vector{Float64}(undef, length(points))
+    Threads.@threads for i in eachindex(points)
+        p = points[i]
+        v = acq(p)
+        vals[i] = v
     end
+    best = argmax(vals)
+    return points[best], vals[best]
 end

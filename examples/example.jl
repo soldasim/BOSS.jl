@@ -63,7 +63,7 @@ function gen_data(count, bounds)
 end
 
 # The problem defined as `BossProblem`.
-function opt_problem(init_data=4)
+function opt_problem(init_data)
     domain = Domain(;
         bounds = ([0.], [20.]),
     )
@@ -107,7 +107,7 @@ boss_options() = BossOptions(;
 """
 An example usage of the BOSS algorithm with a MAP algorithm.
 """
-function main(problem=opt_problem(2), iters=10;
+function main(problem=opt_problem(3), iters=20;
     parallel = true,
 )
     ### Model Fitter:

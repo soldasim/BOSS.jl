@@ -27,7 +27,8 @@ export ModelFit, MAP, BI
 export ModelFitter
 export RandomMAP
 export SamplingMAP
-export OptimizationMAP, SampleOptMAP
+export OptimizationMAP
+export SampleOptMAP
 export TuringBI
 
 # Acquisition Maximizers
@@ -35,7 +36,9 @@ export AcquisitionMaximizer
 export SequentialBatchAM
 export RandomAM
 export GridAM
+export SamplingAM
 export OptimizationAM
+export SampleOptAM
 
 # Acquisition Functions
 export AcquisitionFunction

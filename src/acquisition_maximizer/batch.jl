@@ -29,13 +29,13 @@ SequentialBatchAM(;
 
 function maximize_acquisition(sb::SequentialBatchAM, acq::AcquisitionFunction, problem::BossProblem, options::BossOptions)
     problem_ = deepcopy(problem)
-    Xs = reduce(hcat, (speculative_evaluation!(problem_, sb.am, acq; options) for _ in 1:sb.batch_size))
-    return Xs
+    X = hcat([speculative_evaluation!(problem_, sb.am, acq; options) for _ in 1:sb.batch_size]...)
+    return X, nothing
 end
 
 function speculative_evaluation!(problem::BossProblem, am::AcquisitionMaximizer, acq::AcquisitionFunction; options::BossOptions)
     posterior = model_posterior(problem.model, problem.data)
-    x = maximize_acquisition(am, acq, problem, options)
+    x, _ = maximize_acquisition(am, acq, problem, options)
     y = posterior(x)[1]
     augment_dataset!(problem.data, x, y)
     return x

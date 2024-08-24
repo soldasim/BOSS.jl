@@ -8,4 +8,5 @@ To update the combinatorial tests;
 
 - manually add the test for `iter > 1`: `*,*,*,...,*,2`
 
-- add/change new dictionaries/values in `\test\combinatorial\input_values.jl` accordingly
+- add/change new dictionaries/values in `\test\combinatorial\input_values.jl`
+and edit `\test\combinatorial\dummy_problem.jl` accordingly

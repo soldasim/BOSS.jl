@@ -335,7 +335,7 @@ end
         @params BOSS.UnivariateDistribution[], fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.LogNormal(), 2)
         @success out == (fill(true, 8), Float64[])
 
-        @params BOSS.UnivariateDistribution[], [BOSS.Product(fill(BOSS.Dirac(1.), 2)), BOSS.MvLogNormal([1., 1.], [1., 1.])], [BOSS.Dirac(1.), BOSS.LogNormal()], fill(BOSS.LogNormal(), 2)
+        @params BOSS.UnivariateDistribution[], [BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), BOSS.MvLogNormal([1., 1.], [1., 1.])], [BOSS.Dirac(1.), BOSS.LogNormal()], fill(BOSS.LogNormal(), 2)
         @success out == (vcat([false, false, true, true], [false, true], fill(true,  2)), [1., 1., 1.])
 
         @params BOSS.UnivariateDistribution[], fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.Dirac(0.1), 2)
@@ -347,7 +347,7 @@ end
         @params [BOSS.Dirac(1.), BOSS.Normal(), BOSS.Dirac(3.), BOSS.Normal()], fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.LogNormal(), 2)
         @success out == (vcat([false, true, false, true], fill(true, 8)), [1., 3.])
 
-        @params fill(BOSS.Normal(), 4), [BOSS.Product(fill(BOSS.Dirac(1.), 2)), BOSS.MvLogNormal([1., 1.], [1., 1.])], [BOSS.Dirac(1.), BOSS.LogNormal()], fill(BOSS.LogNormal(), 2)
+        @params fill(BOSS.Normal(), 4), [BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), BOSS.MvLogNormal([1., 1.], [1., 1.])], [BOSS.Dirac(1.), BOSS.LogNormal()], fill(BOSS.LogNormal(), 2)
         @success out == (vcat(fill(true, 4), [false, false, true, true], [false, true], fill(true, 2)), [1., 1., 1.])
 
         @params fill(BOSS.Normal(), 4), fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.Dirac(0.1), 2)
