@@ -35,21 +35,6 @@
     end
 end
 
-@testset "discrete_round(dims, x)" begin
-    @param_test BOSS.discrete_round begin
-        @params nothing, [4.2, 5.3]
-        @params [false, false], [4.2, 5.3]
-        @success out == [4.2, 5.3]
-
-        @params missing, [4.2, 5.3]
-        @params [true, true], [4.2, 5.3]
-        @success out == [4., 5.]
-
-        @params [true, false], [4.2, 5.3]
-        @success out == [4., 5.3]
-    end
-end
-
 @testset "noise_loglike(noise_std_priors, noise_std)" begin
     @param_test BOSS.noise_loglike begin
         # TODO: Add different priors loaded from a collection.

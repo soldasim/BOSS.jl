@@ -1,6 +1,19 @@
 
-# Useful with broadcasting.
+"""
+    ith(i)(collection) == collection[i]
+    ith(i).(collections) == [c[i] for c in collections]
+"""
+ith(i::Int) = (x) -> x[i]
+
+"""
+    cond_func(f)(b, x) == (b ? f(x) : x)
+    conf_func(f).(bs, xs) == [b ? f(x) : x for (b,x) in zip(bs,xs)]
+"""
 cond_func(f::Function) = (b, x) -> b ? f(x) : x
+
+discrete_round(::Nothing, x::AbstractVector{<:Real}) = x
+discrete_round(::Missing, x::AbstractVector{<:Real}) = round.(x)
+discrete_round(dims::AbstractVector{<:Bool}, x::AbstractVector{<:Real}) = cond_func(round).(dims, x)
 
 """
     in_domain(x, domain) -> Bool

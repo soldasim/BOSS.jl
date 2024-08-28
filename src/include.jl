@@ -1,6 +1,7 @@
 
 include("types.jl")
 include("utils.jl")
+include("slices.jl")
 include("sampling_utils.jl")
 include("optim_utils.jl")
 include("domain.jl")

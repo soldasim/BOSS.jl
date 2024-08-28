@@ -1,11 +1,32 @@
 
+@testset "ith(i)" begin
+    v = [1,2,3]
+    vs = [[11,12,13],[21,22,23],[31,32,33]]
+
+    @test BOSS.ith(2)(v) == 2
+    @test BOSS.ith(2).(vs) == [12,22,32]
+end
+
 @testset "cond_func(f)" begin
-    @param_test BOSS.cond_func begin
-        @params x -> 0.
-        @success (
-            out(false, 1.) == 1.,
-            out(true, 1.) == 0.,
-        )
+    f(x) = 0.
+
+    @test BOSS.cond_func(f)(false, 5.) == 5.
+    @test BOSS.cond_func(f)(true, 5.) == 0.
+    @test BOSS.cond_func(f).([false, true], [5., 5.]) == [5., 0.]
+end
+
+@testset "discrete_round(dims, x)" begin
+    @param_test BOSS.discrete_round begin
+        @params nothing, [4.2, 5.3]
+        @params [false, false], [4.2, 5.3]
+        @success out == [4.2, 5.3]
+
+        @params missing, [4.2, 5.3]
+        @params [true, true], [4.2, 5.3]
+        @success out == [4., 5.]
+
+        @params [true, false], [4.2, 5.3]
+        @success out == [4., 5.3]
     end
 end
 

@@ -7,7 +7,7 @@ const MIN_PARAM_VALUE = 1e-8
 """
     GaussianProcess(; kwargs...)
 
-A Gaussian Process surrogate model.
+A Gaussian Process surrogate model. Each output dimension is modeled by a separate independent process.
 
 # Keywords
 - `mean::Union{Nothing, Function}`: Used as the mean function for the GP.
@@ -40,6 +40,22 @@ GaussianProcess(;
 
 add_mean(m::GaussianProcess{Nothing}, mean::Function) =
     Nonparametric(mean, m.kernel, m.amp_priors, m.length_scale_priors)
+
+sliceable(::GaussianProcess) = true
+
+function slice(m::GaussianProcess, idx::Int)
+    return GaussianProcess(
+        mean_slice(m.mean, idx),
+        m.kernel,
+        [m.amp_priors[idx]],
+        [m.length_scale_priors[idx]],
+    )
+end
+
+mean_slice(mean::Nothing, idx::Int) = nothing
+mean_slice(mean::Function, idx::Int) = x -> mean(x)[idx]
+
+θ_slice(m::GaussianProcess, idx::Int) = nothing
 
 # Workaround: https://discourse.julialang.org/t/zygote-gradient-does-not-work-with-abstractgps-custommean/87815/7
 AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::ColVecs) = map(m.f, eachcol(x.X))
@@ -136,9 +152,9 @@ Construct posterior GP for a given `y` dimension via the AbstractGPs.jl library.
 function posterior_gp(model::GaussianProcess, data::ExperimentDataMAP, slice::Int)
     return AbstractGPs.posterior(
         finite_gp(
+            data.X,
             mean_slice(model.mean, slice),
             model.kernel,
-            data.X,
             data.length_scales[:,slice],
             data.amplitudes[slice],
             data.noise_std[slice],
@@ -147,16 +163,13 @@ function posterior_gp(model::GaussianProcess, data::ExperimentDataMAP, slice::In
     )
 end
 
-mean_slice(mean::Nothing, slice::Int) = nothing
-mean_slice(mean::Function, slice::Int) = x -> mean(x)[slice]
-
 """
 Construct finite GP via the AbstractGPs.jl library.
 """
 function finite_gp(
+    X::AbstractMatrix{<:Real},
     mean::Union{Nothing, Function},
     kernel::Kernel,
-    X::AbstractMatrix{<:Real},
     length_scales::AbstractVector{<:Real},
     amplitude::Real,
     noise_std::Real;
@@ -167,42 +180,52 @@ function finite_gp(
     noise_std = max(noise_std, min_param_val)
 
     kernel = (amplitude^2) * with_lengthscale(kernel, length_scales)
-    return finite_gp_(mean, kernel, X, noise_std)
+    return finite_gp_(X, mean, kernel, noise_std)
 end
 
-finite_gp_(mean::Nothing, kernel::Kernel, X::AbstractMatrix{<:Real}, noise_std::Real) = GP(kernel)(X, noise_std^2)
-finite_gp_(mean::Function, kernel::Kernel, X::AbstractMatrix{<:Real}, noise_std::Real) = GP(mean, kernel)(X, noise_std^2)
+finite_gp_(X::AbstractMatrix{<:Real}, mean::Nothing, kernel::Kernel, noise_std::Real) = GP(kernel)(X, noise_std^2)
+finite_gp_(X::AbstractMatrix{<:Real}, mean::Function, kernel::Kernel, noise_std::Real) = GP(mean, kernel)(X, noise_std^2)
 
 function model_loglike(model::GaussianProcess, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
     function loglike(θ, λ, α, noise_std)
+        ll_data = data_loglike(model, data.X, data.Y, λ, α, noise_std)
         ll_params = model_params_loglike(model, λ, α)
-        ll_data = model_data_loglike(model, λ, α, noise_std, data.X, data.Y)
         ll_noise = noise_loglike(noise_std_priors, noise_std)
-        return ll_params + ll_data + ll_noise
+        return ll_data + ll_params + ll_noise
     end
 end
 
-function model_params_loglike(model::GaussianProcess, λ::AbstractMatrix{<:Real}, α::AbstractVector{<:Real})
-    ll_amplitudes = mapreduce(p -> logpdf(p...), +, zip(model.amp_priors, α))
-    ll_length_scales = mapreduce(p -> logpdf(p...), +, zip(model.length_scale_priors, eachcol(λ)))
-    return ll_amplitudes + ll_length_scales
-end
-
-function model_data_loglike(
+function data_loglike(
     model::GaussianProcess,
+    X::AbstractMatrix{<:Real},
+    Y::AbstractMatrix{<:Real},
     λ::AbstractMatrix{<:Real},
     α::AbstractVector{<:Real},
     noise_std::AbstractVector{<:Real},
-    X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real},
 )
     y_dim = size(Y)[1]
-    means = isnothing(model.mean) ? fill(nothing, y_dim) : [x->model.mean(x)[i] for i in 1:y_dim]
-    function ll_data_dim(X, y, mean, length_scales, amp, noise_std)
-        gp = finite_gp(mean, model.kernel, X, length_scales, amp, noise_std)
-        return logpdf(gp, y)
-    end
-    return mapreduce(p -> ll_data_dim(X, p...), +, zip(eachrow(Y), means, eachcol(λ), α, noise_std))
+    means = mean_slice.(Ref(model.mean), 1:y_dim)
+
+    return sum(data_loglike_slice.(Ref(X), eachrow(Y), means, Ref(model.kernel), eachcol(λ), α, noise_std))
+end
+
+function data_loglike_slice(
+    X::AbstractMatrix{<:Real},
+    y::AbstractVector{<:Real},
+    mean::Union{Nothing, Function},
+    kernel::Kernel,
+    length_scales::AbstractVector{<:Real},
+    amplitude::Real,
+    noise_std::Real,
+)
+    gp = finite_gp(X, mean, kernel, length_scales, amplitude, noise_std)
+    return logpdf(gp, y)
+end
+
+function model_params_loglike(model::GaussianProcess, λ::AbstractMatrix{<:Real}, α::AbstractVector{<:Real})
+    ll_λ = sum(logpdf.(model.length_scale_priors, eachcol(λ)))
+    ll_α = sum(logpdf.(model.amp_priors, α))
+    return ll_λ + ll_α
 end
 
 function sample_params(model::GaussianProcess)

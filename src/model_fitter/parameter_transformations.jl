@@ -29,8 +29,8 @@ end
 Transform vectorized model parameters back into separate vectors/matrices.
 """
 function devectorize_params(
-    model::SurrogateModel,
     params::AbstractVector{<:Real},
+    model::SurrogateModel,
     activation_function::Function,
     activation_mask::AbstractVector{Bool},
     skipped_values::AbstractVector{<:Real},
@@ -44,10 +44,10 @@ function devectorize_params(
 
     params .= cond_func(activation_function).(activation_mask .& skip_mask, params)
 
-    return devectorize_params(model, params)
+    return devectorize_params(params, model)
 end
 
-function devectorize_params(model::SurrogateModel, params::AbstractVector{<:Real})
+function devectorize_params(params::AbstractVector{<:Real}, model::SurrogateModel)
     θ_shape, λ_shape, α_shape = param_shapes(model)
     θ_len, λ_len, α_len = prod.((θ_shape, λ_shape, α_shape))
     cumsums = [0, θ_len, θ_len + λ_len, θ_len + λ_len + α_len]
@@ -76,39 +76,35 @@ if `mask_hyperparams = true`.
 Use the binary vector `mask_theta` to define to which model parameters
 will the activation function be applied as well.
 """
-create_activation_mask(
-    problem::BossProblem,
+function create_activation_mask(
+    model::SurrogateModel,
+    y_dim::Int,
+    mask_theta::Union{Bool, Vector{Bool}},
     mask_hyperparams::Bool,
-    mask_params::Union{Bool, Vector{Bool}},
-) = create_activation_mask(
-    params_total(problem),
-    param_counts(problem.model)[1],
-    mask_hyperparams,
-    mask_params,
 )
+    return create_activation_mask(param_counts(model), y_dim, mask_theta, mask_hyperparams)
+end
 
 function create_activation_mask(
-    params_total::Int,
-    θ_len::Int,
+    param_counts::Tuple{<:Int, <:Int, <:Int},
+    y_dim::Int,
+    mask_theta::Union{Bool, Vector{Bool}},
     mask_hyperparams::Bool,
-    mask_params::Union{Bool, Vector{Bool}},
 )
+    θ_len, λ_len, α_len = param_counts
     return vcat(
-        create_params_mask(mask_params, θ_len),
-        fill(mask_hyperparams, params_total - θ_len),
+        create_θ_mask(mask_theta, θ_len),
+        fill(mask_hyperparams, λ_len + α_len + y_dim),
     )
 end
 
-function create_params_mask(mask_params::Bool, θ_len::Int)
+function create_θ_mask(mask_params::Bool, θ_len::Int)
     return fill(mask_params, θ_len)
 end
-function create_params_mask(mask_params::Vector{Bool}, θ_len::Int)
+function create_θ_mask(mask_params::Vector{Bool}, θ_len::Int)
     @assert length(mask_params) == θ_len 
     return mask_params
 end
-
-create_dirac_skip_mask(problem::BossProblem) =
-    create_dirac_skip_mask(problem.model, problem.noise_std_priors)
 
 create_dirac_skip_mask(model::SurrogateModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}) =
     create_dirac_skip_mask(param_priors(model)..., noise_std_priors)
@@ -161,3 +157,44 @@ inv_softplus(x) = log(exp(x) - one(x))
 
 inverse(::typeof(softplus)) = inv_softplus
 inverse(::typeof(inv_softplus)) = softplus
+
+# `return_all=false` version
+function reduce_slice_results(results::AbstractVector{<:Tuple{<:ModelParams, <:Real}})
+    params = reduce_slice_params(first.(results))
+    loglike = sum(last.(results))
+    return params, loglike
+end
+
+function reduce_slice_params(params::AbstractVector{<:ModelParams})
+    θ = reduce(vcat, ith(1).(params))
+    λ = reduce(hcat, ith(2).(params))
+    α = reduce(vcat, ith(3).(params))
+    noise_std = reduce(vcat, ith(4).(params))
+    return θ, λ, α, noise_std
+end
+
+# `return_all=true` version
+function reduce_slice_results(results::AbstractVector{<:Tuple{<:AbstractVector{<:ModelParams}, <:AbstractVector{<:Real}}})
+    y_dim = length(results)
+    sample_count = get_sample_count_(results)
+    
+    params = get_params_.(Ref(results), Ref(y_dim), 1:sample_count)
+    loglikes = get_loglike_.(Ref(results), Ref(y_dim), 1:sample_count)
+    return params, loglikes
+end
+
+function get_sample_count_(results::AbstractVector{<:Tuple{<:AbstractVector{<:ModelParams}, <:AbstractVector{<:Real}}})
+    param_lens = length.(first.(results))
+    loglike_lens = length.(last.(results))
+    @assert all(param_lens .== loglike_lens)
+    return minimum(param_lens)
+end
+
+function get_params_(results, y_dim::Int, idx::Int)
+    params = [results[i][1][idx] for i in 1:y_dim]
+    return reduce_slice_params(params)
+end
+function get_loglike_(results, y_dim::Int, idx::Int)
+    loglikes = [results[i][2][idx] for i in 1:y_dim]
+    return sum(loglikes)
+end
