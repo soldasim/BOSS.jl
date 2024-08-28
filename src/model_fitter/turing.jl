@@ -68,7 +68,7 @@ Turing.@model function turing_model(
     amplitudes ~ product_distribution(model.amp_priors)
     noise_std ~ product_distribution(noise_std_priors)
     
-    gps = [finite_gp(model.mean, model.kernel, X, length_scales[:,i], amplitudes[i], noise_std[i]) for i in 1:y_dim]
+    gps = [finite_gp(X, model.mean, model.kernel, length_scales[:,i], amplitudes[i], noise_std[i]) for i in 1:y_dim]
 
     Yt = transpose(Y)
     Yt ~ product_distribution(gps)
@@ -87,7 +87,7 @@ Turing.@model function turing_model(
     noise_std ~ product_distribution(noise_std_priors)
 
     mean = model.parametric(θ)
-    gps = [finite_gp(x->mean(x)[i], model.nonparametric.kernel, X, length_scales[:,i], amplitudes[i], noise_std[i]) for i in 1:y_dim]
+    gps = [finite_gp(X, x->mean(x)[i], model.nonparametric.kernel, length_scales[:,i], amplitudes[i], noise_std[i]) for i in 1:y_dim]
     
     Yt = transpose(Y)
     Yt ~ product_distribution(gps)

@@ -140,26 +140,26 @@ end
 
 function model_loglike(model::Parametric, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
     function loglike(θ, λ, α, noise_std)
+        ll_data = data_loglike(model, data.X, data.Y, θ, noise_std)
         ll_params = model_params_loglike(model, θ)
-        ll_data = model_data_loglike(model, θ, noise_std, data.X, data.Y)
         ll_noise = noise_loglike(noise_std_priors, noise_std)
-        return ll_params + ll_data + ll_noise
+        return ll_data + ll_params + ll_noise
     end
+end
+
+function data_loglike(
+    model::Parametric,
+    X::AbstractMatrix{<:Real},
+    Y::AbstractMatrix{<:Real},
+    θ::AbstractVector{<:Real},
+    noise_std::AbstractVector{<:Real},
+)
+    ll_datum(x, y) = logpdf(MvNormal(model(x, θ), noise_std), y)
+    return mapreduce(d -> ll_datum(d...), +, zip(eachcol(X), eachcol(Y)))
 end
 
 function model_params_loglike(model::Parametric, θ::AbstractVector{<:Real})
     return mapreduce(p -> logpdf(p...), +, zip(model.param_priors, θ); init=0.)
-end
-
-function model_data_loglike(
-    model::Parametric,
-    θ::AbstractVector{<:Real},
-    noise_std::AbstractVector{<:Real},
-    X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real},
-)
-    ll_datum(x, y) = logpdf(MvNormal(model(x, θ), noise_std), y)
-    return mapreduce(d -> ll_datum(d...), +, zip(eachcol(X), eachcol(Y)))
 end
 
 function sample_params(model::Parametric)

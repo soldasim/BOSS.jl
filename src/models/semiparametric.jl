@@ -41,36 +41,36 @@ model_posterior_slice(model::Semiparametric, data::ExperimentDataMAP) =
 
 function model_loglike(model::Semiparametric, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
     function loglike(θ, λ, α, noise_std)
+        ll_data = data_loglike(model, data.X, data.Y, θ, λ, α, noise_std)
         ll_params = model_params_loglike(model, θ, λ, α)
-        ll_data = model_data_loglike(model, θ, λ, α, noise_std, data.X, data.Y)
         ll_noise = noise_loglike(noise_std_priors, noise_std)
-        return ll_params + ll_data + ll_noise
+        return ll_data + ll_params + ll_noise
     end
+end
+
+function data_loglike(
+    model::Semiparametric,
+    X::AbstractMatrix{<:Real},
+    Y::AbstractMatrix{<:Real},
+    θ::AbstractVector{<:Real},
+    λ::AbstractMatrix{<:Real},
+    α::AbstractVector{<:Real},
+    noise_std::AbstractVector{<:Real},
+)
+    return data_loglike(
+        add_mean(model.nonparametric, model.parametric(θ)),
+        X,
+        Y,
+        λ,
+        α,
+        noise_std,
+    )
 end
 
 function model_params_loglike(model::Semiparametric, θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, α::AbstractVector{<:Real})
     ll_param = model_params_loglike(model.parametric, θ)
     ll_gp = model_params_loglike(model.nonparametric, λ, α)
     return ll_param + ll_gp
-end
-
-function model_data_loglike(
-    model::Semiparametric,
-    θ::AbstractVector{<:Real},
-    λ::AbstractMatrix{<:Real},
-    α::AbstractVector{<:Real},
-    noise_std::AbstractVector{<:Real},
-    X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real},
-)
-    return model_data_loglike(
-        add_mean(model.nonparametric, model.parametric(θ)),
-        λ,
-        α,
-        noise_std,
-        X,
-        Y,
-    )
 end
 
 function sample_params(model::Semiparametric)

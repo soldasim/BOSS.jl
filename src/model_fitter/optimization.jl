@@ -54,24 +54,65 @@ function set_starts(opt::OptimizationMAP, starts::AbstractVector{<:ModelParams})
     )
 end
 
-function estimate_parameters(opt::OptimizationMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)
-    # Prepare necessary parameter transformations.
-    softplus_mask = create_activation_mask(problem, opt.softplus_hyperparams, opt.softplus_params)
-    skip_mask, skipped_values = create_dirac_skip_mask(problem)
-    vectorize = (params) -> vectorize_params(params, softplus, softplus_mask, skip_mask)
-    devectorize = (params) -> devectorize_params(problem.model, params, softplus, softplus_mask, skipped_values, skip_mask)
+function slice(opt::OptimizationMAP, θ_slice, idx::Int)
+    return OptimizationMAP(;
+        opt.algorithm,
+        multistart = starts_slice(opt.multistart, θ_slice, idx),
+        opt.parallel,
+        opt.softplus_hyperparams,
+        softplus_params = softplus_params_slice(opt.softplus_params, θ_slice),
+        opt.autodiff,
+        opt.kwargs...
+    )
+end
 
-    # Skip optimization if there are no parameters.
+starts_slice(starts::Int, θ_slice, idx::Int) = starts
+starts_slice(starts::AbstractVector{<:ModelParams}, θ_slice, idx::Int) = slice.(starts, Ref(θ_slice), Ref(idx))
+
+softplus_params_slice(s::Bool, θ_slice) = s
+softplus_params_slice(s::Vector{Bool}, θ_slice) = slice(s, θ_slice)
+
+function estimate_parameters(opt::OptimizationMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)
+    if sliceable(problem.model)
+        # In case of sliceable model, handle each y dimension separately.
+        y_dim_ = y_dim(problem)
+        θ_slices = θ_slice.(Ref(problem.model), 1:y_dim_)
+        opt_slices = slice.(Ref(opt), θ_slices, 1:y_dim_)
+        problem_slices = slice.(Ref(problem), 1:y_dim_)
+        
+        results = estimate_parameters_.(opt_slices, problem_slices, Ref(options); return_all)
+        params, loglike = reduce_slice_results(results)
+    
+    else
+        # In case of non-sliceable model, optimize all parameters simultaneously.
+        params, loglike = estimate_parameters_(opt, problem, options; return_all)
+    end
+    
+    return params, loglike
+end
+
+function estimate_parameters_(opt::OptimizationMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)
+    model = problem.model
+    noise_std_priors = problem.noise_std_priors
+    data = problem.data
+    
+    # Prepare necessary parameter transformations.
+    softplus_mask = create_activation_mask(model, y_dim(problem), opt.softplus_params, opt.softplus_hyperparams)
+    skip_mask, skipped_values = create_dirac_skip_mask(model, noise_std_priors)
+    vectorize = (params) -> vectorize_params(params, softplus, softplus_mask, skip_mask)
+    devectorize = (params) -> devectorize_params(params, model, softplus, softplus_mask, skipped_values, skip_mask)
+
+    # Skip optimization if there are no free parameters.
     if sum(skip_mask) == 0
         return devectorize(Float64[])
     end
 
     # Generate optimization starts.
-    sample_func = () -> sample_params(problem.model, problem.noise_std_priors)
+    sample_func = () -> sample_params(model, noise_std_priors)
     starts = get_starts(opt.multistart, sample_func, vectorize)
 
     # Define the optimization objective.
-    loglike = model_loglike(problem.model, problem.noise_std_priors, problem.data)
+    loglike = model_loglike(model, noise_std_priors, data)
     loglike_vec = (params) -> loglike(devectorize(params)...)
 
     # Optimize.

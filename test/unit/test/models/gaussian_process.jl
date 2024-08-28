@@ -201,6 +201,35 @@ end
     end
 end
 
+# TODO: Check the GP marginal data likelihood against the equiation in
+# https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7352306 section III. D.
+@testset "data_loglike(model, X, Y, λ, α, noise_std)" begin
+    model = BOSS.Nonparametric(;
+        mean = x -> [0.],
+        amp_priors = fill(BOSS.LogNormal(), 1),
+        length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 1)), 1),
+    )
+
+    @param_test BOSS.data_loglike begin
+        @params deepcopy(model), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [1.;;], [1.], [1.]
+        @success out < 0.
+    end
+
+    t_length_scale(λ) = BOSS.data_loglike(deepcopy(model), [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;], λ, [1.], [0.])
+    @test t_length_scale([0.1;;]) > t_length_scale([1.;;]) > t_length_scale([10.;;])
+
+    t_amplitude(α) = BOSS.data_loglike(deepcopy(model), [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;], [1.;;], α, [0.])
+    @test t_amplitude([1.]) > t_amplitude([0.1])
+    @test t_amplitude([1.]) > t_amplitude([10.])
+
+    t_noise_std(σ) = BOSS.data_loglike(deepcopy(model), [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;], [1.;;], [1.], σ)
+    @test t_noise_std([1.]) > t_noise_std([0.1])
+    @test t_noise_std([1.]) > t_noise_std([10.])
+
+    t_data(X, Y) = BOSS.data_loglike(deepcopy(model), X, Y, [1.;;], [1.], [0.])
+    @test t_data([1.;; 2.;; 3;;], [99.9;; 100.;; 100.1;;]) > t_data([1.;; 2.;; 3;;], [99.;; 100.;; 101.;;]) > t_data([1.;; 2.;; 3;;], [90.;; 100.;; 110.;;])
+end
+
 @testset "model_params_loglike(model, λ, α)" begin
     @param_test BOSS.model_params_loglike begin
         # TODO: Add different priors loaded from a collection.
@@ -239,33 +268,4 @@ end
         )
         @success out == -Inf
     end
-end
-
-# TODO: Check the GP marginal data likelihood against the equiation in
-# https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7352306 section III. D.
-@testset "model_data_loglike(model, λ, α, noise_std, X, Y)" begin
-    model = BOSS.Nonparametric(;
-        mean = x -> [0.],
-        amp_priors = fill(BOSS.LogNormal(), 1),
-        length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 1)), 1),
-    )
-
-    @param_test BOSS.model_data_loglike begin
-        @params deepcopy(model), [1.;;], [1.], [1.], [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;]
-        @success out < 0.
-    end
-
-    t_length_scale(λ) = BOSS.model_data_loglike(deepcopy(model), λ, [1.], [0.], [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;])
-    @test t_length_scale([0.1;;]) > t_length_scale([1.;;]) > t_length_scale([10.;;])
-
-    t_amplitude(α) = BOSS.model_data_loglike(deepcopy(model), [1.;;], α, [0.], [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;])
-    @test t_amplitude([1.]) > t_amplitude([0.1])
-    @test t_amplitude([1.]) > t_amplitude([10.])
-
-    t_noise_std(σ) = BOSS.model_data_loglike(deepcopy(model), [1.;;], [1.], σ, [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;])
-    @test t_noise_std([1.]) > t_noise_std([0.1])
-    @test t_noise_std([1.]) > t_noise_std([10.])
-
-    t_data(X, Y) = BOSS.model_data_loglike(deepcopy(model), [1.;;], [1.], [0.], X, Y)
-    @test t_data([1.;; 2.;; 3;;], [99.9;; 100.;; 100.1;;]) > t_data([1.;; 2.;; 3;;], [99.;; 100.;; 101.;;]) > t_data([1.;; 2.;; 3;;], [90.;; 100.;; 110.;;])
 end

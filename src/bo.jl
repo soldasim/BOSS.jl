@@ -118,7 +118,7 @@ function eval_objective!(problem::BossProblem, X::AbstractMatrix{<:Real}; option
     options.info && @info "Evaluating objective function ..."
     Y = eval_points(Val(options.parallel_evals), problem.f, X)
     augment_dataset!(problem.data, X, Y)
-    options.info && @info "New data:" * reduce(*, ("\n\t$x : $y" for (x, y) in zip(eachcol(X), eachcol(Y))))
+    options.info && @info "New data:" * prod(["\n\t$x : $y" for (x, y) in zip(eachcol(X), eachcol(Y))])
     return Y
 end
 

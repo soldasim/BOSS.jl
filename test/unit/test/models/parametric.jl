@@ -313,6 +313,60 @@ end
     end
 end
 
+@testset "data_loglike(model, X, Y, θ, noise_std)" begin
+    X = [2.;2.;; 5.;5.;; 8.;8.;;]
+    Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
+
+    lin_model = BOSS.LinModel(;
+        lift = (x) -> [
+            [sin(x[1]), exp(x[2])],
+            [cos(x[1]), exp(x[2])],
+        ],
+        param_priors = fill(BOSS.Dirac(1.), 4),
+    )
+    nonlin_model = BOSS.NonlinModel(;
+        predict = (x, θ) -> [
+            θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
+            θ[3] * cos(x[1]) + θ[4] * exp(x[2]),    
+        ],
+        param_priors = fill(BOSS.Dirac(1.), 4),
+    )
+
+    @param_test BOSS.data_loglike begin
+        @params deepcopy(lin_model), deepcopy(X), deepcopy(Y), [1., 1., 1., 1.], [1., 1.]
+        @params deepcopy(nonlin_model), deepcopy(X), deepcopy(Y), [1., 1., 1., 1.], [1., 1.]
+        @success out < 0.
+    end
+
+    t_θ(θ; model) = BOSS.data_loglike(deepcopy(model), deepcopy(X), deepcopy(Y), θ, [1., 1.])
+    @param_test model -> (θ -> t_θ(θ; model)) begin
+        @params lin_model
+        @params nonlin_model
+        @success (
+            out([1., 1., 1., 1.]) > out([2., 2., 2., 2.]),
+            out([1., 1., 1., 1.]) > out([0.5, 0.5, 0.5, 0.5]),
+        )
+    end
+
+    t_noise_std(σ; model, Y) = BOSS.data_loglike(deepcopy(model), deepcopy(X), deepcopy(Y), [1., 1., 1., 1.], σ)
+    @param_test (model, Y) -> (σ -> t_noise_std(σ; model, Y)) begin
+        @params lin_model, Y
+        @params nonlin_model, Y
+        @success out([0.1, 0.1]) > out([1., 1.]) > out([10., 10.])  # because model fits the data
+
+        @params lin_model, [1.;1.;; 2.;2.;; 3.;3.;;]
+        @params nonlin_model, [1.;1.;; 2.;2.;; 3.;3.;;]
+        @success out([0.1, 0.1]) < out([1., 1.]) < out([10., 10.])  # because model does not fit the data
+    end
+
+    t_data(X, Y; model) = BOSS.data_loglike(deepcopy(model), deepcopy(X), deepcopy(Y), [1., 1., 1., 1.], [1., 1.])
+    @param_test model -> ((X, Y) -> t_data(X, Y; model)) begin
+       @params lin_model
+       @params nonlin_model
+       @success out(X, Y) > out(X, [1.;1.;; 2.;2.;; 3.;3.;;])
+    end
+end
+
 @testset "model_params_loglike(model, θ)" begin
     @param_test BOSS.model_params_loglike begin
         # TODO: Add different priors loaded from a collection.
@@ -367,59 +421,5 @@ end
             [1., 5.],
         )
         @success out == -Inf
-    end
-end
-
-@testset "model_data_loglike(model, θ, noise_std, X, Y)" begin
-    X = [2.;2.;; 5.;5.;; 8.;8.;;]
-    Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
-
-    lin_model = BOSS.LinModel(;
-        lift = (x) -> [
-            [sin(x[1]), exp(x[2])],
-            [cos(x[1]), exp(x[2])],
-        ],
-        param_priors = fill(BOSS.Dirac(1.), 4),
-    )
-    nonlin_model = BOSS.NonlinModel(;
-        predict = (x, θ) -> [
-            θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
-            θ[3] * cos(x[1]) + θ[4] * exp(x[2]),    
-        ],
-        param_priors = fill(BOSS.Dirac(1.), 4),
-    )
-
-    @param_test BOSS.model_data_loglike begin
-        @params deepcopy(lin_model), [1., 1., 1., 1.], [1., 1.], deepcopy(X), deepcopy(Y)
-        @params deepcopy(nonlin_model), [1., 1., 1., 1.], [1., 1.], deepcopy(X), deepcopy(Y)
-        @success out < 0.
-    end
-
-    t_θ(θ; model) = BOSS.model_data_loglike(deepcopy(model), θ, [1., 1.], deepcopy(X), deepcopy(Y))
-    @param_test model -> (θ -> t_θ(θ; model)) begin
-        @params lin_model
-        @params nonlin_model
-        @success (
-            out([1., 1., 1., 1.]) > out([2., 2., 2., 2.]),
-            out([1., 1., 1., 1.]) > out([0.5, 0.5, 0.5, 0.5]),
-        )
-    end
-
-    t_noise_std(σ; model, Y) = BOSS.model_data_loglike(deepcopy(model), [1., 1., 1., 1.], σ, deepcopy(X), deepcopy(Y))
-    @param_test (model, Y) -> (σ -> t_noise_std(σ; model, Y)) begin
-        @params lin_model, Y
-        @params nonlin_model, Y
-        @success out([0.1, 0.1]) > out([1., 1.]) > out([10., 10.])  # because model fits the data
-
-        @params lin_model, [1.;1.;; 2.;2.;; 3.;3.;;]
-        @params nonlin_model, [1.;1.;; 2.;2.;; 3.;3.;;]
-        @success out([0.1, 0.1]) < out([1., 1.]) < out([10., 10.])  # because model does not fit the data
-    end
-
-    t_data(X, Y; model) = BOSS.model_data_loglike(deepcopy(model), [1., 1., 1., 1.], [1., 1.], deepcopy(X), deepcopy(Y))
-    @param_test model -> ((X, Y) -> t_data(X, Y; model)) begin
-       @params lin_model
-       @params nonlin_model
-       @success out(X, Y) > out(X, [1.;1.;; 2.;2.;; 3.;3.;;])
     end
 end
