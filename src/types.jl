@@ -1,4 +1,45 @@
 
+# - - - - - - - - Miscellaneous - - - - - - - -
+
+"""
+An abstract type used to differentiate between
+MAP (Maximum A Posteriori) and BI (Bayesian Inference) types.
+"""
+abstract type ModelFit end
+struct MAP <: ModelFit end
+struct BI <: ModelFit end
+
+
+# - - - - - - - - Fitness - - - - - - - -
+
+"""
+An abstract type for a fitness function
+measuring the quality of an output `y` of the objective function.
+
+Fitness is used by the `AcquisitionFunction` to determine promising points for future evaluations.
+
+All fitness types *should* implement:
+- (::CustomFitness)(y::AbstractVector{<:Real}) -> fitness::Real
+
+An exception is the `NoFitness`, which can be used for problem without a well defined fitness.
+In such case, an `AcquisitionFunction` which does not depend on `Fitness` must be used.
+
+See also: [`NoFitness`](@ref), [`LinFitness`](@ref), [`NonlinFitness`](@ref), [`AcquisitionFunction`](@ref)
+"""
+abstract type Fitness end
+
+"""
+    NoFitness()
+
+Placeholder for problems with no defined fitness.
+    
+`BossProblem` defined with `NoFitness` can only be solved with `AcquisitionFunction` not dependent on `Fitness`.
+"""
+struct NoFitness <: Fitness end
+
+
+# - - - - - - - - Domain - - - - - - - -
+
 """
     bounds = ([0, 0], [1, 1])
 
@@ -9,37 +50,99 @@ Defines box constraints.
 const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 
 """
-Represents all model (hyper)parameters.
+    Domain(; kwargs...)
 
-`ModelParams` is a tuple of `θ, length_scales, amplitudes, noise_std` in this order.
+Describes the optimization domain.
+
+# Keywords
+- `bounds::AbstractBounds`: The basic box-constraints on `x`. This field is mandatory.
+- `discrete::AbstractVector{<:Bool}`: Can be used to designate some dimensions
+        of the domain as discrete.
+- `cons::Union{Nothing, Function}`: Used to define arbitrary nonlinear constraints on `x`.
+        Feasible points `x` must satisfy `all(cons(x) .> 0.)`. An appropriate acquisition
+        maximizer which can handle nonlinear constraints must be used if `cons` is provided.
+        (See [`AcquisitionMaximizer`](@ref).)
+"""
+struct Domain{
+    B<:AbstractBounds,
+    D<:AbstractVector{<:Bool},
+    C<:Union{Nothing, Function},
+}
+    bounds::B
+    discrete::D
+    cons::C
+end
+function Domain(;
+    bounds,
+    discrete = fill(false, length(first(bounds))),
+    cons = nothing,
+)
+    @assert length(bounds[1]) == length(bounds[2]) == length(discrete)
+    return Domain(bounds, discrete, cons)
+end
+
+
+# - - - - - - - - Model (Hyper)Parameters & Priors - - - - - - - -
+
+"""
+Parameters of the parametric model. Is empty in case of a nonparametric model.
+"""
+const Theta = AbstractVector{<:Real}
+
+"""
+Length scales of the GP as a `x_dim`×`y_dim` matrix, or `nothing` if the model is purely parametric.
+"""
+const LengthScales = Union{Nothing, <:AbstractMatrix{<:Real}}
+
+"""
+Amplitudes of the GP, or `nothing` if the model is purely parametric.
+"""
+const Amplitudes = Union{Nothing, <:AbstractVector{<:Real}}
+
+"""
+Noise standard deviations of each `y` dimension.
+"""
+const NoiseStd = AbstractVector{<:Real}
+
+"""
+Represents all model (hyper)parameters.
 """
 const ModelParams = Tuple{
-    <:AbstractVector{<:Real},
-    <:AbstractMatrix{<:Real},
-    <:AbstractVector{<:Real},
-    <:AbstractVector{<:Real},
+    <:Theta,
+    <:LengthScales,
+    <:Amplitudes,
+    <:NoiseStd,
 }
 
-
-# - - - - - - - - Acquisition Functions - - - - - - - -
+"""
+Prior of [`Theta`](@ref).
+"""
+const ThetaPriors = AbstractVector{<:UnivariateDistribution}
 
 """
-Specifies the acquisition function describing the "quality" of a potential next evaluation point.
-Inherit this type to define a custom acquisition function.
-
-Example: `struct CustomAcq <: AcquisitionFunction ... end`
-
-Structures derived from this type have to implement the following method:
-`(acquisition::CustomAcq)(problem::BossProblem, options::BossOptions)`
-
-This method should return a function `acq(x::AbstractVector{<:Real}) = val::Real`,
-which is maximized to select the next evaluation function of blackbox function in each iteration.
-
-See also: [`ExpectedImprovement`](@ref)
+Prior of [`LengthScales`](@ref).
 """
-abstract type AcquisitionFunction end
+const LengthScalePriors = Union{Nothing, <:AbstractVector{<:MultivariateDistribution}}
 
-# Specific implementations of `AcquisitionFunction` are in '\src\acquisition'.
+"""
+Prior of [`Amplitudes`](@ref).
+"""
+const AmplitudePriors = Union{Nothing, <:AbstractVector{<:UnivariateDistribution}}
+
+"""
+Prior of [`NoiseStd`](@ref).
+"""
+const NoiseStdPriors = AbstractVector{<:UnivariateDistribution}
+
+"""
+Represents all (hyper)parameter priors.
+"""
+const ParamPriors = Tuple{
+    <:ThetaPriors,
+    <:LengthScalePriors,
+    <:AmplitudePriors,
+    <:NoiseStdPriors,
+}
 
 
 # - - - - - - - - Surrogate Model - - - - - - - -
@@ -49,13 +152,20 @@ An abstract type for a surrogate model approximating the objective function.
 
 Example usage: `struct CustomModel <: SurrogateModel ... end`
 
-All models should implement the following methods:
+All models *should* implement:
 - `make_discrete(model::CustomModel, discrete::AbstractVector{<:Bool}) -> discrete_model::CustomModel`
 - `model_posterior(model::CustomModel, data::ExperimentDataMAP) -> (x -> mean, std)`
+- `model_loglike(model::CustomModel, data::ExperimentData) -> (::ModelParams -> ::Real)`
+- `sample_params(model::CustomModel) -> ::ModelParams`
+- `param_priors(model::CustomModel) -> ::ParamPriors`
+
+Models *may* implement:
 - `model_posterior_slice(model::CustomModel, data::ExperimentDataMAP, slice::Int) -> (x -> mean, std)`
-- `model_loglike(model::CustomModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData) -> (θ, length_scales, noise_std -> loglike)`
-- `sample_params(model::CustomModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}) -> (θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, noise_std::AbstractVector{<:Real})`
-- `param_priors(model::CustomModel) -> (θ_priors::AbstractVector{<:UnivariateDistribution}, λ_priors::AbstractVector{<:MultivariateDistribution})`
+
+Model can be designated as "sliceable" by defining `sliceable(::CustomModel) = true`.
+A sliceable model *should* additionally implement:
+- `model_loglike_slice(model::SliceableModel, data::ExperimentData, slice::Int) -> (::ModelParams -> ::Real)`
+- `θ_slice(model::SliceableModel, idx::Int) -> Union{Nothing, UnitRange{<:Int}}`
 
 See also:
 [`LinModel`](@ref), [`NonlinModel`](@ref),
@@ -65,86 +175,6 @@ See also:
 abstract type SurrogateModel end
 
 # Specific implementations of `SurrogateModel` are in '\src\models'.
-
-
-# - - - - - - - - Acquisition Maximization - - - - - - - -
-
-"""
-Specifies the library/algorithm used for acquisition function optimization.
-Inherit this type to define a custom acquisition maximizer.
-
-Example: `struct CustomAlg <: AcquisitionMaximizer ... end`
-
-Structures derived from this type have to implement the following method:
-`maximize_acquisition(acq_maximizer::CustomAlg, acq::AcquisitionFunction, problem::BossProblem, options::BossOptions)`.
-
-This method should return a tuple `(x, val)`.
-The returned `x` is the point of the input domain which maximizes the given acquisition function `acq` (as a vector),
-or a batch of points (as a column-wise matrix).
-The returned `val` is the acquisition value `acq(x)`,
-or the values `acq.(eachcol(x))` for each point of the batch,
-or `nothing` (depending on the acquisition maximizer implementation).
-
-See also: [`OptimizationAM`](@ref)
-"""
-abstract type AcquisitionMaximizer end
-
-# Specific implementations of `AcquisitionMaximizer` are in '\src\acquisition_maximizer'.
-
-
-# - - - - - - - - Model-Fitting - - - - - - - -
-
-"""
-An abstract type used to differentiate between
-MAP (Maximum A Posteriori) optimizers and BI (Bayesian Inference) samplers.
-"""
-abstract type ModelFit end
-struct MAP <: ModelFit end
-struct BI <: ModelFit end
-
-"""
-Specifies the library/algorithm used for model parameter estimation.
-Inherit this type to define a custom model-fitting algorithms.
-
-Example: `struct CustomFitter <: ModelFitter{MAP} ... end` or `struct CustomFitter <: ModelFitter{BI} ... end`
-
-Structures derived from this type have to implement the following method:
-`estimate_parameters(model_fitter::CustomFitter, problem::BossProblem; info::Bool)`.
-
-This method should return a tuple `(params, val)`.
-The returned `params` should be a named tuple `(θ = ..., length_scale = ..., amplitudes = ..., noise_std = ...)`
-containing the best parameter values (if `CustomAlg <: ModelFitter{MAP}`)
-or parameter samples (if `CustomAlg <: ModelFitter{BI}`).
-The returned `val` should be the log likelihood of the parameters (if `CustomAlg <: ModelFitter{MAP}`),
-or a vector of log likelihoods of the individual parameter samples (if `CustomAlg <: ModelFitter{BI}`),
-or `nothing`.
-
-See also: [`OptimizationMAP`](@ref), [`TuringBI`](@ref)
-"""
-abstract type ModelFitter{T<:ModelFit} end
-
-# Specific implementations of `ModelFitter` are in '\src\model_fitter'.
-
-
-# - - - - - - - - Termination Conditions - - - - - - - -
-
-"""
-Specifies the termination condition of the whole BOSS algorithm.
-Inherit this type to define a custom termination condition.
-
-Example: `struct CustomCond <: TermCond ... end`
-
-Structures derived from this type have to implement the following method:
-`(cond::CustomCond)(problem::BossProblem)`
-
-This method should return true to keep the optimization running
-and return false once the optimization is to be terminated.
-
-See also: [`IterLimit`](@ref)
-"""
-abstract type TermCond end
-
-# Specific implementations of `TermCond` are in '\src\term_cond.jl'.
 
 
 # - - - - - - - - Data - - - - - - - -
@@ -194,14 +224,8 @@ Stores the data matrices `X`,`Y` as well as the optimized model parameters and h
 # Fields
 - `X::AbstractMatrix{<:Real}`: Contains the objective function inputs as columns.
 - `Y::AbstractMatrix{<:Real}`: Contains the objective function outputs as columns.
-- `θ::Union{Nothing, <:AbstractVector{<:Real}}`: Contains the MAP parameters
-        of the parametric model (or nothing if the model is nonparametric).
-- `length_scales::Union{Nothing, <:AbstractMatrix{<:Real}}`: Contains the MAP length scales
-        of the GP as a `x_dim`×`y_dim` matrix (or nothing if the model is parametric).
-- `amplitudes::Union{Nothing, <:AbstractVector{<:Real}}`: Amplitudes of the GP.
-- `noise_std::AbstractVector{<:Real}`: The MAP noise standard deviations of each `y` dimension.
-- `consistent::Bool`: True iff the parameters (`θ`, `length_scales`, `amplitudes`, `noise_std`)
-        have been fitted using the current dataset (`X`, `Y`).
+- `params::ModelParams`: Contains MAP model (hyper)parameters.
+- `consistent::Bool`: True iff the parameters have been fitted using the current dataset (`X`, `Y`).
         Is set to `consistent = false` after updating the dataset,
         and to `consistent = true` after re-fitting the parameters.
 
@@ -209,17 +233,11 @@ See also: [`ExperimentDataBI`](@ref)
 """
 mutable struct ExperimentDataMAP{
     T<:AbstractMatrix{<:Real},
-    P<:Union{Nothing, <:AbstractVector{<:Real}},
-    L<:Union{Nothing, <:AbstractMatrix{<:Real}},
-    A<:Union{Nothing, <:AbstractVector{<:Real}},
-    N<:AbstractVector{<:Real},
+    P<:ModelParams,
 } <: ExperimentDataPost{MAP}
     X::T
     Y::T
-    θ::P
-    length_scales::L
-    amplitudes::A
-    noise_std::N
+    params::P
     consistent::Bool
 end
 
@@ -229,16 +247,8 @@ Stores the data matrices `X`,`Y` as well as the sampled model parameters and hyp
 # Fields
 - `X::AbstractMatrix{<:Real}`: Contains the objective function inputs as columns.
 - `Y::AbstractMatrix{<:Real}`: Contains the objective function outputs as columns.
-- `θ::Union{Nothing, <:AbstractVector{<:AbstractVector{<:Real}}}`: Samples of parameters of the parametric model
-        stored column-wise in a matrix (or nothing if the model is nonparametric).
-- `length_scales::Union{Nothing, <:AbstractVector{<:AbstractMatrix{<:Real}}}`: Samples
-    of the length scales of the GP as a vector of `x_dim`×`y_dim` matrices
-    (or nothing if the model is parametric).
-- `amplitudes::Union{Nothing, <:AbstractVector{<:AbstractVector{<:Real}}}`: Samples of the amplitudes of the GP.
-- `noise_std::AbstractVector{<:AbstractVector{<:Real}}`: Samples of the noise standard deviations of each `y` dimension
-        stored column-wise in a matrix.
-- `consistent::Bool`: True iff the parameters (`θ`, `length_scales`, `amplitudes`, `noise_std`)
-        have been fitted using the current dataset (`X`, `Y`).
+- `params::AbstractVector{<:ModelParams}`: Contains samples of the model (hyper)parameters.
+- `consistent::Bool`: True iff the parameters have been fitted using the current dataset (`X`, `Y`).
         Is set to `consistent = false` after updating the dataset,
         and to `consistent = true` after re-fitting the parameters.
 
@@ -246,117 +256,16 @@ See also: [`ExperimentDataMAP`](@ref)
 """
 mutable struct ExperimentDataBI{
     T<:AbstractMatrix{<:Real},
-    P<:Union{Nothing, <:AbstractVector{<:AbstractVector{<:Real}}},
-    L<:Union{Nothing, <:AbstractVector{<:AbstractMatrix{<:Real}}},
-    A<:Union{Nothing, <:AbstractVector{<:AbstractVector{<:Real}}},
-    N<:AbstractVector{<:AbstractVector{<:Real}},
+    P<:AbstractVector{<:ModelParams},
 } <: ExperimentDataPost{BI}
     X::T
     Y::T
-    θ::P
-    length_scales::L
-    amplitudes::A
-    noise_std::N
+    params::P
     consistent::Bool
 end
 
 
 # - - - - - - - - Optimization Problem - - - - - - - -
-
-"""
-An abstract type for a fitness function
-measuring the quality of an output `y` of the objective function.
-
-Fitness is used by the `AcquisitionFunction` to determine promising points for future evaluations.
-
-See also: [`AcquisitionFunction`](@ref), [`NoFitness`](@ref), [`LinFitness`](@ref), [`NonlinFitness`](@ref)
-"""
-abstract type Fitness end
-
-"""
-    NoFitness()
-
-Placeholder for problems with no defined fitness. Problems with `NoFitness`
-can only be solved with `AcquisitionFunction` which does not use fitness.
-"""
-struct NoFitness <: Fitness end
-
-"""
-    LinFitness(coefs::AbstractVector{<:Real})
-
-Used to define a linear fitness function 
-measuring the quality of an output `y` of the objective function.
-
-May provide better performance than the more general `NonlinFitness`
-as some acquisition functions can be calculated analytically with linear fitness
-functions whereas this may not be possible with a nonlinear fitness function.
-
-See also: [`NonlinFitness`](@ref)
-
-# Example
-A fitness function `f(y) = y[1] + a * y[2] + b * y[3]` can be defined as:
-```julia-repl
-julia> LinFitness([1., a, b])
-```
-"""
-struct LinFitness{
-    C<:AbstractVector{<:Real},
-} <: Fitness
-    coefs::C
-end
-(f::LinFitness)(y) = f.coefs' * y
-
-"""
-    NonlinFitness(fitness::Function)
-
-Used to define a general nonlinear fitness function
-measuring the quality of an output `y` of the objective function.
-
-If your fitness function is linear, use `LinFitness` instead for better performance.
-
-See also: [`LinFitness`](@ref)
-
-# Example
-```julia-repl
-julia> NonlinFitness(y -> cos(y[1]) + sin(y[2]))
-```
-"""
-struct NonlinFitness <: Fitness
-    fitness::Function
-end
-(f::NonlinFitness)(y) = f.fitness(y)
-
-"""
-    Domain(; kwargs...)
-
-Describes the optimization domain.
-
-# Keywords
-- `bounds::AbstractBounds`: The basic box-constraints on `x`. This field is mandatory.
-- `discrete::AbstractVector{<:Bool}`: Can be used to designate some dimensions
-        of the domain as discrete.
-- `cons::Union{Nothing, Function}`: Used to define arbitrary nonlinear constraints on `x`.
-        Feasible points `x` must satisfy `all(cons(x) .> 0.)`. An appropriate acquisition
-        maximizer which can handle nonlinear constraints must be used if `cons` is provided.
-        (See [`AcquisitionMaximizer`](@ref).)
-"""
-struct Domain{
-    B<:AbstractBounds,
-    D<:AbstractVector{<:Bool},
-    C<:Union{Nothing, Function},
-}
-    bounds::B
-    discrete::D
-    cons::C
-end
-function Domain(;
-    bounds,
-    discrete = fill(false, length(first(bounds))),
-    cons = nothing,
-)
-    @assert length(bounds[1]) == length(bounds[2]) == length(discrete)
-    return Domain(bounds, discrete, cons)
-end
 
 """
     BossProblem(; kwargs...)
@@ -374,13 +283,11 @@ Defines the whole optimization problem for the BOSS algorithm.
     while satisfying the constraints `f(x) <= y_max`.
 
 # Keywords
-- `fitness::Fitness`: The fitness function. See [`Fitness`](@ref).
+- `fitness::Fitness`: The [`Fitness`](@ref) function.
 - `f::Union{Function, Missing}`: The objective blackbox function.
-- `domain::Domain`: The domain of `x`. See [`Domain`](@ref).
+- `domain::Domain`: The [`Domain`](@ref) of `x`.
 - `y_max`: The constraints on `y`. (See the definition above.)
-- `model::SurrogateModel`: See [`SurrogateModel`](@ref).
-- `noise_std_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions
-        of the noise standard deviations of each `y` dimension.
+- `model::SurrogateModel`: The [`SurrogateModel`](@ref).
 - `data::ExperimentData`: The initial data of objective function evaluations.
         See [`ExperimentDataPrior`].
 
@@ -394,21 +301,111 @@ mutable struct BossProblem{
     domain::Domain
     y_max::AbstractVector{<:Real}
     model::SurrogateModel
-    noise_std_priors::AbstractVector{<:UnivariateDistribution}
     data::ExperimentData
 end
 BossProblem(;
-    fitness=NoFitness(),
+    fitness = NoFitness(),
     f,
     domain,
     model,
-    noise_std_priors,
-    y_max = fill(Inf, length(noise_std_priors)),
     data,
-) = BossProblem(fitness, f, domain, y_max, model, noise_std_priors, data)
+    y_max = fill(Inf, y_dim(data)),
+) = BossProblem(fitness, f, domain, y_max, model, data)
 
 
-# - - - - - - - - Boss Options - - - - - - - -
+# - - - - - - - - Acquisition Function - - - - - - - -
+
+"""
+Specifies the acquisition function describing the "quality" of a potential next evaluation point.
+Inherit this type to define a custom acquisition function.
+
+Example: `struct CustomAcq <: AcquisitionFunction ... end`
+
+All acquisition functions *should* implement:
+`(acquisition::CustomAcq)(problem::BossProblem, options::BossOptions)`
+
+This method should return a function `acq(x::AbstractVector{<:Real}) = val::Real`,
+which is maximized to select the next evaluation function of blackbox function in each iteration.
+
+See also: [`ExpectedImprovement`](@ref)
+"""
+abstract type AcquisitionFunction end
+
+# Specific implementations of `AcquisitionFunction` are in '\src\acquisition'.
+
+
+# - - - - - - - - Acquisition Maximizer - - - - - - - -
+
+"""
+Specifies the library/algorithm used for acquisition function optimization.
+Inherit this type to define a custom acquisition maximizer.
+
+Example: `struct CustomAlg <: AcquisitionMaximizer ... end`
+
+Structures derived from this type have to implement the following method:
+`maximize_acquisition(acq_maximizer::CustomAlg, acq::AcquisitionFunction, problem::BossProblem, options::BossOptions)`.
+
+This method should return a tuple `(x, val)`.
+The returned `x` is the point of the input domain which maximizes the given acquisition function `acq` (as a vector),
+or a batch of points (as a column-wise matrix).
+The returned `val` is the acquisition value `acq(x)`,
+or the values `acq.(eachcol(x))` for each point of the batch,
+or `nothing` (depending on the acquisition maximizer implementation).
+
+See also: [`OptimizationAM`](@ref)
+"""
+abstract type AcquisitionMaximizer end
+
+# Specific implementations of `AcquisitionMaximizer` are in '\src\acquisition_maximizer'.
+
+
+# - - - - - - - - Model Fitter - - - - - - - -
+
+"""
+Specifies the library/algorithm used for model parameter estimation.
+Inherit this type to define a custom model-fitting algorithms.
+
+Example: `struct CustomFitter <: ModelFitter{MAP} ... end` or `struct CustomFitter <: ModelFitter{BI} ... end`
+
+Structures derived from this type have to implement the following method:
+`estimate_parameters(model_fitter::CustomFitter, problem::BossProblem; info::Bool)`.
+
+This method should return a tuple `(params, val)`.
+The returned `params` should be a `ModelParams` (if `CustomAlg <: ModelFitter{MAP}`)
+or a `AbstractVector{<:ModelParams}` (if `CustomAlg <: ModelFitter{BI}`).
+The returned `val` should be the log likelihood of the parameters (if `CustomAlg <: ModelFitter{MAP}`),
+or a vector of log likelihoods of the individual parameter samples (if `CustomAlg <: ModelFitter{BI}`),
+or `nothing`.
+
+See also: [`OptimizationMAP`](@ref), [`TuringBI`](@ref)
+"""
+abstract type ModelFitter{T<:ModelFit} end
+
+# Specific implementations of `ModelFitter` are in '\src\model_fitter'.
+
+
+# - - - - - - - - Termination Condition - - - - - - - -
+
+"""
+Specifies the termination condition of the whole BOSS algorithm.
+Inherit this type to define a custom termination condition.
+
+Example: `struct CustomCond <: TermCond ... end`
+
+Structures derived from this type have to implement the following method:
+`(cond::CustomCond)(problem::BossProblem)`
+
+This method should return true to keep the optimization running
+and return false once the optimization is to be terminated.
+
+See also: [`IterLimit`](@ref)
+"""
+abstract type TermCond end
+
+# Specific implementations of `TermCond` are in '\src\term_cond.jl'.
+
+
+# - - - - - - - - Callback - - - - - - - -
 
 """
 If an object `cb` of type `BossCallback` is passed to `BossOptions`,
@@ -440,6 +437,9 @@ Does nothing.
 """
 struct NoCallback <: BossCallback end
 (::NoCallback)(::BossProblem; kwargs...) = nothing
+
+
+# - - - - - - - - Options - - - - - - - -
 
 """
     BossOptions(; kwargs...)

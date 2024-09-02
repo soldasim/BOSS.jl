@@ -10,9 +10,9 @@ end
 @testset "cond_func(f)" begin
     f(x) = 0.
 
-    @test BOSS.cond_func(f)(false, 5.) == 5.
-    @test BOSS.cond_func(f)(true, 5.) == 0.
-    @test BOSS.cond_func(f).([false, true], [5., 5.]) == [5., 0.]
+    @test BOSS.cond_func(f)(5., false) == 5.
+    @test BOSS.cond_func(f)(5., true) == 0.
+    @test BOSS.cond_func(f).([5., 5.], [false, true]) == [5., 0.]
 end
 
 @testset "discrete_round(dims, x)" begin
@@ -196,8 +196,8 @@ end
         model = BOSS.Nonparametric(;
             amp_priors = fill(BOSS.LogNormal(), 2),
             length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+            noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         ),
-        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         data = BOSS.ExperimentDataPrior(X, Y),
     )
 

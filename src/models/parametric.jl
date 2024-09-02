@@ -4,7 +4,11 @@ An abstract type for parametric surrogate models.
 
 See also: [`LinModel`](@ref), [`NonlinModel`](@ref)
 """
-abstract type Parametric <: SurrogateModel end
+abstract type Parametric{
+    N<:Union{Nothing, <:NoiseStdPriors},
+} <: SurrogateModel end
+
+(model::Parametric)(θ::AbstractVector{<:Real}) = x -> model(x, θ)
 
 """
     LinModel(; kwargs...)
@@ -31,25 +35,27 @@ and ``n, m, p ∈ R``.
 # Keywords
 - `lift::Function`: Defines the `lift` function `(::Vector{<:Real}) -> (::Vector{Vector{<:Real}})`
         according to the definition above.
-- `param_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions for
+- `theta_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions for
         the parameters `[θ₁₁, ..., θ₁ₚ, ..., θₘ₁, ..., θₘₚ]` according to the definition above.
-- `discrete::Union{Nothing, <:AbstractVector{<:Bool}}`: Describes which dimensions are discrete.
-        Typically, the `discrete` kwarg can be ignored by the end-user as it will be updated
-        according to the `Domain` of the `BossProblem` during BOSS initialization.
+- `noise_std_priors::NoiseStdPriors`: The prior distributions
+        of the noise standard deviations of each `y` dimension.
 """
 struct LinModel{
     P<:AbstractVector{<:UnivariateDistribution},
     D<:Union{Nothing, <:AbstractVector{<:Bool}},
-} <: Parametric
+    N<:Union{Nothing, <:NoiseStdPriors},
+} <: Parametric{N}
     lift::Function
-    param_priors::P
+    theta_priors::P
     discrete::D
+    noise_std_priors::N
 end
 LinModel(;
     lift,
-    param_priors,
-    discrete=nothing,
-) = LinModel(lift, param_priors, discrete)
+    theta_priors,
+    discrete = nothing,
+    noise_std_priors = nothing,
+) = LinModel(lift, theta_priors, discrete, noise_std_priors)
 
 """
     NonlinModel(; kwargs...)
@@ -62,26 +68,26 @@ Define the model as `y = predict(x, θ)` where `θ` are the model parameters.
 
 # Keywords
 - `predict::Function`: The `predict` function according to the definition above.
-- `param_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions for the model parameters.
-- `discrete::Union{Nothing, <:AbstractVector{<:Bool}}`: Describes which dimensions are discrete.
-        Typically, the `discrete` kwarg can be ignored by the end-user as it will be updated
-        according to the `Domain` of the `BossProblem` during BOSS initialization.
+- `theta_priors::AbstractVector{<:UnivariateDistribution}`: The prior distributions for the model parameters.
+- `noise_std_priors::NoiseStdPriors`: The prior distributions
+        of the noise standard deviations of each `y` dimension.
 """
 struct NonlinModel{
     P<:AbstractVector{<:UnivariateDistribution},
     D<:Union{Nothing, <:AbstractVector{<:Bool}},
-} <: Parametric
+    N<:Union{Nothing, <:NoiseStdPriors},
+} <: Parametric{N}
     predict::Function
-    param_priors::P
+    theta_priors::P
     discrete::D
+    noise_std_priors::N
 end
 NonlinModel(;
     predict,
-    param_priors,
-    discrete=nothing,
-) = NonlinModel(predict, param_priors, discrete)
-
-(model::Parametric)(θ::AbstractVector{<:Real}) = x -> model(x, θ)
+    theta_priors,
+    discrete = nothing,
+    noise_std_priors = nothing,
+) = NonlinModel(predict, theta_priors, discrete, noise_std_priors)
 
 function (model::LinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real})
     x = discrete_round(model.discrete, x)
@@ -90,16 +96,10 @@ function (model::LinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real}
     m = length(ϕs)
 
     ϕ_lens = length.(ϕs)
-    θ_indices = vcat(0, partial_sums(ϕ_lens))
+    θ_indices = vcat(0, cumsum(ϕ_lens))
     
     y = [(θ[θ_indices[i]+1:θ_indices[i+1]])' * ϕs[i] for i in 1:m]
     return y
-end
-
-function partial_sums(array::AbstractArray)
-    isempty(array) && return empty(array)
-    s = zero(first(array))
-    return [(s += val) for val in array]
 end
 
 function (m::NonlinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real})
@@ -110,17 +110,25 @@ end
 Base.convert(::Type{NonlinModel}, model::LinModel) =
     NonlinModel(
         (x, θ) -> model(x, θ),
-        model.param_priors,
+        model.theta_priors,
         model.discrete,
+        model.noise_std_priors,
     )
 
-make_discrete(m::LinModel, discrete::AbstractVector{<:Bool}) =
-    LinModel(m.lift, m.param_priors, discrete)
-make_discrete(m::NonlinModel, discrete::AbstractVector{<:Bool}) =
-    NonlinModel(m.predict, m.param_priors, discrete)
+remove_noise_priors(m::LinModel) =
+    LinModel(m.lift, m.theta_priors, m.discrete, nothing)
+remove_noise_priors(m::NonlinModel) =
+    NonlinModel(m.predict, m.theta_priors, m.discrete, nothing)
 
-model_posterior(model::Parametric, data::ExperimentDataMAP) =
-    model_posterior(model, data.θ, data.noise_std)
+make_discrete(m::LinModel, discrete::AbstractVector{<:Bool}) =
+    LinModel(m.lift, m.theta_priors, discrete, m.noise_std_priors)
+make_discrete(m::NonlinModel, discrete::AbstractVector{<:Bool}) =
+    NonlinModel(m.predict, m.theta_priors, discrete, m.noise_std_priors)
+
+function model_posterior(model::Parametric, data::ExperimentDataMAP)
+    θ, _, _, noise_std = data.params
+    return model_posterior(model, θ, noise_std)
+end
 
 function model_posterior(
     model::Parametric,
@@ -138,12 +146,11 @@ function model_posterior(
     return post
 end
 
-function model_loglike(model::Parametric, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
-    function loglike(θ, λ, α, noise_std)
-        ll_data = data_loglike(model, data.X, data.Y, θ, noise_std)
-        ll_params = model_params_loglike(model, θ)
-        ll_noise = noise_loglike(noise_std_priors, noise_std)
-        return ll_data + ll_params + ll_noise
+function model_loglike(model::Parametric, data::ExperimentData)
+    function loglike(params)
+        ll_data = data_loglike(model, data.X, data.Y, params)
+        ll_params = model_params_loglike(model, params)
+        return ll_data + ll_params
     end
 end
 
@@ -151,25 +158,34 @@ function data_loglike(
     model::Parametric,
     X::AbstractMatrix{<:Real},
     Y::AbstractMatrix{<:Real},
-    θ::AbstractVector{<:Real},
-    noise_std::AbstractVector{<:Real},
+    params::ModelParams,
 )
+    θ, λ, α, noise_std = params
     ll_datum(x, y) = logpdf(MvNormal(model(x, θ), noise_std), y)
     return mapreduce(d -> ll_datum(d...), +, zip(eachcol(X), eachcol(Y)))
 end
 
-function model_params_loglike(model::Parametric, θ::AbstractVector{<:Real})
-    return mapreduce(p -> logpdf(p...), +, zip(model.param_priors, θ); init=0.)
+function model_params_loglike(model::Parametric, params::ModelParams)
+    θ, λ, α, noise_std = params
+    ll_theta = sum(logpdf.(model.theta_priors, θ); init=0.)
+    ll_noise = sum(logpdf.(model.noise_std_priors, noise_std))
+    return ll_theta + ll_noise
 end
 
 function sample_params(model::Parametric)
-    θ = isempty(model.param_priors) ?
-            Real[] :
-            rand.(model.param_priors)
-    λ = Real[;;]
-    α = Real[]
-    return θ, λ, α
+    θ = isempty(model.theta_priors) ?
+            Float64[] :
+            rand.(model.theta_priors)
+    λ = nothing
+    α = nothing
+    noise_std = rand.(model.noise_std_priors)
+    return θ, λ, α, noise_std
 end
 
-param_priors(model::Parametric) =
-    model.param_priors, MultivariateDistribution[], UnivariateDistribution[]
+function param_priors(model::Parametric)
+    θ_priors = model.theta_priors
+    λ_priors = nothing
+    α_priors = nothing
+    noise_std_priors = model.noise_std_priors
+    return θ_priors, λ_priors, α_priors, noise_std_priors
+end

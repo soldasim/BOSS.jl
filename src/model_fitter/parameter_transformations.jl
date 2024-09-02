@@ -9,20 +9,20 @@ function vectorize_params(
     skip_mask::AbstractVector{Bool},
 )
     params = vectorize_params(params...)
-    params .= cond_func(inverse(activation_function)).(activation_mask, params)
+    params .= cond_func(inverse(activation_function)).(params, activation_mask)
     params = params[skip_mask]
     return params
 end
 
-function vectorize_params(θ::AbstractVector{<:Real}, λ::AbstractMatrix{<:Real}, α::AbstractVector{<:Real}, noise_std::AbstractVector{<:Real})
+function vectorize_params(θ::Theta, λ::LengthScales, α::Amplitudes, noise_std::NoiseStd)
     λ = vectorize_length_scales(λ)
     
-    # skip empty params for type stability
-    nonempty_params = filter(!isempty, (θ, λ, α, noise_std))
-    isempty(nonempty_params) && return promote_type(eltype.((θ, λ, α, noise_std))...)[]
+    params = θ, λ, α, noise_std
+    not_nothing = filter(!isnothing, params)
+    not_empty = filter(!isempty, not_nothing)
+    isempty(not_empty) && return promote_type(eltype.(not_nothing)...)[]
 
-    params = reduce(vcat, nonempty_params)
-    return params
+    return reduce(vcat, not_empty)
 end
 
 """
@@ -42,29 +42,29 @@ function devectorize_params(
     params[skip_mask] .= params_
     params[.!skip_mask] .= skipped_values
 
-    params .= cond_func(activation_function).(activation_mask .& skip_mask, params)
+    params .= cond_func(activation_function).(params, activation_mask .& skip_mask)
 
     return devectorize_params(params, model)
 end
 
 function devectorize_params(params::AbstractVector{<:Real}, model::SurrogateModel)
-    θ_shape, λ_shape, α_shape = param_shapes(model)
-    θ_len, λ_len, α_len = prod.((θ_shape, λ_shape, α_shape))
-    cumsums = [0, θ_len, θ_len + λ_len, θ_len + λ_len + α_len]
+    shapes = param_shapes(model)
+    lens = param_counts(model)
 
-    θ, λ, α = (params[cumsums[i]+1:cumsums[i+1]] for i in 1:3)
-    noise_std = params[cumsums[end]+1:end]
+    borders = vcat(0, cumsum(lens)...)
+    θ, λ, α, noise_std = (params[borders[i]+1:borders[i+1]] for i in 1:4)
 
-    λ = devectorize_length_scales(λ, λ_shape)
+    λ = devectorize_length_scales(λ, shapes[2])
+    α = isnothing(shapes[3]) ? nothing : α
 
     return θ, λ, α, noise_std
 end
 
-vectorize_length_scales(λ::AbstractMatrix) =
-    reduce(vcat, eachcol(λ); init=eltype(λ)[])
+vectorize_length_scales(λ::Nothing) = nothing
+vectorize_length_scales(λ::AbstractMatrix{<:Real}) = reduce(vcat, eachcol(λ); init=eltype(λ)[])
 
-devectorize_length_scales(λ::AbstractVector, λ_shape::Tuple{<:Int, <:Int}) =
-    reshape(λ, λ_shape)
+devectorize_length_scales(λ::AbstractVector{<:Real}, λ_shape::Nothing) = nothing
+devectorize_length_scales(λ::AbstractVector{<:Real}, λ_shape::Tuple{<:Int, <:Int}) = reshape(λ, λ_shape)
 
 """
 Create a binary mask describing to which positions of the vectorized parameters
@@ -77,24 +77,14 @@ Use the binary vector `mask_theta` to define to which model parameters
 will the activation function be applied as well.
 """
 function create_activation_mask(
-    model::SurrogateModel,
-    y_dim::Int,
+    param_counts::Tuple{<:Int, <:Int, <:Int, <:Int},
     mask_theta::Union{Bool, Vector{Bool}},
     mask_hyperparams::Bool,
 )
-    return create_activation_mask(param_counts(model), y_dim, mask_theta, mask_hyperparams)
-end
-
-function create_activation_mask(
-    param_counts::Tuple{<:Int, <:Int, <:Int},
-    y_dim::Int,
-    mask_theta::Union{Bool, Vector{Bool}},
-    mask_hyperparams::Bool,
-)
-    θ_len, λ_len, α_len = param_counts
+    θ_len, λ_len, α_len, noise_std_len = param_counts
     return vcat(
         create_θ_mask(mask_theta, θ_len),
-        fill(mask_hyperparams, λ_len + α_len + y_dim),
+        fill(mask_hyperparams, λ_len + α_len + noise_std_len),
     )
 end
 
@@ -106,49 +96,42 @@ function create_θ_mask(mask_params::Vector{Bool}, θ_len::Int)
     return mask_params
 end
 
-create_dirac_skip_mask(model::SurrogateModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}) =
-    create_dirac_skip_mask(param_priors(model)..., noise_std_priors)
-
 """
 Create a binary mask to skip all parameters with Dirac priors
 from the optimization parameters.
 
 Return the binary skip mask and a vector of the skipped Dirac values.
 """
-function create_dirac_skip_mask(
-    θ_priors::AbstractVector{<:UnivariateDistribution},
-    λ_priors::AbstractVector{<:MultivariateDistribution},
-    α_priors::AbstractVector{<:UnivariateDistribution},
-    noise_std_priors::AbstractVector{<:UnivariateDistribution},
-)
-    priors = Union{Nothing, UnivariateDistribution}[]
-    # θ
-    append!(priors, θ_priors)
-    # λ
-    for md in λ_priors
-        if md isa Product
-            append!(priors, md.v)
-        else
-            append!(priors, (nothing for _ in 1:length(md)))
-        end
-    end
-    # α
-    append!(priors, α_priors)
-    # noise_std
-    append!(priors, noise_std_priors)
+function create_dirac_skip_mask(priors::ParamPriors)
+    unis = get_univariates(priors)
     
-    params_total = length(priors)
-    skip_mask = fill(true, params_total)
+    skip_mask = fill(true, length(unis))
     skipped_values = Float64[]
 
-    for i in eachindex(priors)
-        if priors[i] isa Dirac
+    for i in eachindex(unis)
+        if unis[i] isa Dirac
             skip_mask[i] = false
-            push!(skipped_values, priors[i].value)
+            push!(skipped_values, unis[i].value)
         end
     end
 
     return skip_mask, skipped_values
+end
+
+function get_univariates(priors::ParamPriors)
+    return reduce(vcat, get_univariates_.(priors))
+end
+
+function get_univariates_(priors::Nothing)
+    return Nothing[]
+end
+function get_univariates_(priors::AbstractVector{<:UnivariateDistribution})
+    return priors
+end
+function get_univariates_(priors::AbstractVector{<:MultivariateDistribution})
+    get_unis(d::Product) = d.v
+    get_unis(d::MultivariateDistribution) = fill(nothing, length(d))
+    return reduce(vcat, get_unis.(priors); init=UnivariateDistribution[])
 end
 
 # Activation function to ensure positive optimization arguments.
@@ -197,4 +180,9 @@ end
 function get_loglike_(results, y_dim::Int, idx::Int)
     loglikes = [results[i][2][idx] for i in 1:y_dim]
     return sum(loglikes)
+end
+
+# for BI
+function reduce_param_samples(θs, λs, αs, noise_stds)
+    return tuple.(θs, λs, αs, noise_stds)
 end

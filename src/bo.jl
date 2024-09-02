@@ -30,11 +30,11 @@ or give a recommendation for the next evaluation point if `problem.f == missing`
 See 'https://github.com/Sheld5/BOSS.jl/tree/master/scripts' for example usage.
 """
 function bo!(problem::BossProblem;
+    acquisition::AcquisitionFunction = ExpectedImprovement(),
     model_fitter::ModelFitter,
     acq_maximizer::AcquisitionMaximizer,
-    acquisition::AcquisitionFunction=ExpectedImprovement(),
-    term_cond::TermCond=IterLimit(1),
-    options::BossOptions=BossOptions(),
+    term_cond::TermCond = IterLimit(1),
+    options::BossOptions = BossOptions(),
 )
     initialize!(problem; options)
     consistent(problem.data) || estimate_parameters!(problem, model_fitter; options)
@@ -51,10 +51,10 @@ function bo!(problem::BossProblem;
 end
 
 function bo!(problem::BossProblem{Missing};
+    acquisition::AcquisitionFunction = ExpectedImprovement(),
     model_fitter::ModelFitter,
     acq_maximizer::AcquisitionMaximizer,
-    acquisition::AcquisitionFunction=ExpectedImprovement(),
-    options::BossOptions=BossOptions(),
+    options::BossOptions = BossOptions(),
 )
     initialize!(problem; options)
     consistent(problem.data) || estimate_parameters!(problem, model_fitter; options)
@@ -74,6 +74,7 @@ function initialize!(problem::BossProblem; options::BossOptions=BossOptions())
     problem.data.X, problem.data.Y = exclude_exterior_points(problem.domain, problem.data.X, problem.data.Y; options)
     isempty(problem.data.X) && throw(ErrorException("Cannot start with empty dataset! Provide at least one interior initial point."))
 
+    # part of a workaround, see '/src/model_fitter/utils.jl'
     if any(isinf.(problem.y_max))
         problem.y_max = [isinf(c) ? Infinity() : c for c in problem.y_max]
     end
@@ -85,7 +86,7 @@ Estimate the model parameters & hyperparameters using the given `model_fitter` a
 function estimate_parameters!(problem::BossProblem, model_fitter::ModelFitter{T}; options::BossOptions=BossOptions()) where {T}
     options.info && @info "Estimating model parameters ..."
     params, _ = estimate_parameters(model_fitter, problem, options)
-    problem.data = update_parameters!(T, problem.data, params...)
+    problem.data = update_parameters!(T, problem.data, params)
 end
 
 """

@@ -15,13 +15,12 @@ struct SamplingMAP <: ModelFitter{MAP}
 end
 SamplingMAP(;
     samples,
-    parallel=true,
+    parallel = true,
 ) = SamplingMAP(samples, parallel)
 
 function estimate_parameters(opt::SamplingMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)
-    loglike = model_loglike(problem.model, problem.noise_std_priors, problem.data)
-    sample_() = sample_params(problem.model, problem.noise_std_priors)
-    fitness_(p) = loglike(p...)
+    sample_() = sample_params(problem.model)
+    fitness_ = model_loglike(problem.model, problem.data)
 
     params, fit = sample(Val(return_all), Val(opt.parallel), opt, sample_, fitness_)
     return params, fit

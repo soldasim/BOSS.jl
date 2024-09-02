@@ -24,6 +24,6 @@ end
 
 function random_x(domain)
     x = random_start(domain.bounds)
-    x = cond_func(round).(domain.discrete, x)  # assure discrete dims
+    x = cond_func(round).(x, domain.discrete)  # assure discrete dims
     return x
 end

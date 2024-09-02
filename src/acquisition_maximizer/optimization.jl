@@ -27,9 +27,9 @@ struct OptimizationAM{
 end
 function OptimizationAM(;
     algorithm,
-    multistart=200,
-    parallel=true,
-    autodiff=AutoForwardDiff(),
+    multistart = 200,
+    parallel = true,
+    autodiff = AutoForwardDiff(),
     kwargs...
 )
     ((:lb in keys(kwargs)) || (:ub in keys(kwargs))) && @warn "The provided `:lb` and `:ub` kwargs of `OptimizationAM` are ignored!\nUse the `domain` field of the `BossProblem` instead."
@@ -108,6 +108,6 @@ function optimize(
     end
 
     best_x, _ = optimize_multistart(acq_optimize, starts, opt.parallel, options)
-    best_x = cond_func(round).(discrete, best_x)  # assure discrete dims
+    best_x = cond_func(round).(best_x, discrete)  # assure discrete dims
     return best_x, obj_func(best_x)
 end

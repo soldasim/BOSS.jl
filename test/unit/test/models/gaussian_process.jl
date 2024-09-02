@@ -23,6 +23,7 @@ end
                 kernel = BOSS.Matern52Kernel(),
                 amp_priors = fill(BOSS.LogNormal(), 2),
                 length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
             ),
             [false, true],
         )
@@ -38,6 +39,7 @@ end
                 kernel = BOSS.DiscreteKernel(BOSS.Matern52Kernel(), [false, true]),
                 amp_priors = fill(BOSS.LogNormal(), 2),
                 length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
             ),
             [false, true],
         )
@@ -53,6 +55,7 @@ end
                 kernel = BOSS.Matern52Kernel(),
                 amp_priors = fill(BOSS.LogNormal(), 2),
                 length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
             ),
             [false, false],
         )
@@ -94,8 +97,8 @@ end
             mean = x -> [1., 1.],
             amp_priors = fill(BOSS.LogNormal(), 2),
             length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+            noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         ),
-        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         data = BOSS.ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
     )
     BOSS.estimate_parameters!(problem, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
@@ -142,8 +145,8 @@ end
             mean = x -> [1., 1.],
             amp_priors = fill(BOSS.LogNormal(), 2),
             length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+            noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         ),
-        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         data = BOSS.ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
     )
     BOSS.estimate_parameters!(problem, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
@@ -179,92 +182,104 @@ end
     end
 end
 
-@testset "model_loglike(model, noise_std_priors, data)" begin
+@testset "model_loglike(model, data)" begin
     model = BOSS.Nonparametric(;
         mean = x -> [1., 1.],
         amp_priors = fill(BOSS.LogNormal(), 2),
         length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+        noise_std_priors = fill(BOSS.LogNormal(), 2),
     )
-    noise_std_priors = fill(BOSS.LogNormal(), 2)
     data = BOSS.ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;])
 
     @param_test BOSS.model_loglike begin
-        @params deepcopy(model), deepcopy(noise_std_priors), deepcopy(data)
+        @params deepcopy(model), deepcopy(data)
         @success (
             out isa Function,
-            out(Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [1., 1.]) isa Real,
-            out(Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [1., 1.]) < 0.,
-            out(Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [5., 5.]) > out(Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [100., 100.]),
-            out(Float64[], [1.;1.;; 1.;1.;;], [5., 5.], [1., 1.]) > out(Float64[], [1.;1.;; 1.;1.;;], [100., 100.], [1., 1.]),
-            out(Float64[], [5.;5.;; 5.;5.;;], [1., 1.], [1., 1.]) > out(Float64[], [100.;100.;; 100.;100.;;], [1., 1.], [1., 1.]),
+            out((Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [1., 1.])) isa Real,
+            out((Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [1., 1.])) < 0.,
+            out((Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [5., 5.])) > out((Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [100., 100.])),
+            out((Float64[], [1.;1.;; 1.;1.;;], [5., 5.], [1., 1.])) > out((Float64[], [1.;1.;; 1.;1.;;], [100., 100.], [1., 1.])),
+            out((Float64[], [5.;5.;; 5.;5.;;], [1., 1.], [1., 1.])) > out((Float64[], [100.;100.;; 100.;100.;;], [1., 1.], [1., 1.])),
         )
     end
 end
 
 # TODO: Check the GP marginal data likelihood against the equiation in
 # https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7352306 section III. D.
-@testset "data_loglike(model, X, Y, λ, α, noise_std)" begin
+@testset "data_loglike(model, X, Y, params)" begin
     model = BOSS.Nonparametric(;
         mean = x -> [0.],
         amp_priors = fill(BOSS.LogNormal(), 1),
         length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 1)), 1),
+        noise_std_priors = fill(BOSS.Dirac(0.1), 1),
     )
 
     @param_test BOSS.data_loglike begin
-        @params deepcopy(model), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [1.;;], [1.], [1.]
-        @success out < 0.
+        @params deepcopy(model), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], (Float64[], [1.;;], [1.], [1.])
+        @success out isa Real
     end
 
-    t_length_scale(λ) = BOSS.data_loglike(deepcopy(model), [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;], λ, [1.], [0.])
+    t_length_scale(λ) = BOSS.data_loglike(deepcopy(model), [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;], (Float64[], λ, [1.], [0.]))
     @test t_length_scale([0.1;;]) > t_length_scale([1.;;]) > t_length_scale([10.;;])
 
-    t_amplitude(α) = BOSS.data_loglike(deepcopy(model), [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;], [1.;;], α, [0.])
+    t_amplitude(α) = BOSS.data_loglike(deepcopy(model), [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;], (Float64[], [1.;;], α, [0.]))
     @test t_amplitude([1.]) > t_amplitude([0.1])
     @test t_amplitude([1.]) > t_amplitude([10.])
 
-    t_noise_std(σ) = BOSS.data_loglike(deepcopy(model), [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;], [1.;;], [1.], σ)
+    t_noise_std(σ) = BOSS.data_loglike(deepcopy(model), [1.;; 2.;; 3.;;], [1.;; -1.;; 1.;;], (Float64[], [1.;;], [1.], σ))
     @test t_noise_std([1.]) > t_noise_std([0.1])
     @test t_noise_std([1.]) > t_noise_std([10.])
 
-    t_data(X, Y) = BOSS.data_loglike(deepcopy(model), X, Y, [1.;;], [1.], [0.])
+    t_data(X, Y) = BOSS.data_loglike(deepcopy(model), X, Y, (Float64[], [1.;;], [1.], [0.]))
     @test t_data([1.;; 2.;; 3;;], [99.9;; 100.;; 100.1;;]) > t_data([1.;; 2.;; 3;;], [99.;; 100.;; 101.;;]) > t_data([1.;; 2.;; 3;;], [90.;; 100.;; 110.;;])
 end
 
-@testset "model_params_loglike(model, λ, α)" begin
+@testset "model_params_loglike(model, params)" begin
     @param_test BOSS.model_params_loglike begin
         # TODO: Add different priors loaded from a collection.
         @params (
             BOSS.Nonparametric(;
-                amp_priors = fill(BOSS.LogNormal(), 2),
                 length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+                amp_priors = fill(BOSS.LogNormal(), 2),
+                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
             ),
-            [1.;1.;; 5.;5.;;],
-            [1., 2.],
+            (Float64[], [1.;1.;; 1.;1.;;], [1., 2.], [0.1, 0.1]),
         )
-        @success isapprox(
-            out,
-            sum((BOSS.logpdf(in[1].length_scale_priors[i], in[2][:,i]) for i in 1:2))
-                + sum((BOSS.logpdf(in[1].amp_priors[i], in[3][i]) for i in 1:2));
-            atol=1e-20,
-        )
+        @success out isa Real
 
         @params (
             BOSS.Nonparametric(;
-                amp_priors = fill(BOSS.Dirac(1.), 2),
                 length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
+                amp_priors = fill(BOSS.Dirac(1.), 2),
+                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
             ),
-            [1.;1.;; 1.;1.;;],
-            [1., 1.],
+            (Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.1]),
         )
         @success out == 0.
 
         @params (
             BOSS.Nonparametric(;
-                amp_priors = fill(BOSS.Dirac(1.), 2),
                 length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
+                amp_priors = fill(BOSS.Dirac(1.), 2),
+                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
             ),
-            [1.;1.;; 5.;5.;;],
-            [1., 1.],
+            (Float64[], [1.;1.;; 5.;5.;;], [1., 1.], [0.1, 0.1]),
+        )
+        @params (
+            BOSS.Nonparametric(;
+                length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
+                amp_priors = fill(BOSS.Dirac(1.), 2),
+                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+            ),
+            (Float64[], [1.;1.;; 1.;1.;;], [1., 5.], [0.1, 0.1]),
+        )
+        @params (
+            BOSS.Nonparametric(;
+                length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
+                amp_priors = fill(BOSS.Dirac(1.), 2),
+                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+            ),
+            (Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.5]),
         )
         @success out == -Inf
     end

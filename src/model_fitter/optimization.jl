@@ -31,11 +31,11 @@ struct OptimizationMAP{
 end
 function OptimizationMAP(;
     algorithm,
-    multistart=200,
-    parallel=true,
-    softplus_hyperparams=true,
-    softplus_params=false,
-    autodiff=AutoForwardDiff(),
+    multistart = 200,
+    parallel = true,
+    softplus_hyperparams = true,
+    softplus_params = false,
+    autodiff = AutoForwardDiff(),
     kwargs...
 )
     isnothing(autodiff) && (autodiff = SciMLBase.NoAD())
@@ -93,12 +93,11 @@ end
 
 function estimate_parameters_(opt::OptimizationMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)
     model = problem.model
-    noise_std_priors = problem.noise_std_priors
     data = problem.data
     
     # Prepare necessary parameter transformations.
-    softplus_mask = create_activation_mask(model, y_dim(problem), opt.softplus_params, opt.softplus_hyperparams)
-    skip_mask, skipped_values = create_dirac_skip_mask(model, noise_std_priors)
+    softplus_mask = create_activation_mask(param_counts(model), opt.softplus_params, opt.softplus_hyperparams)
+    skip_mask, skipped_values = create_dirac_skip_mask(param_priors(model))
     vectorize = (params) -> vectorize_params(params, softplus, softplus_mask, skip_mask)
     devectorize = (params) -> devectorize_params(params, model, softplus, softplus_mask, skipped_values, skip_mask)
 
@@ -108,12 +107,12 @@ function estimate_parameters_(opt::OptimizationMAP, problem::BossProblem, option
     end
 
     # Generate optimization starts.
-    sample_func = () -> sample_params(model, noise_std_priors)
+    sample_func = () -> sample_params(model)
     starts = get_starts(opt.multistart, sample_func, vectorize)
 
     # Define the optimization objective.
-    loglike = model_loglike(model, noise_std_priors, data)
-    loglike_vec = (params) -> loglike(devectorize(params)...)
+    loglike = model_loglike(model, data)
+    loglike_vec = (params) -> loglike(devectorize(params))
 
     # Optimize.
     params, loglike = optimize(opt, loglike_vec, starts, options; return_all)

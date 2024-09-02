@@ -30,9 +30,9 @@ function good_parametric_model()
     z(x, θ) = 0.
     predict(x, θ) = [y(x, θ), z(x, θ)]
 
-    param_priors = fill(Normal(0., 1.), 3)
+    theta_priors = fill(Normal(0., 1.), 3)
 
-    NonlinModel(; predict, param_priors)
+    NonlinModel(; predict, theta_priors)
 end
 # You can also try how the Parametric and Semiparametric models behave
 # when we provide a completely wrong parametric model.
@@ -43,9 +43,9 @@ function bad_parametric_model()
     z(x, θ) = 0.
     predict(x, θ) = [y(x, θ), z(x, θ)]
 
-    param_priors = fill(Normal(0., 1.), 3)
+    theta_priors = fill(Normal(0., 1.), 3)
 
-    NonlinModel(; predict, param_priors)
+    NonlinModel(; predict, theta_priors)
 end
 
 # Our prediction about the noise and GP length scales.
@@ -77,12 +77,14 @@ function opt_problem(init_data)
     #         kernel = BOSS.Matern32Kernel(),
     #         amp_priors = amplitude_priors(),
     #         length_scale_priors = length_scale_priors(),
+    #         noise_std_priors = noise_std_priors(),
     #     ),
     # )
     model = Nonparametric(;
         kernel = BOSS.Matern32Kernel(),
         amp_priors = amplitude_priors(),
         length_scale_priors = length_scale_priors(),
+        noise_std_priors = noise_std_priors(),
     )
 
     BossProblem(;
@@ -91,7 +93,6 @@ function opt_problem(init_data)
         domain,
         y_max = [Inf, 0.],
         model,
-        noise_std_priors = noise_std_priors(),
         data = ExperimentDataPrior(data...),
     )
 end

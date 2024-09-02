@@ -37,12 +37,7 @@ end
 
 Returns `true` if the given surrogate model is sliceable.
 
-A model is "sliceable" iff all output dimensions are modeled independently
-and the following additional methods are implemented;
-
-- `model_loglike_slice(model::SliceableModel, noise_std_priors::AbstractVector{<:UnivariateDistribution}, data::ExperimentData, slice::Int)`
-
-- `θ_slice(model::SliceableModel, idx::Int) -> Union{Nothing, UnitRange{<:Int}}`
+See [`SurrogateModel`](@ref).
 """
 sliceable(::SurrogateModel) = false
 
@@ -55,7 +50,6 @@ function slice(problem::BossProblem, idx::Int)
         problem.domain,
         slice(problem.y_max, idx),
         slice(problem.model, idx),
-        slice(problem.noise_std_priors, idx),
         slice(problem.data, θ_slice_, idx),
     )
 end
@@ -70,10 +64,7 @@ function slice(data::ExperimentDataMAP, θ_slice, idx::Int)
     return ExperimentDataMAP(
         data.X,
         data.Y[idx:idx,:],
-        slice(data.θ, θ_slice),
-        slice(data.length_scales, idx),
-        slice(data.amplitudes, idx),
-        slice(data.noise_std, idx),
+        slice(data.params, θ_slice, idx),
         data.consistent,
     )
 end
@@ -81,10 +72,7 @@ function slice(data::ExperimentDataBI, θ_slice, idx::Int)
     return ExperimentDataBI(
         data.X,
         data.Y[idx:idx,:],
-        slice.(data.θ, Ref(θ_slice)),
-        slice.(data.length_scales, Ref(idx)),
-        slice.(data.amplitudes, Ref(idx)),
-        slice.(data.noise_std, Ref(idx)),
+        slice.(data.params, Ref(θ_slice), Ref(idx)),
         data.consistent,
     )
 end

@@ -25,8 +25,8 @@ end
 function GridAM(;
     problem::BossProblem,
     steps,
-    parallel=true,
-    shuffle=true,
+    parallel = true,
+    shuffle = true,
 )
     domain = problem.domain
     ranges = dim_range.(domain.bounds..., steps, domain.discrete)
