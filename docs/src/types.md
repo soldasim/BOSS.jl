@@ -106,7 +106,7 @@ Semiparametric
 
 ## Evaluation Noise
 
-The priors on evaluation noise deviation ``\sigma_f`` are defined using the `noise_std_priors` field of the [`BossProblem`](@ref).
+The priors on evaluation noise deviation ``\sigma_f`` are defined using the `noise_std_priors` field of the [`SurrogateModel`](@ref).
 
 ## Experiment Data
 

@@ -27,14 +27,13 @@ First, we define the problem as an instance of [`BossProblem`](@ref).
 
 ```julia
 problem() = BossProblem(;
-    fitness = LinFitness([1, 0]),           # maximize y
+    fitness = LinFitness([1, 0]),   # maximize y
     f = blackbox,
     domain = Domain(;
-        bounds = ([0.], [20.]),             # x ∈ <0, 20>
+        bounds = ([0.], [20.]),     # x ∈ <0, 20>
     ),
-    y_max = [Inf, 0.],                      # z < 0
+    y_max = [Inf, 0.],              # z < 0
     model = nonparametric(), # or `parametric()` or `semiparametric()`
-    noise_std_priors = noise_std_priors(),
     data = init_data(),
 )
 ```
@@ -60,6 +59,7 @@ nonparametric() = GaussianProcess(;
     kernel = BOSS.Matern32Kernel(),
     amp_priors = amplitude_priors(),
     length_scale_priors = length_scale_priors(),
+    noise_std_priors = noise_std_priors(),
 )
 ```
 
@@ -73,13 +73,14 @@ parametric() = NonlinModel(;
         θ[1] * x[1] * cos(θ[2] * x[1]) + θ[3],
         0.,
     ],
-    param_priors = fill(Normal(0., 1.), 3),
+    theta_priors = fill(Normal(0., 1.), 3),
+    noise_std_priors = noise_std_priors(),
 )
 ```
 
 The function `predict(x, θ) -> y` defines our parametric model where `θ` are the model parameters which will be fitted based on the data.
 
-The keyword `param_priors` is used to define priors on the model parameters `θ`. The priors can be used to include our expert knowledge, to regularize the model, or a uniform prior can be used to not bias the model fit.
+The keyword `theta_priors` is used to define priors on the model parameters `θ`. The priors can be used to include our expert knowledge, to regularize the model, or a uniform prior can be used to not bias the model fit.
 
 ### Semiparametric Model
 

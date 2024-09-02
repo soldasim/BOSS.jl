@@ -26,13 +26,13 @@ struct SampleOptMAP{
     optimizer::OptimizationMAP{A, Int}
 end
 function SampleOptMAP(;
-    samples=2000,
+    samples = 2000,
     algorithm,
-    multistart=200,
-    parallel=true,
-    softplus_hyperparams=true,
-    softplus_params=false,
-    autodiff=AutoForwardDiff(),
+    multistart = 200,
+    parallel = true,
+    softplus_hyperparams = true,
+    softplus_params = false,
+    autodiff = AutoForwardDiff(),
     kwargs...
 )
     isnothing(autodiff) && (autodiff = SciMLBase.NoAD())

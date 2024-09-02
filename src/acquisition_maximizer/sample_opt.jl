@@ -26,9 +26,9 @@ function SampleOptAM(;
     x_prior,
     samples,
     algorithm,
-    multistart=200,
-    parallel=true,
-    autodiff=AutoForwardDiff(),
+    multistart = 200,
+    parallel = true,
+    autodiff = AutoForwardDiff(),
     kwargs...
 )
     @assert samples >= multistart

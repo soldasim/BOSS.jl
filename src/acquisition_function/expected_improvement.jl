@@ -116,7 +116,7 @@ feas_prob(mean::AbstractVector{<:Real}, std::AbstractVector{<:Real}, constraints
 sample_ϵs(y_dim::Int, sample_count::Int) = rand(Normal(), (y_dim, sample_count))
 
 best_so_far(problem::BossProblem, posteriors::AbstractVector{<:Function}) =
-    best_so_far(problem, average_posteriors(posteriors))
+    best_so_far(problem, average_posterior(posteriors))
 
 best_so_far(problem::BossProblem, posterior::Function) =
     best_so_far(problem.fitness, problem.data.X, problem.data.Y, problem.y_max, posterior)

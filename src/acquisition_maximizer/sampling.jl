@@ -14,50 +14,74 @@ struct SamplingAM <: AcquisitionMaximizer
     x_prior::MultivariateDistribution
     samples::Int
     parallel::Bool
+    max_attempts::Int
 end
 function SamplingAM(;
     x_prior,
     samples,
-    parallel=true,
+    parallel = true,
+    max_attempts = 200,
 )
-    return SamplingAM(x_prior, samples, parallel)
+    return SamplingAM(x_prior, samples, parallel, max_attempts)
 end
 
 function maximize_acquisition(opt::SamplingAM, acquisition::AcquisitionFunction, problem::BossProblem, options::BossOptions;
-    return_all::Bool=false,    
+    return_all::Bool = false,    
 )
     acq = acquisition(problem, options)
-    x, val = sample(Val(return_all), Val(opt.parallel), opt.x_prior, opt.samples, acq)
-    return x, val
+    xs, vals = sample(Val(opt.parallel), acq, problem.domain, opt.x_prior, opt.samples; opt.max_attempts)
+    
+    count = size(xs)[2]
+    if count == 0
+        @error "SamplingAM: No samples were successfully drawn!\nCheck the `x_prior` and the `Domain`."
+    end
+    if count < opt.samples
+        @warn "SamplingAM: Some samples failed to be drawn!"
+    end
+
+    if return_all
+        return xs, vals
+    else
+        best = argmax(vals)
+        return xs[:,best], vals[best]
+    end
 end
 
-function sample(return_all::Val{false}, parallel::Val{false}, x_prior, samples, acq)
-    xs = rand(x_prior, samples)
-    vals = acq.(eachcol(xs))
-    
-    best = argmax(vals)
-    return xs[:,best], vals[best]
-end
-function sample(return_all::Val{true}, parallel::Val{false}, x_prior, samples, acq)
-    xs = rand(x_prior, samples)
+
+function sample(parallel::Val{false}, acq, domain, x_prior, samples; max_attempts::Int)
+    xs = [rand_in_domain_(x_prior, domain; max_attempts) for _ in 1:samples]
+    xs = reduce_samples_(xs)
     vals = acq.(eachcol(xs))
     return xs, vals
 end
-
-function sample(return_all::Val{false}, parallel::Val{true}, x_prior, samples, acq)
+function sample(parallel::Val{true}, acq, domain, x_prior, samples; max_attempts::Int)
     counts = get_sample_counts(samples, Threads.nthreads())
-    ptasks = [Threads.@spawn sample(Val(false), Val(false), x_prior, c, acq) for c in counts]
-    results = fetch.(ptasks)
-    
-    best = argmax(vcat(last.(results)...))
-    return results[best]
-end
-function sample(return_all::Val{true}, parallel::Val{true}, x_prior, samples, acq)
-    counts = get_sample_counts(samples, Threads.nthreads())
-    ptasks = [Threads.@spawn sample(Val(true), Val(false), x_prior, c, acq) for c in counts]
+    ptasks = [Threads.@spawn sample(Val(false), acq, domain, x_prior, c; max_attempts) for c in counts]
     results = fetch.(ptasks)
     
     xs = hcat(first.(results)...)
     vals = vcat(last.(results)...)
     return xs, vals
+end
+
+function rand_in_domain_(x_prior::MultivariateDistribution, domain::Domain; max_attempts::Int=200)
+    x = rand_in_discrete_(x_prior, domain.discrete)
+    for _ in 1:max_attempts-1
+        in_domain(x, domain) && break
+        x = rand_in_discrete_(x_prior, domain.discrete)
+    end
+    if in_domain(x, domain)
+        return x
+    else
+        return nothing
+    end
+end
+function rand_in_discrete_(x_prior::MultivariateDistribution, discrete::AbstractVector{<:Bool})
+    x = rand(x_prior)
+    x = cond_func(round).(x, discrete)
+    return x
+end
+
+function reduce_samples_(xs::AbstractVector{<:Union{Nothing, <:AbstractVector{<:Real}}})
+    return hcat(filter(!isnothing, xs)...)
 end

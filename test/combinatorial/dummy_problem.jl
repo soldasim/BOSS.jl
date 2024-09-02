@@ -48,7 +48,6 @@ function construct_problem(val)
         f = val("f"),
         domain,
         model,
-        noise_std_priors = val("noise_std_priors"),
         y_max = val("y_max"),
         data,
     )    
@@ -61,10 +60,11 @@ function construct_fitness(::Val{:NonlinFitness}, val)
     return BOSS.NonlinFitness(val("NonlinFitness_fit"))
 end
 
-function construct_model(::Val{:Parametric}, val)
+function construct_model(::Val{:Parametric}, val; no_noise=false)
     return BOSS.NonlinModel(;
         predict = val("Parametric_predict"),
-        param_priors = val("Parametric_theta_priors"),
+        theta_priors = val("Parametric_theta_priors"),
+        noise_std_priors = no_noise ? nothing : val("noise_std_priors"),
     )
 end
 function construct_model(::Val{:Nonparametric}, val)
@@ -73,11 +73,12 @@ function construct_model(::Val{:Nonparametric}, val)
         kernel = val("Nonparametric_kernel"),
         amp_priors = val("Nonparametric_amp_priors"),
         length_scale_priors = val("Nonparametric_length_scale_priors"),
+        noise_std_priors = val("noise_std_priors"),
     )
 end
 function construct_model(::Val{:Semiparametric}, val)
     return BOSS.Semiparametric(;
-        parametric = construct_model(Val(:Parametric), val),
+        parametric = construct_model(Val(:Parametric), val; no_noise=true),
         nonparametric = construct_model(Val(:Nonparametric), val),
     )
 end

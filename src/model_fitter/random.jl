@@ -9,5 +9,5 @@ Can be useful with `RandomSelectAM` to avoid unnecessary model parameter estimat
 struct RandomMAP <: ModelFitter{MAP} end
 
 function estimate_parameters(::RandomMAP, problem::BossProblem, options::BossOptions)
-    return sample_params(problem.model, problem.noise_std_priors), nothing
+    return sample_params(problem.model), nothing
 end
