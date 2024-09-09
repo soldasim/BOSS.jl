@@ -25,6 +25,7 @@ end
 function SampleOptAM(;
     x_prior,
     samples,
+    max_attempts,
     algorithm,
     multistart = 200,
     parallel = true,
@@ -32,7 +33,7 @@ function SampleOptAM(;
     kwargs...
 )
     @assert samples >= multistart
-    sampler = SamplingAM(x_prior, samples, parallel)
+    sampler = SamplingAM(x_prior, samples, parallel, max_attempts)
     optimizer = OptimizationAM(algorithm, multistart, parallel, autodiff, kwargs)
     return SampleOptAM(sampler, optimizer)
 end
