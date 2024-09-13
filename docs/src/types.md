@@ -104,9 +104,27 @@ The `Semiparametric` structure is used to define a semiparametric model combinin
 Semiparametric
 ```
 
-## Evaluation Noise
+## Parameters & Hyperparameters
 
-The priors on evaluation noise deviation ``\sigma_f`` are defined using the `noise_std_priors` field of the [`SurrogateModel`](@ref).
+The `BOSS.ModelParams` and `BOSS.ParamPriors` type aliases are used throughout the package to pass around model (hyper)parameters and their priors. These types are only important for advanced usage of BOSS. (E.g. implementing custom surrogate models.)
+
+```@docs
+BOSS.ModelParams
+BOSS.Theta
+BOSS.LengthScales
+BOSS.Amplitudes
+BOSS.NoiseStd
+```
+
+```@docs
+BOSS.ParamPriors
+BOSS.ThetaPriors
+BOSS.LengthScalePriors
+BOSS.AmplitudePriors
+BOSS.NoiseStdPriors
+```
+
+All (hyper)parameter priors are defined as a part of the surrogate model definition. All surrogate models share the `noise_std_priors` field, but other priors may be missing depending on the particular model.
 
 ## Experiment Data
 

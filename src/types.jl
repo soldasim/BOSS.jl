@@ -3,7 +3,7 @@
 
 """
 An abstract type used to differentiate between
-MAP (Maximum A Posteriori) and BI (Bayesian Inference) types.
+`MAP` (Maximum A Posteriori) and `BI` (Bayesian Inference) types.
 """
 abstract type ModelFit end
 struct MAP <: ModelFit end
@@ -41,11 +41,11 @@ struct NoFitness <: Fitness end
 # - - - - - - - - Domain - - - - - - - -
 
 """
-    bounds = ([0, 0], [1, 1])
-
-const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
+    const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 
 Defines box constraints.
+
+Example: `([0, 0], [1, 1]) isa AbstractBounds`
 """
 const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 
@@ -85,27 +85,54 @@ end
 # - - - - - - - - Model (Hyper)Parameters & Priors - - - - - - - -
 
 """
+    const Theta = AbstractVector{<:Real}
+
 Parameters of the parametric model. Is empty in case of a nonparametric model.
+
+Example: `[1., 2., 3.] isa Theta`
 """
 const Theta = AbstractVector{<:Real}
 
 """
+    const LengthScales = Union{Nothing, <:AbstractMatrix{<:Real}}
+
 Length scales of the GP as a `x_dim`×`y_dim` matrix, or `nothing` if the model is purely parametric.
+
+Example: `[1.;5.;; 1.;5.;;] isa LengthScales`
 """
 const LengthScales = Union{Nothing, <:AbstractMatrix{<:Real}}
 
 """
+    const Amplitudes = Union{Nothing, <:AbstractVector{<:Real}}
+
 Amplitudes of the GP, or `nothing` if the model is purely parametric.
+
+Example: `[1., 5.] isa Amplitudes`
 """
 const Amplitudes = Union{Nothing, <:AbstractVector{<:Real}}
 
 """
+    const NoiseStd = AbstractVector{<:Real}
+
 Noise standard deviations of each `y` dimension.
+
+Example: `[0.1, 1.] isa NoiseStd`
 """
 const NoiseStd = AbstractVector{<:Real}
 
 """
+    const ModelParams = Tuple{
+        <:Theta,
+        <:LengthScales,
+        <:Amplitudes,
+        <:NoiseStd,
+    }
+
 Represents all model (hyper)parameters.
+
+Example: `(nothing, [1.;5.;; 1.;5.;;], [1., 5.], [0.1, 1.]) isa ModelParams`
+
+See: [`Theta`](@ref), [`LengthScales`](@ref), [`Amplitudes`](@ref), [`NoiseStd`](@ref)
 """
 const ModelParams = Tuple{
     <:Theta,
@@ -115,27 +142,44 @@ const ModelParams = Tuple{
 }
 
 """
+    const ThetaPriors = AbstractVector{<:UnivariateDistribution}
+
 Prior of [`Theta`](@ref).
 """
 const ThetaPriors = AbstractVector{<:UnivariateDistribution}
 
 """
+    const LengthScalePriors = Union{Nothing, <:AbstractVector{<:MultivariateDistribution}}
+
 Prior of [`LengthScales`](@ref).
 """
 const LengthScalePriors = Union{Nothing, <:AbstractVector{<:MultivariateDistribution}}
 
 """
+    const AmplitudePriors = Union{Nothing, <:AbstractVector{<:UnivariateDistribution}}
+
 Prior of [`Amplitudes`](@ref).
 """
 const AmplitudePriors = Union{Nothing, <:AbstractVector{<:UnivariateDistribution}}
 
 """
+    const NoiseStdPriors = AbstractVector{<:UnivariateDistribution}
+
 Prior of [`NoiseStd`](@ref).
 """
 const NoiseStdPriors = AbstractVector{<:UnivariateDistribution}
 
 """
+    const ParamPriors = Tuple{
+        <:ThetaPriors,
+        <:LengthScalePriors,
+        <:AmplitudePriors,
+        <:NoiseStdPriors,
+    }
+
 Represents all (hyper)parameter priors.
+
+See: [`ThetaPriors`](@ref), [`LengthScalePriors`](@ref), [`AmplitudePriors`](@ref), [`NoiseStdPriors`](@ref)
 """
 const ParamPriors = Tuple{
     <:ThetaPriors,
