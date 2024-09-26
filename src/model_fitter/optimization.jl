@@ -103,7 +103,7 @@ function estimate_parameters_(opt::OptimizationMAP, problem::BossProblem, option
 
     # Skip optimization if there are no free parameters.
     if sum(skip_mask) == 0
-        return devectorize(Float64[])
+        return devectorize(Float64[]), Inf
     end
 
     # Generate optimization starts.

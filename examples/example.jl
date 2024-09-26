@@ -48,11 +48,14 @@ function bad_parametric_model()
     NonlinModel(; predict, theta_priors)
 end
 
-# Our prediction about the noise and GP length scales.
-noise_std_priors() = fill(truncated(Normal(0., 0.1); lower=0.), 2)  # noise std prior
-# noise_std_priors() = fill(Dirac(0.1), 2)                            # predefined noise std value
-length_scale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2)
+# Our prediction about the noise and GP hyperparameters.
+# - - A) Predefined values - - - -
+# noise_std_priors() = fill(Dirac(0.1), 2)
 # length_scale_priors() = fill(Product(fill(Dirac(1.), 1)), 2)
+# amplitude_priors() = fill(Dirac(1.), 2)
+# - - B) Priors - - - -
+noise_std_priors() = fill(truncated(Normal(0., 0.1); lower=0.), 2)
+length_scale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2)
 amplitude_priors() = fill(truncated(Normal(0., 5.); lower=0.), 2)
 
 # Generate some initial data.
