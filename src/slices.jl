@@ -7,7 +7,8 @@ Return the posterior predictive distributions of the given `slice` output dimens
 For some models, using `model_posterior_slice` can be more efficient than `model_posterior`,
 if one is only interested in the predictive distribution of a certain output dimension.
 
-Note that `model_posterior_slice` can be used even with "nonscliceable" models.
+Note that `model_posterior_slice` can be used even if `sliceable(model) == false`,
+it will just be less efficient.
 
 See also: [`model_posterior`](@ref)
 """

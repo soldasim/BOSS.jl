@@ -130,7 +130,17 @@ const NoiseStd = AbstractVector{<:Real}
 
 Represents all model (hyper)parameters.
 
-Example: `(nothing, [1.;5.;; 1.;5.;;], [1., 5.], [0.1, 1.]) isa ModelParams`
+Example:
+```
+params = (nothing, [1.;π;; 1.;π;;], [1., 1.5], [0.1, 1.])
+params isa BOSS.ModelParams
+
+θ, λ, α, noise = params
+θ isa BOSS.Theta
+λ isa BOSS.LengthScales
+α isa BOSS.Amplitudes
+noise isa BOSS.NoiseStd
+```
 
 See: [`Theta`](@ref), [`LengthScales`](@ref), [`Amplitudes`](@ref), [`NoiseStd`](@ref)
 """
