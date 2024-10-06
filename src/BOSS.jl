@@ -9,7 +9,7 @@ export result
 # Problem Definition
 export BossProblem
 export Fitness, NoFitness, LinFitness, NonlinFitness
-export Domain
+export Domain, AbstractBounds
 
 # Experiment Data
 export ExperimentData
@@ -21,6 +21,10 @@ export SurrogateModel
 export Parametric, LinModel, NonlinModel
 export Nonparametric, GaussianProcess
 export Semiparametric
+
+# Acquisition Functions
+export AcquisitionFunction
+export ExpectedImprovement
 
 # Model Fitters
 export ModelFit, MAP, BI
@@ -40,24 +44,17 @@ export SamplingAM
 export OptimizationAM
 export SampleOptAM
 
-# Acquisition Functions
-export AcquisitionFunction
-export ExpectedImprovement
-
-# Termination Conditions
-export TermCond
-export IterLimit
-
 # Miscellaneous
-export AbstractBounds
 export BossOptions
+export TermCond, IterLimit
+export BossCallback, NoCallback
 
-# Callbacks
-export BossCallback
-export NoCallback, PlotCallback
+# Other
+export PlotCallback
 
 using Random
 using Distributions
+using LinearAlgebra
 using AbstractGPs
 using LatinHypercubeSampling
 using Optimization

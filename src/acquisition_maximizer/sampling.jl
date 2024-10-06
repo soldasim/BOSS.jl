@@ -60,7 +60,7 @@ function sample(parallel::Val{true}, acq, domain, x_prior, samples; max_attempts
     results = fetch.(ptasks)
     
     xs = hcat(first.(results)...)
-    vals = vcat(last.(results)...)
+    vals = vcat(second.(results)...)
     return xs, vals
 end
 

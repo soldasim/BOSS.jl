@@ -15,8 +15,7 @@ Models *may* implement:
 - `sliceable(::CustomModel) -> ::Bool`
 - `model_posterior_slice(model::CustomModel, data::ExperimentDataMAP, slice::Int) -> (x -> mean, std)`
 
-Model can be designated as "sliceable" by defining `sliceable(::CustomModel) = true`.
-A sliceable model *should* additionally implement:
+If `sliceable(::CustomModel) == true`, then the model *should* additionally implement:
 - `model_loglike_slice(model::SliceableModel, data::ExperimentData, slice::Int) -> (::ModelParams -> ::Real)`
 - `θ_slice(model::SliceableModel, idx::Int) -> Union{Nothing, UnitRange{<:Int}}`
 
@@ -49,12 +48,16 @@ function model_posterior_slice(model::SurrogateModel, data::ExperimentDataMAP, s
     posterior = model_posterior(model, data)
     
     function post(x::AbstractVector{<:Real})
-        μ, std = posterior(x)
-        return μ[slice], std[slice]
+        μs, σs = posterior(x)
+        μ = μs[slice]
+        σ = σs[slice]
+        return μ, σ # ::Tuple{<:Real, <:Real}
     end
     function post(X::AbstractMatrix{<:Real})
-        μ, std = posterior(X)
-        return μ[slice,:], std[slice,:]
+        μs, Σs = posterior(X)
+        μ = μs[:,slice]
+        Σ = Σs[:,:,slice]
+        return μ, Σ # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
     end
 end
 

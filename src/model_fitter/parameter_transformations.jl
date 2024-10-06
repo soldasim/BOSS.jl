@@ -144,7 +144,7 @@ inverse(::typeof(inv_softplus)) = softplus
 # `return_all=false` version
 function reduce_slice_results(results::AbstractVector{<:Tuple{<:ModelParams, <:Real}})
     params = reduce_slice_params(first.(results))
-    loglike = sum(last.(results))
+    loglike = sum(second.(results))
     return params, loglike
 end
 
@@ -168,7 +168,7 @@ end
 
 function get_sample_count_(results::AbstractVector{<:Tuple{<:AbstractVector{<:ModelParams}, <:AbstractVector{<:Real}}})
     param_lens = length.(first.(results))
-    loglike_lens = length.(last.(results))
+    loglike_lens = length.(second.(results))
     @assert all(param_lens .== loglike_lens)
     return minimum(param_lens)
 end

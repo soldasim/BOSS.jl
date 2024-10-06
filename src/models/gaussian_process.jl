@@ -11,7 +11,7 @@ A Gaussian Process surrogate model. Each output dimension is modeled by a separa
 
 # Keywords
 - `mean::Union{Nothing, Function}`: Used as the mean function for the GP.
-        Defaults to `nothing` equivalent to `x -> [0.]`.
+        Defaults to `nothing` equivalent to `x -> zeros(y_dim)`.
 - `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern32Kernel()`.
 - `amp_priors::AmplitudePriors`: The prior distributions
         for the amplitude hyperparameters of the GP. The `amp_priors` should be a vector
@@ -52,8 +52,11 @@ remove_mean(m::GaussianProcess) =
 sliceable(::GaussianProcess) = true
 
 function slice(m::GaussianProcess, idx::Int)
+    mean_ = m.mean
+    mean_slice_ = isnothing(mean_) ? nothing : x -> mean_(x)[idx:idx]
+
     return GaussianProcess(
-        mean_slice(m.mean, idx),
+        mean_slice_,
         m.kernel,
         m.amp_priors[idx:idx],
         m.length_scale_priors[idx:idx],
@@ -64,7 +67,7 @@ end
 mean_slice(mean::Nothing, idx::Int) = nothing
 mean_slice(mean::Function, idx::Int) = x -> mean(x)[idx]
 
-θ_slice(m::GaussianProcess, idx::Int) = nothing
+θ_slice(::GaussianProcess, ::Int) = nothing
 
 # Workaround: https://discourse.julialang.org/t/zygote-gradient-does-not-work-with-abstractgps-custommean/87815/7
 AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::ColVecs) = map(m.f, eachcol(x.X))
@@ -97,7 +100,7 @@ DiscreteKernel{Vector{Bool}}(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0
 ```
 """
 struct DiscreteKernel{D} <: Kernel where {
-    D<:Union{Missing, AbstractVector{Bool}}
+    D<:Union{Missing, AbstractVector{Bool}},
 }
     kernel::Kernel
     dims::D
@@ -129,14 +132,16 @@ function model_posterior(model::GaussianProcess, data::ExperimentDataMAP)
     slices = model_posterior_slice.(Ref(model), Ref(data), 1:y_dim(data))
 
     function post(x::AbstractVector{<:Real})
-        μ, std = post(hcat(x))
-        return μ[:,1], std[:,1]
+        means_and_stds = [s(x) for s in slices]
+        μs = first.(means_and_stds)
+        σs = second.(means_and_stds)
+        return μs, σs # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
     end
-    function post(x::AbstractMatrix{<:Real})
-        preds = map(p->p(x), slices)
-        μ = mapreduce(pred -> pred[1]', vcat, preds)
-        std = mapreduce(pred -> pred[2]', vcat, preds)
-        return μ, std
+    function post(X::AbstractMatrix{<:Real})
+        means_and_covs = [s(X) for s in slices]
+        μs = reduce(hcat, first.(means_and_covs))
+        Σs = reduce((a,b) -> cat(a,b; dims=3), second.(means_and_covs))
+        return μs, Σs # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}}
     end
     return post
 end
@@ -145,12 +150,14 @@ function model_posterior_slice(model::GaussianProcess, data::ExperimentDataMAP, 
     post_gp = posterior_gp(model, data, slice)
     
     function post(x::AbstractVector{<:Real})
-        μ, std = post(hcat(x))
-        return μ[1], std[1]
+        mean_, var_ = mean_and_var(post_gp(hcat(x)))
+        μ = mean_[1]
+        σ = sqrt(var_[1])
+        return μ, σ # ::Tuple{<:Real, <:Real}
     end
     function post(X::AbstractMatrix{<:Real})
-        μ, var = mean_and_var(post_gp(X))
-        return μ, sqrt.(var)
+        μ, Σ = mean_and_cov(post_gp(X))
+        return μ, Σ # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
     end
     return post
 end

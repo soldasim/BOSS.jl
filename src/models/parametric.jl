@@ -136,12 +136,15 @@ function model_posterior(
     noise_std::AbstractVector{<:Real},
 )
     function post(x::AbstractVector{<:Real})
-        return model(x, θ), noise_std
+        μs = model(x, θ)
+        σs = noise_std
+        return μs, σs # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
     end
     function post(X::AbstractMatrix{<:Real})
-        μ = reduce(hcat, model.(eachcol(X), Ref(θ)))
-        std = reduce(hcat, fill(noise_std, size(X)[2]))
-        return μ, std
+        count = size(X)[2]
+        μs = mapreduce(x -> model(x, θ)', vcat, eachcol(X))
+        Σs = mapreduce(σ -> Diagonal(fill(σ^2, count)), (a,b) -> cat(a,b; dims=3), noise_std)
+        return μs, Σs
     end
     return post
 end
@@ -187,5 +190,6 @@ function param_priors(model::Parametric)
     λ_priors = nothing
     α_priors = nothing
     noise_std_priors = model.noise_std_priors
+    @assert !isnothing(noise_std_priors)
     return θ_priors, λ_priors, α_priors, noise_std_priors
 end

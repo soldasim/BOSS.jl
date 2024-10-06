@@ -42,8 +42,8 @@ make_discrete(m::Semiparametric, discrete::AbstractVector{<:Bool}) =
 model_posterior(model::Semiparametric, data::ExperimentDataMAP) =
     model_posterior(add_mean(model.nonparametric, model.parametric(data.params[1])), data)
 
-model_posterior_slice(model::Semiparametric, data::ExperimentDataMAP) =
-    model_posterior_slice(add_mean(model.nonparametric, model.parametric(data.params[1])), data)
+model_posterior_slice(model::Semiparametric, data::ExperimentDataMAP, slice::Int) =
+    model_posterior_slice(add_mean(model.nonparametric, model.parametric(data.params[1])), data, slice)
 
 function model_loglike(model::Semiparametric, data::ExperimentData)
     function loglike(params)

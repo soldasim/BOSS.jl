@@ -5,6 +5,8 @@
 """
 ith(i::Int) = (x) -> x[i]
 
+second(xs) = xs[2]
+
 """
     cond_func(f)(x, b) == (b ? f(x) : x)
     conf_func(f).(xs, bs) == [b ? f(x) : x for (b,x) in zip(bs,xs)]

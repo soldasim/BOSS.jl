@@ -40,7 +40,7 @@ function sample(return_all::Val{false}, parallel::Val{true}, opt::SamplingMAP, s
     ptasks = [Threads.@spawn sampling_optim(sample_func, fitness_func, c) for c in counts]
     results = fetch.(ptasks)
 
-    best = argmax(last.(results))
+    best = argmax(second.(results))
     return results[best]
 end
 function sample(return_all::Val{true}, parallel::Val{true}, opt::SamplingMAP, sample_func, fitness_func)
@@ -50,7 +50,7 @@ function sample(return_all::Val{true}, parallel::Val{true}, opt::SamplingMAP, sa
 
     # `filter` out empty vectors for type stability
     samples = vcat(filter(!isempty, first.(results))...)
-    vals = vcat(filter(!isempty, last.(results))...)
+    vals = vcat(filter(!isempty, second.(results))...)
     return samples, vals
 end
 
