@@ -1,4 +1,45 @@
 
+"""
+    const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
+
+Defines box constraints.
+
+Example: `([0, 0], [1, 1]) isa AbstractBounds`
+"""
+const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
+
+"""
+    Domain(; kwargs...)
+
+Describes the optimization domain.
+
+# Keywords
+- `bounds::AbstractBounds`: The basic box-constraints on `x`. This field is mandatory.
+- `discrete::AbstractVector{<:Bool}`: Can be used to designate some dimensions
+        of the domain as discrete.
+- `cons::Union{Nothing, Function}`: Used to define arbitrary nonlinear constraints on `x`.
+        Feasible points `x` must satisfy `all(cons(x) .> 0.)`. An appropriate acquisition
+        maximizer which can handle nonlinear constraints must be used if `cons` is provided.
+        (See [`AcquisitionMaximizer`](@ref).)
+"""
+struct Domain{
+    B<:AbstractBounds,
+    D<:AbstractVector{<:Bool},
+    C<:Union{Nothing, Function},
+}
+    bounds::B
+    discrete::D
+    cons::C
+end
+function Domain(;
+    bounds,
+    discrete = fill(false, length(first(bounds))),
+    cons = nothing,
+)
+    @assert length(bounds[1]) == length(bounds[2]) == length(discrete)
+    return Domain(bounds, discrete, cons)
+end
+
 function make_discrete(domain::Domain)
     isnothing(domain.cons) && return domain
     any(domain.discrete) || return domain
@@ -34,14 +75,3 @@ in_discrete(x::AbstractVector{<:Real}, discrete::AbstractVector{<:Bool}) =
 
 in_cons(x::AbstractVector{<:Real}, cons::Nothing) = true
 in_cons(x::AbstractVector{<:Real}, cons) = all(cons(x) .>= 0.)
-
-"""
-Exclude points exterior to the given `x` domain from the given `X` and `Y` data matrices
-and return new matrices `X_` and `Y_`.
-"""
-function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}; options::BossOptions=BossOptions())
-    interior = in_domain.(eachcol(X), Ref(domain))
-    all(interior) && return X, Y
-    options.info && @warn "Some data are exterior to the domain and will be discarded!"
-    return X[:,interior], Y[:,interior]
-end
