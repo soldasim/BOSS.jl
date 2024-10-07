@@ -201,8 +201,8 @@ function finite_gp(
     return finite_gp_(X, mean, kernel, noise_std)
 end
 
-finite_gp_(X::AbstractMatrix{<:Real}, mean::Nothing, kernel::Kernel, noise_std::Real) = GP(kernel)(X, noise_std^2)
-finite_gp_(X::AbstractMatrix{<:Real}, mean::Function, kernel::Kernel, noise_std::Real) = GP(mean, kernel)(X, noise_std^2)
+finite_gp_(X::AbstractMatrix{<:Real}, mean::Nothing, kernel::Kernel, noise_std::Real) = GP(kernel)(X, noise_std^2; obsdim=2)
+finite_gp_(X::AbstractMatrix{<:Real}, mean::Function, kernel::Kernel, noise_std::Real) = GP(mean, kernel)(X, noise_std^2; obsdim=2)
 
 function model_loglike(model::GaussianProcess, data::ExperimentData)
     function loglike(params)
