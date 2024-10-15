@@ -27,7 +27,7 @@ or give a recommendation for the next evaluation point if `problem.f == missing`
 [`BossOptions`](@ref)
 
 # Examples
-See 'https://github.com/Sheld5/BOSS.jl/tree/master/scripts' for example usage.
+See 'https://soldasim.github.io/BOSS.jl/stable/example/' for example usage.
 """
 function bo!(problem::BossProblem;
     acquisition::AcquisitionFunction = ExpectedImprovement(),
