@@ -118,7 +118,7 @@ KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscales::AbstractVecto
     DiscreteKernel(with_lengthscale(dk.kernel, lengthscales), dk.dims)
 
 # Necessary to make `DiscreteKernel` work with ForwardDiff.jl.
-# See: https://github.com/Sheld5/BOSS.jl/issues/4
+# See: https://github.com/soldasim/BOSS.jl/issues/4
 KernelFunctions.kernelmatrix_diag(dk::DiscreteKernel, x::AbstractVector) =
     kernelmatrix_diag(dk.kernel, discrete_round.(Ref(dk.dims), x))
 
