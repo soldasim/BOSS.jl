@@ -46,7 +46,7 @@ export SampleOptAM
 
 # Miscellaneous
 export BossOptions
-export TermCond, IterLimit
+export TermCond, IterLimit, NoLimit
 export BossCallback, NoCallback
 
 # Other

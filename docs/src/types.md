@@ -255,6 +255,12 @@ The `TermCond` type is used to define the termination condition of the BO proced
 TermCond
 ```
 
+The `NoLimit` can be used to let the algorithm run indefinitely.
+
+```@docs
+NoLimit
+```
+
 The `IterLimit` terminates the procedure after a predefined number of iterations.
 
 ```@docs

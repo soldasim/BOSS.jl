@@ -14,3 +14,11 @@ and return false once the optimization is to be terminated.
 See also: [`IterLimit`](@ref)
 """
 abstract type TermCond end
+
+"""
+    NoLimit()
+
+Never terminates.
+"""
+struct NoLimit <: TermCond end
+(::NoLimit)(::BossProblem) = true
