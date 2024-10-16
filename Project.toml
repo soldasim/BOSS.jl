@@ -16,8 +16,12 @@ Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 
 [compat]
 AbstractGPs = "^0.5.21"
+Distributed = "^1.10"
 Distributions = "^0.25.109"
+InteractiveUtils = "^1.10"
 LatinHypercubeSampling = "^1.9"
+LinearAlgebra = "^1.10"
 Optimization = "^3.27"
+Random = "^1.10"
 Turing = "^0.33.1, ^0.34"
 julia = "^1.10"
