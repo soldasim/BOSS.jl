@@ -8,13 +8,13 @@ struct MAP <: ModelFit end
 struct BI <: ModelFit end
 
 """
-    const Theta = AbstractVector{<:Real}
+    const Theta = Union{Nothing, AbstractVector{<:Real}}
 
-Parameters of the parametric model. Is empty in case of a nonparametric model.
+Parameters of the parametric model, or `nothing` if the model is nonparametric.
 
 Example: `[1., 2., 3.] isa Theta`
 """
-const Theta = AbstractVector{<:Real}
+const Theta = Union{Nothing, AbstractVector{<:Real}}
 
 """
     const LengthScales = Union{Nothing, <:AbstractMatrix{<:Real}}
@@ -75,11 +75,11 @@ const ModelParams = Tuple{
 }
 
 """
-    const ThetaPriors = AbstractVector{<:UnivariateDistribution}
+    const ThetaPriors = Union{Nothing, AbstractVector{<:UnivariateDistribution}}
 
 Prior of [`Theta`](@ref).
 """
-const ThetaPriors = AbstractVector{<:UnivariateDistribution}
+const ThetaPriors = Union{Nothing, AbstractVector{<:UnivariateDistribution}}
 
 """
     const LengthScalePriors = Union{Nothing, <:AbstractVector{<:MultivariateDistribution}}

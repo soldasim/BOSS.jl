@@ -19,7 +19,9 @@ end
 function param_shapes(priors::ParamPriors)
     θ_priors, λ_priors, α_priors, noise_std_priors = priors
 
-    θ_shape = (length(θ_priors),)
+    θ_shape = isnothing(θ_priors) ?
+        nothing :
+        (length(θ_priors),)
     λ_shape = isnothing(λ_priors) ?
         nothing :
         (length(first(λ_priors)), length(λ_priors))
