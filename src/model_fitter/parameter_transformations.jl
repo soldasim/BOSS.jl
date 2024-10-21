@@ -54,6 +54,7 @@ function devectorize_params(params::AbstractVector{<:Real}, model::SurrogateMode
     borders = vcat(0, cumsum(lens)...)
     θ, λ, α, noise_std = (params[borders[i]+1:borders[i+1]] for i in 1:4)
 
+    θ = isnothing(shapes[1]) ? nothing : θ
     λ = devectorize_length_scales(λ, shapes[2])
     α = isnothing(shapes[3]) ? nothing : α
 

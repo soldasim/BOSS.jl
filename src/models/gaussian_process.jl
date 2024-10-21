@@ -247,7 +247,7 @@ function model_params_loglike(model::GaussianProcess, params::ModelParams)
 end
 
 function sample_params(model::GaussianProcess)
-    θ = Real[]
+    θ = nothing
     λ = reduce(hcat, rand.(model.length_scale_priors))
     α = rand.(model.amp_priors)
     noise_std = rand.(model.noise_std_priors)
