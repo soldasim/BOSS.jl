@@ -78,7 +78,7 @@ of the corresponding output vector `y` of length `y_dim(::BossProblem)` such tha
 - `μs, σs = post(x)` => `y ∼ product_distribution(Normal.(μs, σs))`
 - `μs, σs = post(x)` => `y[i] ∼ Normal(μs[i], σs[i])`
 
-The second method takes multiple points from the `Domain as a column-wise matrix `X` of size `(x_dim, N)`,
+The second method takes multiple points from the `Domain` as a column-wise matrix `X` of size `(x_dim, N)`,
 and returns the joint predictive means and covariance matrices
 of the corresponding output matrix `Y` of size `(y_dim, N)` such that:
 - `μs, Σs = post(X)` => `transpose(Y) ∼ product_distribution(MvNormal.(eachcol(μs), eachslice(Σs; dims=3)))`
