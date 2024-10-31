@@ -1,3 +1,5 @@
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://soldasim.github.io/BOSS.jl/stable/)
+
 # BOSS (Bayesian Optimization with Semiparametric Surrogate)
 
 BOSS.jl is a Julia package for Bayesian optimization. It provides a compact way to define an optimization problem and a surrogate model, and solve the problem. It allows changing the algorithms used for the subtasks of fitting the surrogate model and optimizing the acquisition function. Simple interfaces are defined for the use of custom surrogate models and/or algorithms for the subtasks. (See [1] for more information about Bayesian optimization.)
