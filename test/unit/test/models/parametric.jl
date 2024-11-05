@@ -216,6 +216,11 @@ end
             isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][1,1,:], out([1., 1.])[2] .^ 2; atol=1e-8) |> all,
             isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][2,2,:], out([2., 2.])[2] .^ 2; atol=1e-8) |> all,
             isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][3,3,:], out([3., 3.])[2] .^ 2; atol=1e-8) |> all,
+
+            # single-element matrix
+            out([1.;1.;;]) isa Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}},
+            size(out([1.;1.;;])[1]) == (1, 2),
+            size(out([1.;1.;;])[2]) == (1, 1, 2),
         )
     end
 end
@@ -273,7 +278,7 @@ end
 
             # matrix
             out([1.;1.;; 2.;2.;; 3.;3.;;]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}},
-            length(out([1.;1.;; 2.;2.;; 3.;3.;;])[1]) == 3,
+            size(out([1.;1.;; 2.;2.;; 3.;3.;;])[1]) == (3,),
             size(out([1.;1.;; 2.;2.;; 3.;3.;;])[2]) == (3, 3),
             isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][1], out([1., 1.])[1]; atol=1e-8),
             isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][2], out([2., 2.])[1]; atol=1e-8),
@@ -281,6 +286,11 @@ end
             isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][1,1], out([1., 1.])[2] ^ 2; atol=1e-8),
             isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][2,2], out([2., 2.])[2] ^ 2; atol=1e-8),
             isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][3,3], out([3., 3.])[2] ^ 2; atol=1e-8),
+
+            # single-element matrix
+            out([1.;1.;;]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}},
+            size(out([1.;1.;;])[1]) == (1,),
+            size(out([1.;1.;;])[2]) == (1, 1),
         )
     end
 end
