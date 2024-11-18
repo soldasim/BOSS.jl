@@ -123,7 +123,7 @@ KernelFunctions.kernelmatrix_diag(dk::DiscreteKernel, x::AbstractVector) =
     kernelmatrix_diag(dk.kernel, discrete_round.(Ref(dk.dims), x))
 
 make_discrete(m::GaussianProcess, discrete::AbstractVector{<:Bool}) =
-    Nonparametric(m.mean, make_discrete(m.kernel, discrete), m.amp_priors, m.length_scale_priors, m.noise_std_priors)
+    GaussianProcess(m.mean, make_discrete(m.kernel, discrete), m.amp_priors, m.length_scale_priors, m.noise_std_priors)
 
 make_discrete(k::Kernel, discrete::AbstractVector{<:Bool}) = DiscreteKernel(k, discrete)
 make_discrete(k::DiscreteKernel, discrete::AbstractVector{<:Bool}) = make_discrete(k.kernel, discrete)
