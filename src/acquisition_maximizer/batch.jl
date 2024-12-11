@@ -6,7 +6,7 @@
 Provides multiple candidates for batched objective function evaluation.
 
 Selects the candidates sequentially by iterating the following steps:
-- `) Use the 'inner' acquisition maximizer to select a candidate `x`.
+- 1) Use the 'inner' acquisition maximizer to select a candidate `x`.
 - 2) Extend the dataset with a 'speculative' new data point
     created by taking the candidate `x` and the posterior predictive mean of the surrogate `ŷ`.
 - 3) If `batch_size` candidates have been selected, return them.
