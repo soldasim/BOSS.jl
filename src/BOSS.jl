@@ -43,6 +43,7 @@ export GridAM
 export SamplingAM
 export OptimizationAM
 export SampleOptAM
+export GivenPointAM, GivenSequenceAM
 
 # Miscellaneous
 export BossOptions

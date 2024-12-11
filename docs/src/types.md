@@ -220,6 +220,13 @@ The `RandomAM` simply returns a random point. It does NOT perform any optimizati
 RandomAM
 ```
 
+The `GivenPointAM` always return the same evaluation point predefined by the user. The `GivenSequenceAM` returns the predefined sequence of evaluation points and throws an error once it runs out of points. These dummy acquisition maximizers are useful for controlled experiments.
+
+```@docs
+GivenPointAM
+GivenSequenceAM
+```
+
 The `SampleOptAM` samples many candidate points from the given `x_prior` distribution,
 and subsequently performs multiple optimization runs initiated from the best samples.
 
