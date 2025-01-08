@@ -7,22 +7,14 @@ using Distributions
 """
 Implementation of the abstract `BOSS.TuringBI`. See the docs `? BOSS.TuringBI`.
 """
-struct TuringBI{S} <: BOSS.TuringBI
-    sampler::S
-    warmup::Int
-    samples_in_chain::Int
-    chain_count::Int
-    leap_size::Int
-    parallel::Bool
+@kwdef struct TuringBI{S} <: BOSS.TuringBI
+    sampler::S = PG(20)
+    warmup::Int = 400
+    samples_in_chain::Int = 20
+    chain_count::Int = 4
+    leap_size::Int = 5
+    parallel::Bool = true
 end
-TuringBI(;
-    sampler = PG(20),
-    warmup = 400,
-    samples_in_chain = 10,
-    chain_count = 8,
-    leap_size = 5,
-    parallel = true,
-) = TuringBI(sampler, warmup, samples_in_chain, chain_count, leap_size, parallel)
 
 BOSS.TuringBI(args...; kwargs...) = TuringBI(args...; kwargs...)
 

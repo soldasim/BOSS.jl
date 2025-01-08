@@ -36,15 +36,9 @@ an averaged posterior of the model posterior samples is used for the prediction 
         can provide useful information to the acquisition maximizer and does not cause errors.
         Defaults to `true`.
 """
-struct ExpectedImprovement <: AcquisitionFunction
-    ϵ_samples::Int  # only used in case of MAP and NonlinFitness
-    cons_safe::Bool
-end
-function ExpectedImprovement(;
-    ϵ_samples = 200,
-    cons_safe = true,
-)
-    return ExpectedImprovement(ϵ_samples, cons_safe)
+@kwdef struct ExpectedImprovement <: AcquisitionFunction
+    ϵ_samples::Int = 200  # only used in case of MAP and NonlinFitness
+    cons_safe::Bool = true
 end
 
 function (ei::ExpectedImprovement)(problem::BossProblem, options::BossOptions)

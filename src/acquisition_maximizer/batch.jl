@@ -16,16 +16,12 @@ Selects the candidates sequentially by iterating the following steps:
 - `am::AcquisitionMaximizer`: The inner acquisition maximizer.
 - `batch_size::Int`: The number of candidates to be selected.
 """
-struct SequentialBatchAM{
+@kwdef struct SequentialBatchAM{
     AM<:AcquisitionMaximizer
 } <: AcquisitionMaximizer
     am::AM
     batch_size::Int
 end
-SequentialBatchAM(;
-    am,
-    batch_size,
-) = SequentialBatchAM(am, batch_size)
 
 function maximize_acquisition(sb::SequentialBatchAM, acq::AcquisitionFunction, problem::BossProblem, options::BossOptions)
     problem_ = deepcopy(problem)

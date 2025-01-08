@@ -17,32 +17,23 @@ Defines the whole optimization problem for the BOSS algorithm.
 # Keywords
 - `fitness::Fitness`: The [`Fitness`](@ref) function.
 - `f::Union{Function, Missing}`: The objective blackbox function.
+- `model::SurrogateModel`: The [`SurrogateModel`](@ref).
+- `data::ExperimentData`: The initial data of objective function evaluations. See [`ExperimentDataPrior`].
 - `domain::Domain`: The [`Domain`](@ref) of `x`.
 - `y_max`: The constraints on `y`. (See the definition above.)
-- `model::SurrogateModel`: The [`SurrogateModel`](@ref).
-- `data::ExperimentData`: The initial data of objective function evaluations.
-        See [`ExperimentDataPrior`].
 
 See also: [`bo!`](@ref)
 """
-mutable struct BossProblem{
+@kwdef mutable struct BossProblem{
     F<:Any,
 }
-    fitness::Fitness
+    fitness::Fitness = NoFitness()
     f::F
-    domain::Domain
-    y_max::AbstractVector{<:Real}
     model::SurrogateModel
     data::ExperimentData
+    domain::Domain
+    y_max::AbstractVector{<:Real} = fill(Inf, y_dim(data))
 end
-BossProblem(;
-    fitness = NoFitness(),
-    f,
-    domain,
-    model,
-    data,
-    y_max = fill(Inf, y_dim(data)),
-) = BossProblem(fitness, f, domain, y_max, model, data)
 
 """
     slice(::BossProblem, slice::Int) -> ::BossProblem
@@ -58,10 +49,10 @@ function slice(problem::BossProblem, idx::Int)
     return BossProblem(
         NoFitness(),
         missing,
-        problem.domain,
-        slice(problem.y_max, idx),
         slice(problem.model, idx),
         slice(problem.data, θ_slice_, idx),
+        problem.domain,
+        slice(problem.y_max, idx),
     )
 end
 

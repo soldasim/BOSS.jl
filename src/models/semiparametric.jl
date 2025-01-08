@@ -21,20 +21,22 @@ and hyperparameters are estimated simultaneously.
 Note that the parametric model must be defined without noise priors,
 and the nonparametric model must be defined without mean function.
 """
-struct Semiparametric{
+@kwdef struct Semiparametric{
     P<:Parametric{Nothing},     # parametric model without noise std priors
     N<:Nonparametric{Nothing},  # nonparametric model without mean function
 } <: SurrogateModel
     parametric::P
     nonparametric::N
+
+    function Semiparametric(parametric::Parametric, nonparametric::Nonparametric)
+        parametric = remove_noise_priors(parametric)
+        nonparametric = remove_mean(nonparametric)
+        return new{
+            typeof(parametric),
+            typeof(nonparametric),
+        }(parametric, nonparametric)
+    end
 end
-Semiparametric(;
-    parametric,
-    nonparametric,
-) = Semiparametric(
-    remove_noise_priors(parametric),
-    remove_mean(nonparametric),
-)
 
 make_discrete(m::Semiparametric, discrete::AbstractVector{<:Bool}) =
     Semiparametric(make_discrete(m.parametric, discrete), make_discrete(m.nonparametric, discrete))

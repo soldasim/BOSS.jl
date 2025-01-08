@@ -40,22 +40,16 @@ and ``n, m, p ∈ R``.
 - `noise_std_priors::NoiseStdPriors`: The prior distributions
         of the noise standard deviations of each `y` dimension.
 """
-struct LinModel{
+@kwdef struct LinModel{
     P<:AbstractVector{<:UnivariateDistribution},
     D<:Union{Nothing, <:AbstractVector{<:Bool}},
     N<:Union{Nothing, <:NoiseStdPriors},
 } <: Parametric{N}
     lift::Function
     theta_priors::P
-    discrete::D
-    noise_std_priors::N
+    discrete::D = nothing
+    noise_std_priors::N = nothing
 end
-LinModel(;
-    lift,
-    theta_priors,
-    discrete = nothing,
-    noise_std_priors = nothing,
-) = LinModel(lift, theta_priors, discrete, noise_std_priors)
 
 """
     NonlinModel(; kwargs...)
@@ -72,22 +66,16 @@ Define the model as `y = predict(x, θ)` where `θ` are the model parameters.
 - `noise_std_priors::NoiseStdPriors`: The prior distributions
         of the noise standard deviations of each `y` dimension.
 """
-struct NonlinModel{
+@kwdef struct NonlinModel{
     P<:AbstractVector{<:UnivariateDistribution},
     D<:Union{Nothing, <:AbstractVector{<:Bool}},
     N<:Union{Nothing, <:NoiseStdPriors},
 } <: Parametric{N}
     predict::Function
     theta_priors::P
-    discrete::D
-    noise_std_priors::N
+    discrete::D = nothing
+    noise_std_priors::N = nothing
 end
-NonlinModel(;
-    predict,
-    theta_priors,
-    discrete = nothing,
-    noise_std_priors = nothing,
-) = NonlinModel(predict, theta_priors, discrete, noise_std_priors)
 
 function (model::LinModel)(x::AbstractVector{<:Real}, θ::AbstractVector{<:Real})
     x = discrete_round(model.discrete, x)

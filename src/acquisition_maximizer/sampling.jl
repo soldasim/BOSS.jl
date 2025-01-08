@@ -10,19 +10,11 @@ and returning the sample with the highest acquisition value.
 - `samples::Int`: The number of samples to be drawn and evaluated.
 - `parallel::Bool`: If `parallel=true` then the sampling is parallelized. Defaults to `true`.
 """
-struct SamplingAM <: AcquisitionMaximizer
+@kwdef struct SamplingAM <: AcquisitionMaximizer
     x_prior::MultivariateDistribution
     samples::Int
-    parallel::Bool
-    max_attempts::Int
-end
-function SamplingAM(;
-    x_prior,
-    samples,
-    parallel = true,
-    max_attempts = 200,
-)
-    return SamplingAM(x_prior, samples, parallel, max_attempts)
+    parallel::Bool = true
+    max_attempts::Int = 200
 end
 
 function maximize_acquisition(opt::SamplingAM, acquisition::AcquisitionFunction, problem::BossProblem, options::BossOptions;
