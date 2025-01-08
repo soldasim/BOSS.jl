@@ -55,9 +55,9 @@ end
 # length_scale_priors() = fill(Product(fill(Dirac(1.), 1)), 2)
 # amplitude_priors() = fill(Dirac(1.), 2)
 # - - B) Priors - - - -
-noise_std_priors() = fill(truncated(Normal(0., 0.1); lower=0.), 2)
+noise_std_priors() = fill(truncated(Normal(0., 1.); lower=0.), 2)
 length_scale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2)
-amplitude_priors() = fill(truncated(Normal(0., 5.); lower=0.), 2)
+amplitude_priors() = fill(truncated(Normal(0., 10.); lower=0.), 2)
 
 # Generate some initial data.
 function gen_data(count, bounds)
@@ -116,22 +116,22 @@ function main(problem=opt_problem(3), iters=20;
     parallel = true,
 )
     ### Model Fitter:
-    # # Maximum likelihood estimation
-    # model_fitter = OptimizationMAP(;
-    #     algorithm = NEWUOA(),
-    #     multistart = 20,
-    #     parallel,
-    #     rhoend = 1e-4,
-    # )
-    # Bayesian Inference (sampling)
-    model_fitter = TuringBI(;
-        sampler = NUTS(20, 0.65),
-        warmup = 100,
-        samples_in_chain = 10,
-        chain_count = 8,
-        leap_size = 5,
+    # Maximum likelihood estimation
+    model_fitter = OptimizationMAP(;
+        algorithm = NEWUOA(),
+        multistart = 20,
         parallel,
+        rhoend = 1e-4,
     )
+    # # Bayesian Inference (sampling)
+    # model_fitter = TuringBI(;
+    #     sampler = NUTS(20, 0.65),
+    #     warmup = 100,
+    #     samples_in_chain = 25,
+    #     chain_count = 4,
+    #     leap_size = 5,
+    #     parallel,
+    # )
 
     ### Acquisition Maximizer:
     acq_maximizer = OptimizationAM(;
