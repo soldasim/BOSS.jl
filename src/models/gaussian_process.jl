@@ -5,6 +5,14 @@ The minimal value of length scales and noise deviation used for GPs to avoid num
 const MIN_PARAM_VALUE = 1e-8
 
 """
+The maximum tolerated negative variance predicted by the posterior GP.
+
+Predicted posterior variance values within the interval `(-MAX_NEG_VAR, 0)` are clipped to `0`.
+A `DomainError` is still if values below `-MAX_NEG_VAR` occur.
+"""
+const MAX_NEG_VAR = 1e-8
+
+"""
     GaussianProcess(; kwargs...)
 
 A Gaussian Process surrogate model. Each output dimension is modeled by a separate independent process.
@@ -150,9 +158,10 @@ function model_posterior_slice(model::GaussianProcess, data::ExperimentDataMAP, 
     post_gp = posterior_gp(model, data, slice)
     
     function post(x::AbstractVector{<:Real})
-        mean_, var_ = mean_and_var(post_gp(hcat(x)))
-        μ = mean_[1]
-        σ = sqrt(var_[1])
+        mean_, var_ = mean_and_var(post_gp(hcat(x))) .|> first
+        var_ = _clip_var(var_)
+        μ = mean_
+        σ = sqrt(var_)
         return μ, σ # ::Tuple{<:Real, <:Real}
     end
     function post(X::AbstractMatrix{<:Real})
@@ -160,6 +169,16 @@ function model_posterior_slice(model::GaussianProcess, data::ExperimentDataMAP, 
         return μ, Σ # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
     end
     return post
+end
+
+function _clip_var(var::Number;
+    treshold = MAX_NEG_VAR,    
+)
+    (var >= zero(var)) && return var
+    (var >= -treshold) && return zero(var)
+    throw(DomainError(var,
+        "The posterior GP predicted variance $var but only values above -$treshold are tolerated."
+    ))
 end
 
 """
