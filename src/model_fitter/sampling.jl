@@ -9,14 +9,10 @@ and selecting the best sample in sense of MAP.
 - `samples::Int`: The number of drawn samples.
 - `parallel::Bool`: The sampling is performed in parallel if `parallel=true`.
 """
-struct SamplingMAP <: ModelFitter{MAP}
+@kwdef struct SamplingMAP <: ModelFitter{MAP}
     samples::Int
-    parallel::Bool
+    parallel::Bool = true
 end
-SamplingMAP(;
-    samples,
-    parallel = true,
-) = SamplingMAP(samples, parallel)
 
 function estimate_parameters(opt::SamplingMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)
     sample_() = sample_params(problem.model)

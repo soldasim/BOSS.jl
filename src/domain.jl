@@ -22,22 +22,19 @@ Describes the optimization domain.
         maximizer which can handle nonlinear constraints must be used if `cons` is provided.
         (See [`AcquisitionMaximizer`](@ref).)
 """
-struct Domain{
+@kwdef struct Domain{
     B<:AbstractBounds,
     D<:AbstractVector{<:Bool},
     C<:Union{Nothing, Function},
 }
     bounds::B
-    discrete::D
-    cons::C
-end
-function Domain(;
-    bounds,
-    discrete = fill(false, length(first(bounds))),
-    cons = nothing,
-)
-    @assert length(bounds[1]) == length(bounds[2]) == length(discrete)
-    return Domain(bounds, discrete, cons)
+    discrete::D = fill(false, length(first(bounds)))
+    cons::C = nothing
+
+    function Domain(bounds::B, discrete::D, cons::C) where {B,D,C}
+        @assert length(bounds[1]) == length(bounds[2]) == length(discrete)
+        return new{B,D,C}(bounds, discrete, cons)
+    end
 end
 
 function make_discrete(domain::Domain)

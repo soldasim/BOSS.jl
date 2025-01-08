@@ -20,16 +20,12 @@ Stores the initial data.
 
 See also: [`ExperimentDataPost`](@ref)
 """
-mutable struct ExperimentDataPrior{
+@kwdef mutable struct ExperimentDataPrior{
     T<:AbstractMatrix{<:Real},
 } <: ExperimentData
     X::T
     Y::T
 end
-ExperimentDataPrior(;
-    X,
-    Y,
-) = ExperimentDataPrior(X, Y)
 
 """
 Stores the fitted/samples model parameters in addition to the data matrices `X`,`Y`.

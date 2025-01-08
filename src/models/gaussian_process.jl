@@ -31,25 +31,18 @@ A Gaussian Process surrogate model. Each output dimension is modeled by a separa
 - `noise_std_priors::NoiseStdPriors`: The prior distributions
         of the noise standard deviations of each `y` dimension.
 """
-struct GaussianProcess{
+@kwdef struct GaussianProcess{
     M<:Union{Nothing, Function},
     A<:AmplitudePriors,
     L<:LengthScalePriors,
     N<:NoiseStdPriors,
 } <: SurrogateModel
-    mean::M
-    kernel::Kernel
+    mean::M = nothing
+    kernel::Kernel = Matern32Kernel()
     amp_priors::A
     length_scale_priors::L
     noise_std_priors::N
 end
-GaussianProcess(;
-    mean = nothing,
-    kernel = Matern32Kernel(),
-    amp_priors,
-    length_scale_priors,
-    noise_std_priors,
-) = GaussianProcess(mean, kernel, amp_priors, length_scale_priors, noise_std_priors)
 
 add_mean(m::GaussianProcess{Nothing}, mean::Function) =
     GaussianProcess(mean, m.kernel, m.amp_priors, m.length_scale_priors, m.noise_std_priors)
@@ -109,7 +102,7 @@ BOSS.DiscreteKernel{Vector{Bool}}(Matern 3/2 Kernel (metric = Distances.Euclidea
 julia> 
 ```
 """
-struct DiscreteKernel{D} <: Kernel where {
+@kwdef struct DiscreteKernel{D} <: Kernel where {
     D<:Union{Missing, AbstractVector{Bool}},
 }
     kernel::Kernel
