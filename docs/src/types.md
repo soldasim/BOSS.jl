@@ -106,7 +106,7 @@ Semiparametric
 
 ## Parameters & Hyperparameters
 
-The `BOSS.ModelParams` and `BOSS.ParamPriors` type aliases are used throughout the package to pass around model (hyper)parameters and their priors. These types are only important for advanced usage of BOSS. (E.g. implementing custom surrogate models.)
+The `BOSS.ModelParams` and `BOSS.ParamPriors` type aliases are used throughout the package to pass around model (hyper)parameters and their priors. These types are only important for advanced usage of BOSS.jl. (E.g. implementing custom surrogate models.)
 
 ```@docs
 BOSS.ModelParams

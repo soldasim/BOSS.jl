@@ -148,8 +148,10 @@ map_fitter() = OptimizationMAP(;
 Or we can use Bayesian inference and sample the parameters from their posterior (given by the priors and the data likelihood) using the [`TuringBI`](@ref) model fitter.
 
 ```julia
+using Turing
+
 bi_fitter() = TuringBI(;
-    sampler = BOSS.PG(20),
+    sampler = PG(20),
     warmup = 100,
     samples_in_chain = 10,
     chain_count = 8,

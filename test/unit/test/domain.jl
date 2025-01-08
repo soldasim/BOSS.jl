@@ -1,7 +1,7 @@
 
 @testset "make_discrete(domain)" begin
     @param_test BOSS.make_discrete begin   
-        @params BOSS.Domain(;
+        @params Domain(;
             bounds = ([0., 0.], [1., 1.]),
             discrete = [false, false],
             cons = nothing,
@@ -10,7 +10,7 @@
             out == in[1]
         )
 
-        @params BOSS.Domain(;
+        @params Domain(;
             bounds = ([0., 0.], [1., 1.]),
             discrete = [true, true],
             cons = nothing,
@@ -19,7 +19,7 @@
             out == in[1]
         )
         
-        @params BOSS.Domain(;
+        @params Domain(;
             bounds = ([0., 0.], [1., 1.]),
             discrete = [false, false],
             cons = x -> x,
@@ -29,31 +29,31 @@
             out.cons([1.2, 1.2]) == [1.2, 1.2],
         )
 
-        @params BOSS.Domain(;
+        @params Domain(;
             bounds = ([0., 0.], [1., 1.]),
             discrete = [false, true],
             cons = x -> x,
         )
         @success (
-            out isa BOSS.Domain,
+            out isa Domain,
             out.cons([1.2, 1.2]) == [1.2, 1.],
         )
     end
 end
 
 @testset "in_domain(x, domain)" begin
-    bounds = BOSS.Domain(;
+    bounds = Domain(;
         bounds = ([0., 0.], [10., 10.]),
     )
-    discrete = BOSS.Domain(;
+    discrete = Domain(;
         bounds = ([0., 0.], [10., 10.]),
         discrete = [true, false],
     )
-    cons = BOSS.Domain(;
+    cons = Domain(;
         bounds = ([0., 0.], [10., 10.]),
         cons = x -> [5. - x[2]],  # x[2] <= 5.
     )
-    complex = BOSS.Domain(
+    complex = Domain(
         bounds = ([0., 0.], [10., 10.]),
         discrete = [false, true],
         cons = x -> [5. - x[2]],  # x[2] <= 5.

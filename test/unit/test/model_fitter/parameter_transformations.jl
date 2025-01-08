@@ -1,7 +1,7 @@
 
 @testset "vectorize_params(params, activation_function, activation_mask, skip_mask)" begin
     activation_function(x) = -x
-    BOSS.inverse(activation_function) = activation_function
+    BOSS.inverse(::typeof(activation_function)) = activation_function
     
     @param_test BOSS.vectorize_params begin
         @params ([1., 2., 3.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1]), activation_function, fill(false, 11), fill(true, 11)
@@ -75,7 +75,7 @@ end
 end
 
 @testset "devectorize_params(params, model, activation_function, activation_mask, skipped_values, skip_mask)" begin
-    lin_model = BOSS.LinModel(;
+    lin_model = LinModel(;
         lift = (x) -> [
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
@@ -83,7 +83,7 @@ end
         theta_priors = fill(BOSS.Normal(), 4),
         noise_std_priors = fill(BOSS.Dirac(0.1), 2),
     )
-    nonlin_model = BOSS.NonlinModel(;
+    nonlin_model = NonlinModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
@@ -91,19 +91,19 @@ end
         theta_priors = fill(BOSS.Normal(), 4),
         noise_std_priors = fill(BOSS.Dirac(0.1), 2),
     )
-    nonparametric = BOSS.Nonparametric(;
-        kernel = BOSS.Matern52Kernel(),
+    nonparametric = Nonparametric(;
+        kernel = BOSS.Matern32Kernel(),
         amp_priors = fill(BOSS.LogNormal(), 2),
         length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
         noise_std_priors = fill(BOSS.Dirac(0.1), 2),
     )
-    semiparametric = BOSS.Semiparametric(;
+    semiparametric = Semiparametric(;
         parametric = nonlin_model,
         nonparametric = nonparametric,
     )
 
     activation_function(x) = -x
-    BOSS.inverse(activation_function) = activation_function    
+    BOSS.inverse(::typeof(activation_function)) = activation_function    
 
     @param_test BOSS.devectorize_params begin
         @params [1., 2., 3., 4., 0.1, 0.1], deepcopy(lin_model), activation_function, fill(false, 6), Float64[], fill(true, 6)
@@ -149,7 +149,7 @@ end
 end
 
 @testset "devectorize_params(params, model)" begin
-    lin_model = BOSS.LinModel(;
+    lin_model = LinModel(;
         lift = (x) -> [
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
@@ -157,7 +157,7 @@ end
         theta_priors = fill(BOSS.Normal(), 4),
         noise_std_priors = fill(BOSS.Dirac(0.1), 2),
     )
-    nonlin_model = BOSS.NonlinModel(;
+    nonlin_model = NonlinModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
@@ -165,13 +165,13 @@ end
         theta_priors = fill(BOSS.Normal(), 4),
         noise_std_priors = fill(BOSS.Dirac(0.1), 2),
     )
-    nonparametric = BOSS.Nonparametric(;
-        kernel = BOSS.Matern52Kernel(),
+    nonparametric = Nonparametric(;
+        kernel = BOSS.Matern32Kernel(),
         amp_priors = fill(BOSS.LogNormal(), 2),
         length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
         noise_std_priors = fill(BOSS.Dirac(0.1), 2),
     )
-    semiparametric = BOSS.Semiparametric(;
+    semiparametric = Semiparametric(;
         parametric = nonlin_model,
         nonparametric = nonparametric,
     )

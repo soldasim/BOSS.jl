@@ -88,8 +88,8 @@ const AcquisitionMaximizer_parallel_DICT = Dict(
 )
 
 const Acquisition_DICT = Dict(
-    "EI" => BOSS.ExpectedImprovement(),
-    "*" => BOSS.ExpectedImprovement(),
+    "EI" => ExpectedImprovement(),
+    "*" => ExpectedImprovement(),
 )
 
 const Parametric_predict_DICT = Dict(
@@ -113,9 +113,9 @@ const Nonparametric_mean_DICT = Dict(
 )
 
 const Nonparametric_kernel_DICT = Dict(
-    "valid" => BOSS.Matern52Kernel(),
+    "valid" => BOSS.Matern32Kernel(),
     "INACTIVE" => nothing,
-    "*" => BOSS.Matern52Kernel(),
+    "*" => BOSS.Matern32Kernel(),
 )
 
 const Nonparametric_amp_priors_DICT = Dict(

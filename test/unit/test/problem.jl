@@ -1,16 +1,16 @@
 
 @testset "result(problem)" begin
-    problem(X, Y) = BOSS.BossProblem(;
-        fitness = BOSS.LinFitness([1., 0.]),
+    problem(X, Y) = BossProblem(;
+        fitness = LinFitness([1., 0.]),
         f = x -> x,
-        domain = BOSS.Domain(; bounds=([0., 0.], [10., 10.])),
+        domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
-        model = BOSS.Nonparametric(;
+        model = Nonparametric(;
             amp_priors = fill(BOSS.LogNormal(), 2),
             length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
             noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         ),
-        data = BOSS.ExperimentDataPrior(X, Y),
+        data = ExperimentDataPrior(X, Y),
     )
 
     @param_test result begin

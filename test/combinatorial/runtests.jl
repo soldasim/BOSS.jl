@@ -20,7 +20,7 @@ using .InputValues
             if ismissing(val("f"))
                 @test script() isa AbstractVector{<:Real}
             else
-                @test script() isa BOSS.BossProblem
+                @test script() isa BossProblem
             end
         end
     end
