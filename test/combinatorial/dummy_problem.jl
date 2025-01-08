@@ -109,7 +109,7 @@ end
 function construct_model_fitter(::Val{:Turing}, val)
     # low sample count to improve test runtime
     return BOSS.TuringBI(;
-        sampler = BOSS.PG(20),
+        sampler = PG(20),
         warmup = 10,#100,
         samples_in_chain = 2,#10,
         chain_count = 2,#8,

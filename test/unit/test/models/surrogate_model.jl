@@ -12,8 +12,8 @@
         ),
         data = BOSS.ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
     )
-    turing = BOSS.TuringBI(;
-        sampler = BOSS.PG(20),
+    turing = TuringBI(;
+        sampler = PG(20),
         warmup = 20,
         samples_in_chain = 1,
         chain_count = 8,
