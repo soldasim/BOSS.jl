@@ -192,6 +192,26 @@ end
     end
 end
 
+@testset "_clip_var(var)" begin
+    max_neg_var = 1e-8
+
+    @param_test var -> BOSS._clip_var(var; treshold=max_neg_var) begin
+        @params 0.
+        @params 1e-9
+        @params 1e-8
+        @params 1e-7
+        @params 1.
+        @success out == in[1]
+
+        @params -1e-9
+        @params -1e-8
+        @success out == 0.
+
+        @params -1e-7
+        @failure DomainError
+    end
+end
+
 @testset "model_loglike(model, data)" begin
     model = BOSS.Nonparametric(;
         mean = x -> [1., 1.],
