@@ -100,11 +100,13 @@ See also: `BossProblem`(@ref)
 
 # Examples:
 ```julia-repl
-julia> DiscreteKernel(Matern52Kernel())
-DiscreteKernel{Missing}(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), missing)
+julia> BOSS.DiscreteKernel(BOSS.Matern32Kernel())
+BOSS.DiscreteKernel{Missing}(Matern 3/2 Kernel (metric = Distances.Euclidean(0.0)), missing)
 
-julia> DiscreteKernel(Matern52Kernel(), [true, false, false])
-DiscreteKernel{Vector{Bool}}(Matern 5/2 Kernel (metric = Distances.Euclidean(0.0)), Bool[1, 0, 0])
+julia> BOSS.DiscreteKernel(BOSS.Matern32Kernel(), [true, false, false])
+BOSS.DiscreteKernel{Vector{Bool}}(Matern 3/2 Kernel (metric = Distances.Euclidean(0.0)), Bool[1, 0, 0])
+
+julia> 
 ```
 """
 struct DiscreteKernel{D} <: Kernel where {

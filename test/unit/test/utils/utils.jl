@@ -52,12 +52,12 @@ end
 end
 
 @testset "exclude_exterior_points(domain, X, Y)" begin
-    domain = BOSS.Domain(;
+    domain = Domain(;
         bounds = ([0., 0.], [10., 10.]),
         discrete = [true, false],
         cons = x -> [x[2] - 5.],  # x[2] >= 5.
     )
-    options = BOSS.BossOptions(; info=false)
+    options = BossOptions(; info=false)
 
     @param_test (in...) -> BOSS.exclude_exterior_points(in...; options) begin
         @params deepcopy(domain), [5.;5.;; 5.;5.;; 8.;8.;;], [5.;5.;; 5.;5.;; 8.;8.;;]

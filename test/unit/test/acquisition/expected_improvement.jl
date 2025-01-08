@@ -1,16 +1,16 @@
 
 @testset "(::ExpectedImprovement)(problem, options)" begin
-    problem = BOSS.BossProblem(;
-        fitness = BOSS.LinFitness([1.]),
+    problem = BossProblem(;
+        fitness = LinFitness([1.]),
         f = x -> [sin(x[1])],
-        domain = BOSS.Domain(; bounds=([0.], [10.])),
-        model = BOSS.Nonparametric(; amp_priors=[BOSS.LogNormal()], length_scale_priors=[BOSS.MvLogNormal(ones(1), ones(1))], noise_std_priors=[BOSS.Dirac(0.1)]),
-        data = BOSS.ExperimentDataPrior(hcat([1.,2.,3.]...), hcat(sin.([1.,2.,3.])...)),
+        domain = Domain(; bounds=([0.], [10.])),
+        model = Nonparametric(; amp_priors=[BOSS.LogNormal()], length_scale_priors=[BOSS.MvLogNormal(ones(1), ones(1))], noise_std_priors=[BOSS.Dirac(0.1)]),
+        data = ExperimentDataPrior(hcat([1.,2.,3.]...), hcat(sin.([1.,2.,3.])...)),
     )
-    options = BOSS.BossOptions(; info=false)
-    BOSS.estimate_parameters!(problem, BOSS.RandomMAP(); options)
+    options = BossOptions(; info=false)
+    BOSS.estimate_parameters!(problem, RandomMAP(); options)
 
-    @param_test BOSS.ExpectedImprovement() begin
+    @param_test ExpectedImprovement() begin
         @params problem, options
         @success (
             out isa Function,
@@ -20,7 +20,7 @@
 end
 
 @testset "make_safe(acq, domain)" begin
-    domain = BOSS.Domain(; bounds = ([5., 5.], [10., 10.]))
+    domain = Domain(; bounds = ([5., 5.], [10., 10.]))
 
     @param_test BOSS.make_safe begin 
         @params x -> x[1], domain
@@ -36,8 +36,8 @@ end
 end
 
 @testset "(::ExpectedImprovement)(fitness, posterior, constraints, ϵ_samples, best_yet)" begin
-    lin_fitness = BOSS.LinFitness([1., 0.])
-    nonlin_fitness = BOSS.NonlinFitness(x -> x[1])
+    lin_fitness = LinFitness([1., 0.])
+    nonlin_fitness = NonlinFitness(x -> x[1])
     posterior(x) = x, [1., 1.]
     posteriors = fill(posterior, 4)
     ϵ_samples = [
@@ -45,7 +45,7 @@ end
         -0.289737   0.162767  -0.499742   0.892919
     ]
 
-    @param_test BOSS.ExpectedImprovement() begin
+    @param_test ExpectedImprovement() begin
         @params lin_fitness, posterior, nothing, ϵ_samples, nothing
         @params nonlin_fitness, posterior, nothing, ϵ_samples, nothing
         @params lin_fitness, posteriors, nothing, ϵ_samples, nothing
@@ -99,8 +99,8 @@ end
 end
 
 @testset "expected_improvement(fitness, mean, std, ϵ_samples, best_yet)" begin
-    lin_fitness = BOSS.LinFitness([1., 0.])
-    nonlin_fitness = BOSS.NonlinFitness(x -> x[1])
+    lin_fitness = LinFitness([1., 0.])
+    nonlin_fitness = NonlinFitness(x -> x[1])
     ϵ_samples = [
         0.422498  -1.33921    0.490985  -0.951167
         -0.289737   0.162767  -0.499742   0.892919
@@ -157,17 +157,17 @@ end
 
 @testset "best_so_far(fitness, X, Y, y_max, posterior)" begin
     @param_test BOSS.best_so_far begin
-        @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> (x, [0.1])
-        @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [5.], x -> (x, [0.1])
-        @params BOSS.LinFitness([1.]), [10.;; 2.;; 3.;;], [10.;; 2.;; 3.;;], [5.], x -> (x, [0.1])
-        @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> ([x[1]^2], [0.1])
+        @params LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> (x, [0.1])
+        @params LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [5.], x -> (x, [0.1])
+        @params LinFitness([1.]), [10.;; 2.;; 3.;;], [10.;; 2.;; 3.;;], [5.], x -> (x, [0.1])
+        @params LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> ([x[1]^2], [0.1])
         @success out == 3.
 
-        @params BOSS.LinFitness([2.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> (x, [0.1])
+        @params LinFitness([2.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> (x, [0.1])
         @success out == 6.
 
-        @params BOSS.LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [0.], x -> (x, [0.1])
-        @params BOSS.LinFitness([1.]), Float64[;;], Float64[;;], [0.], x -> (x, [0.1])
+        @params LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [0.], x -> (x, [0.1])
+        @params LinFitness([1.]), Float64[;;], Float64[;;], [0.], x -> (x, [0.1])
         @success isnothing(out)
     end
 end

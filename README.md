@@ -18,7 +18,7 @@ We wish to find `x ∈ domain` such that `fitness(f(x))` is maximized while sati
 
 ## The Model
 
-BOSS can be used with purely parametric models (via the `BOSS.Parametric` type), Gaussian Processes (via the `BOSS.Nonparametric` type) or with a semiparametric model (via the `BOSS.Semiparametric`) which combines the two previously mentioned models by supplying the parametric model as the mean of the GP.
+BOSS can be used with purely parametric models (via the `Parametric` type), Gaussian Processes (via the `Nonparametric` or `GaussianProcess` type) or with a semiparametric model (via the `Semiparametric`) which combines the two previously mentioned models by supplying the parametric model as the mean of the GP.
 
 ## Algorithms
 
@@ -26,7 +26,7 @@ BOSS offers both MAP estimation of model parameters and Bayesian inference (BI) 
 
 Currently, the Optimization.jl library is supported for the MAP estimation and the Turing.jl library is supported for the BI sampling. The Optimization.jl library is supported for the acquisition function maximization.
 
-BOSS also provides a simple interface for the use of other custom alagorithms/libraries for model-fitting and/or acquisition maximization by extending the abstract types `BOSS.ModelFitter` and `BOSS.AcquisitionMaximizer`.
+BOSS also provides a simple interface for the use of other custom alagorithms/libraries for model-fitting and/or acquisition maximization by extending the abstract types `ModelFitter` and `AcquisitionMaximizer`.
 
 ## Plotting
 

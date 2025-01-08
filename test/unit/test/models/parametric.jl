@@ -1,6 +1,6 @@
 
 @testset "(::LinModel)(x, θ)" begin
-    @param_test BOSS.LinModel begin
+    @param_test LinModel begin
         @params (
             (x) -> [[sin(x[1]), exp(x[1])]],
             [BOSS.Normal(), BOSS.Normal()],  # irrelevant
@@ -26,7 +26,7 @@
 end
 
 @testset "(::NonlinModel)(x, θ)" begin
-    @param_test BOSS.NonlinModel begin
+    @param_test NonlinModel begin
         @params (
             (x, θ) -> [θ[1] * sin(θ[2] * x[1]) + exp(θ[3] * x[1])],
             fill(BOSS.Normal(), 3),  # irrelevant
@@ -54,8 +54,8 @@ end
 @testset "Base.convert(::Type{NonlinModel}, ::LinModel)" begin
     @param_test Base.convert begin
         @params (
-            BOSS.NonlinModel,
-            BOSS.LinModel(;
+            NonlinModel,
+            LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[1])]],
                 theta_priors = [BOSS.Normal(), BOSS.Normal()],
                 discrete = nothing,
@@ -63,15 +63,15 @@ end
             ),
         )
         @success (
-            out isa BOSS.NonlinModel,
+            out isa NonlinModel,
             out([1.], [4., 5.]) == in[2]([1.], [4., 5.]),
             out.theta_priors == in[2].theta_priors,
             out.noise_std_priors == in[2].noise_std_priors,
         )
 
         @params (
-            BOSS.NonlinModel,
-            BOSS.LinModel(;
+            NonlinModel,
+            LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[1])]],
                 theta_priors = [BOSS.Normal(), BOSS.Normal()],
                 discrete = [true],
@@ -79,7 +79,7 @@ end
             ),
         )
         @success (
-            out isa BOSS.NonlinModel,
+            out isa NonlinModel,
             out([1.2], [4., 5.]) == in[2]([1.2], [4., 5.]),
             out.theta_priors == in[2].theta_priors,
             out.noise_std_priors == in[2].noise_std_priors,
@@ -90,7 +90,7 @@ end
 @testset "make_discrete(model, discrete)" begin
     @param_test BOSS.make_discrete begin
         @params (
-            BOSS.LinModel(;
+            LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = [BOSS.Normal(), BOSS.Normal()],
                 discrete = nothing,
@@ -98,7 +98,7 @@ end
             [false, true],
         )
         @params (
-            BOSS.NonlinModel(;
+            NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = [BOSS.Normal(), BOSS.Normal()],
                 discrete = nothing,
@@ -112,7 +112,7 @@ end
         )
 
         @params (
-            BOSS.LinModel(;
+            LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = [BOSS.Normal(), BOSS.Normal()],
                 discrete = [false, true],
@@ -120,7 +120,7 @@ end
             [false, true],
         )
         @params (
-            BOSS.NonlinModel(;
+            NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = [BOSS.Normal(), BOSS.Normal()],
                 discrete = [false, true],
@@ -133,7 +133,7 @@ end
         )
 
         @params (
-            BOSS.LinModel(;
+            LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = [BOSS.Normal(), BOSS.Normal()],
                 discrete = nothing,
@@ -141,7 +141,7 @@ end
             [false, false],
         )
         @params (
-            BOSS.NonlinModel(;
+            NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = [BOSS.Normal(), BOSS.Normal()],
                 discrete = nothing,
@@ -159,16 +159,16 @@ end
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
-    problem(model) = BOSS.BossProblem(;
-        fitness = BOSS.LinFitness([1., 0.]),
+    problem(model) = BossProblem(;
+        fitness = LinFitness([1., 0.]),
         f = x -> x,
-        domain = BOSS.Domain(; bounds=([0., 0.], [10., 10.])),
+        domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
         model,
-        data = BOSS.ExperimentDataPrior(X, Y),
+        data = ExperimentDataPrior(X, Y),
     )
 
-    lin_model = BOSS.LinModel(;
+    lin_model = LinModel(;
         lift = (x) -> [
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
@@ -177,7 +177,7 @@ end
         discrete = nothing,
         noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
     )
-    nonlin_model = BOSS.NonlinModel(;
+    nonlin_model = NonlinModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
@@ -189,10 +189,10 @@ end
 
     problem_lin = problem(lin_model)
     problem_nonlin = problem(nonlin_model)
-    BOSS.estimate_parameters!(problem_lin, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
-    BOSS.estimate_parameters!(problem_nonlin, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
+    BOSS.estimate_parameters!(problem_lin, SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BossOptions(; info=false))
+    BOSS.estimate_parameters!(problem_nonlin, SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BossOptions(; info=false))
 
-    @param_test BOSS.model_posterior begin
+    @param_test model_posterior begin
         @params problem_lin.model, problem_lin.data
         @params problem_nonlin.model, problem_nonlin.data
         @success (
@@ -229,16 +229,16 @@ end
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
-    problem(model) = BOSS.BossProblem(;
-        fitness = BOSS.LinFitness([1., 0.]),
+    problem(model) = BossProblem(;
+        fitness = LinFitness([1., 0.]),
         f = x -> x,
-        domain = BOSS.Domain(; bounds=([0., 0.], [10., 10.])),
+        domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
         model,
-        data = BOSS.ExperimentDataPrior(X, Y),
+        data = ExperimentDataPrior(X, Y),
     )
 
-    lin_model = BOSS.LinModel(;
+    lin_model = LinModel(;
         lift = (x) -> [
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
@@ -247,7 +247,7 @@ end
         discrete = nothing,
         noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
     )
-    nonlin_model = BOSS.NonlinModel(;
+    nonlin_model = NonlinModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
@@ -259,10 +259,10 @@ end
 
     problem_lin = problem(lin_model)
     problem_nonlin = problem(nonlin_model)
-    BOSS.estimate_parameters!(problem_lin, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
-    BOSS.estimate_parameters!(problem_nonlin, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
+    BOSS.estimate_parameters!(problem_lin, SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BossOptions(; info=false))
+    BOSS.estimate_parameters!(problem_nonlin, SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BossOptions(; info=false))
 
-    @param_test BOSS.model_posterior_slice begin
+    @param_test model_posterior_slice begin
         @params problem_lin.model, problem_lin.data, 1
         @params problem_lin.model, problem_lin.data, 2
         @params problem_nonlin.model, problem_nonlin.data, 1
@@ -299,7 +299,7 @@ end
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
-    lin_model = BOSS.LinModel(;
+    lin_model = LinModel(;
         lift = (x) -> [
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
@@ -308,7 +308,7 @@ end
         discrete = nothing,
         noise_std_priors = fill(BOSS.LogNormal(), 2),
     )
-    nonlin_model = BOSS.NonlinModel(;
+    nonlin_model = NonlinModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
@@ -317,7 +317,7 @@ end
         discrete = nothing,
         noise_std_priors = fill(BOSS.LogNormal(), 2),
     )
-    data = BOSS.ExperimentDataPrior(X, Y)
+    data = ExperimentDataPrior(X, Y)
 
     @param_test BOSS.model_loglike begin
         @params lin_model, deepcopy(data)
@@ -338,7 +338,7 @@ end
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
-    lin_model = BOSS.LinModel(;
+    lin_model = LinModel(;
         lift = (x) -> [
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
@@ -346,7 +346,7 @@ end
         theta_priors = fill(BOSS.Dirac(1.), 4),
         noise_std_priors = fill(BOSS.Dirac(0.1), 2),
     )
-    nonlin_model = BOSS.NonlinModel(;
+    nonlin_model = NonlinModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),    
@@ -394,7 +394,7 @@ end
     @param_test BOSS.model_params_loglike begin
         # TODO: Add different priors loaded from a collection.
         @params (
-            BOSS.LinModel(;
+            LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = [BOSS.Normal(), BOSS.Normal()],
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),
@@ -402,7 +402,7 @@ end
             ([1., 1.], nothing, nothing, [0.1, 0.1]),
         )
         @params (
-            BOSS.NonlinModel(;
+            NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = [BOSS.Normal(), BOSS.Normal()],
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),
@@ -412,7 +412,7 @@ end
         @success out isa Real
 
         @params (
-            BOSS.LinModel(;
+            LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = fill(BOSS.Dirac(1.), 2),
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),
@@ -420,7 +420,7 @@ end
             ([1., 1.], nothing, nothing, [0.1, 0.1]),
         )
         @params (
-            BOSS.NonlinModel(;
+            NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = fill(BOSS.Dirac(1.), 2),
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),
@@ -430,7 +430,7 @@ end
         @success out == 0.
 
         @params (
-            BOSS.LinModel(;
+            LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = fill(BOSS.Dirac(1.), 2),
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),
@@ -438,7 +438,7 @@ end
             ([1., 5.], nothing, nothing, [0.1, 0.1]),
         )
         @params (
-            BOSS.LinModel(;
+            LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = fill(BOSS.Dirac(1.), 2),
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),
@@ -446,7 +446,7 @@ end
             ([1., 1.], nothing, nothing, [0.1, 0.5]),
         )
         @params (
-            BOSS.NonlinModel(;
+            NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = fill(BOSS.Dirac(1.), 2),
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),
@@ -454,7 +454,7 @@ end
             ([1., 5.], nothing, nothing, [0.1, 0.1]),
         )
         @params (
-            BOSS.NonlinModel(;
+            NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = fill(BOSS.Dirac(1.), 2),
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),

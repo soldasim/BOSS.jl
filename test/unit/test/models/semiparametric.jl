@@ -3,30 +3,30 @@
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
     
-    problem = BOSS.BossProblem(;
-        fitness = BOSS.LinFitness([1., 0.]),
+    problem = BossProblem(;
+        fitness = LinFitness([1., 0.]),
         f = x -> x,
-        domain = BOSS.Domain(; bounds=([0., 0.], [10., 10.])),
+        domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
-        model = BOSS.Semiparametric(;
-            parametric = BOSS.NonlinModel(;
+        model = Semiparametric(;
+            parametric = NonlinModel(;
                 predict = (x, θ) -> [
                     θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
                     θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
                 ],
                 theta_priors = fill(BOSS.Normal(), 4),
             ),
-            nonparametric = BOSS.Nonparametric(;
+            nonparametric = Nonparametric(;
                 amp_priors = fill(BOSS.LogNormal(), 2),
                 length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
                 noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
             ),
         ),
-        data = BOSS.ExperimentDataPrior(X, Y),
+        data = ExperimentDataPrior(X, Y),
     )
-    BOSS.estimate_parameters!(problem, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
+    BOSS.estimate_parameters!(problem, SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BossOptions(; info=false))
 
-    @param_test BOSS.model_posterior begin
+    @param_test model_posterior begin
         @params problem.model, problem.data
         @success (
             out isa Function,
@@ -61,30 +61,30 @@ end
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
     
-    problem = BOSS.BossProblem(;
-        fitness = BOSS.LinFitness([1., 0.]),
+    problem = BossProblem(;
+        fitness = LinFitness([1., 0.]),
         f = x -> x,
-        domain = BOSS.Domain(; bounds=([0., 0.], [10., 10.])),
+        domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
-        model = BOSS.Semiparametric(;
-            parametric = BOSS.NonlinModel(;
+        model = Semiparametric(;
+            parametric = NonlinModel(;
                 predict = (x, θ) -> [
                     θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
                     θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
                 ],
                 theta_priors = fill(BOSS.Normal(), 4),
             ),
-            nonparametric = BOSS.Nonparametric(;
+            nonparametric = Nonparametric(;
                 amp_priors = fill(BOSS.LogNormal(), 2),
                 length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
                 noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
             ),
         ),
-        data = BOSS.ExperimentDataPrior(X, Y),
+        data = ExperimentDataPrior(X, Y),
     )
-    BOSS.estimate_parameters!(problem, BOSS.SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BOSS.BossOptions(; info=false))
+    BOSS.estimate_parameters!(problem, SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BossOptions(; info=false))
 
-    @param_test BOSS.model_posterior_slice begin
+    @param_test model_posterior_slice begin
         @params problem.model, problem.data, 1
         @params problem.model, problem.data, 2
         @success (
@@ -118,21 +118,21 @@ end
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
     
-    model = BOSS.Semiparametric(;
-        parametric = BOSS.NonlinModel(;
+    model = Semiparametric(;
+        parametric = NonlinModel(;
             predict = (x, θ) -> [
                 θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
                 θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
             ],
             theta_priors = fill(BOSS.Normal(), 4),
         ),
-        nonparametric = BOSS.Nonparametric(;
+        nonparametric = Nonparametric(;
             length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
             amp_priors = fill(BOSS.LogNormal(), 2),
             noise_std_priors = fill(BOSS.LogNormal(), 2),
         ),
     )
-    data = BOSS.ExperimentDataPrior(X, Y)
+    data = ExperimentDataPrior(X, Y)
 
     @param_test BOSS.model_loglike begin
         @params deepcopy(model), deepcopy(data)
@@ -151,16 +151,16 @@ end
 end
 
 @testset "data_loglike(model, X, Y, params)" begin
-    parametric = BOSS.NonlinModel(;
+    parametric = NonlinModel(;
         predict = (x, θ) -> [θ[1] * x[1]],
         theta_priors = fill(BOSS.Dirac(1.), 1),
     )
-    nonparametric = BOSS.Nonparametric(;
+    nonparametric = Nonparametric(;
         amp_priors = fill(BOSS.LogNormal(), 1),
         length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 1)), 1),
         noise_std_priors = fill(BOSS.Dirac(0.1), 1),
     )
-    model = BOSS.Semiparametric(;
+    model = Semiparametric(;
         parametric,
         nonparametric,
     )
@@ -187,15 +187,15 @@ end
 end
 
 @testset "model_params_loglike(model, params)" begin
-    model = BOSS.Semiparametric(
-        BOSS.NonlinModel(;
+    model = Semiparametric(
+        NonlinModel(;
             predict = (x, θ) -> [
                 θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
                 θ[3] * cos(x[1]) + θ[4] * exp(x[2]),    
             ],
             theta_priors = fill(BOSS.Dirac(1.), 4),
         ),
-        BOSS.Nonparametric(;
+        Nonparametric(;
             length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
             amp_priors = fill(BOSS.Dirac(1.), 2),
             noise_std_priors = fill(BOSS.Dirac(0.1), 2),

@@ -4,6 +4,7 @@ using Distributions
 using Random
 
 using OptimizationPRIMA
+using Turing
 
 Random.seed!(555)
 
@@ -115,22 +116,22 @@ function main(problem=opt_problem(3), iters=20;
     parallel = true,
 )
     ### Model Fitter:
-    # Maximum likelihood estimation
-    model_fitter = OptimizationMAP(;
-        algorithm = NEWUOA(),
-        multistart = 20,
-        parallel,
-        rhoend = 1e-4,
-    )
-    # # Bayesian Inference (sampling)
-    # model_fitter = TuringBI(;
-    #     sampler = BOSS.NUTS(20, 0.65),
-    #     warmup = 100,
-    #     samples_in_chain = 10,
-    #     chain_count = 8,
-    #     leap_size = 5,
+    # # Maximum likelihood estimation
+    # model_fitter = OptimizationMAP(;
+    #     algorithm = NEWUOA(),
+    #     multistart = 20,
     #     parallel,
+    #     rhoend = 1e-4,
     # )
+    # Bayesian Inference (sampling)
+    model_fitter = TuringBI(;
+        sampler = NUTS(20, 0.65),
+        warmup = 100,
+        samples_in_chain = 10,
+        chain_count = 8,
+        leap_size = 5,
+        parallel,
+    )
 
     ### Acquisition Maximizer:
     acq_maximizer = OptimizationAM(;
