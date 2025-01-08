@@ -59,7 +59,6 @@ using LinearAlgebra
 using AbstractGPs
 using LatinHypercubeSampling
 using Optimization
-using Turing
 using InteractiveUtils
 using Distributed
 

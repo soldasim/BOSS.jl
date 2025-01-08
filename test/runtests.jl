@@ -1,6 +1,9 @@
 using BOSS
 using Test
 
+# load `TuringExt`
+using Turing
+
 ```
 Determines whether parallelization of BOSS is allowed during tests.
 ```
