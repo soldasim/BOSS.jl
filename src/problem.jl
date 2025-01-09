@@ -18,7 +18,7 @@ Defines the whole optimization problem for the BOSS algorithm.
 - `fitness::Fitness`: The [`Fitness`](@ref) function.
 - `f::Union{Function, Missing}`: The objective blackbox function.
 - `model::SurrogateModel`: The [`SurrogateModel`](@ref).
-- `data::ExperimentData`: The initial data of objective function evaluations. See [`ExperimentDataPrior`].
+- `data::ExperimentData`: The initial data of objective function evaluations. See [`ExperimentDataPrior`](@ref).
 - `domain::Domain`: The [`Domain`](@ref) of `x`.
 - `y_max`: The constraints on `y`. (See the definition above.)
 

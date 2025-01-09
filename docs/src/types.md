@@ -134,7 +134,7 @@ The data from all past objective function evaluations as well as estimated param
 ExperimentData
 ```
 
-The `ExperimentDataPriors` structure is used to pass the initial dataset to the [`BossProblem`](@ref).
+The `ExperimentDataPrior` structure is used to pass the initial dataset to the [`BossProblem`](@ref).
 
 ```@docs
 ExperimentDataPrior
