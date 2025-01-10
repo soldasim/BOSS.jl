@@ -23,7 +23,7 @@ function maximize_acquisition(::RandomAM, ::AcquisitionFunction, problem::BossPr
 end
 
 function random_x(domain)
-    x = random_start(domain.bounds)
+    x = random_point(domain.bounds)
     x = cond_func(round).(x, domain.discrete)  # assure discrete dims
     return x
 end

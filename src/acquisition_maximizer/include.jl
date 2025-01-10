@@ -1,5 +1,4 @@
 include("acquisition_maximizer.jl")
-include("utils.jl")
 include("batch.jl")
 include("random.jl")
 include("grid.jl")

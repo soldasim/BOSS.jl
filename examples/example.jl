@@ -61,7 +61,7 @@ amplitude_priors() = fill(truncated(Normal(0., 10.); lower=0.), 2)
 
 # Generate some initial data.
 function gen_data(count, bounds)
-    X = reduce(hcat, [BOSS.random_start(bounds) for i in 1:count])
+    X = reduce(hcat, [BOSS.random_point(bounds) for i in 1:count])
     Y = reduce(hcat, blackbox.(eachcol(X)))
     return X, Y
 end
