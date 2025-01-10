@@ -73,7 +73,7 @@ function get_starts(multistart::Int, domain::Domain)
     if multistart == 1
         starts = mean(domain.bounds)[:,:]
     else
-        starts = generate_starts_LHC(domain.bounds, multistart)
+        starts = generate_LHC(domain.bounds, multistart)
     end
     return starts
 end

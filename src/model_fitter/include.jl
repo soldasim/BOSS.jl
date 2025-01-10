@@ -1,5 +1,4 @@
 include("model_fitter.jl")
-include("utils.jl")
 include("parameter_transformations.jl")
 include("random.jl")
 include("sampling.jl")
