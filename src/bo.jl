@@ -16,7 +16,7 @@ or give a recommendation for the next evaluation point if `problem.f == missing`
 - `acquisition::AcquisitionFunction`: Defines the acquisition function maximized to select
         promising candidates for further evaluation.
 - `term_cond::TermCond`: Defines the termination condition.
-- `options::BossOptions`: Defines miscellaneous options and hyperparameters.
+- `options::BossOptions`: Defines miscellaneous settings.
 
 # References
 
@@ -75,6 +75,10 @@ end
     estimate_parameters!(::BossProblem, ::ModelFitter)
 
 Estimate the model parameters & hyperparameters using the given `model_fitter` algorithm.
+
+# Keywords
+
+- `options::BossOptions`: Defines miscellaneous settings.
 """
 function estimate_parameters!(problem::BossProblem, model_fitter::ModelFitter{T}; options::BossOptions=BossOptions()) where {T}
     options.info && @info "Estimating model parameters ..."
@@ -83,7 +87,13 @@ function estimate_parameters!(problem::BossProblem, model_fitter::ModelFitter{T}
 end
 
 """
-Maximize the given `acquisition` function via the given `acq_maximizer` algorithm to find the optimal next evaluation point.
+    x = maximize_acquisition(::BossProblem, ::AcquisitionFunction, ::AcquisitionMaximizer)
+
+Maximize the given `acquisition` function via the given `acq_maximizer` algorithm to find the optimal next evaluation point(s).
+
+# Keywords
+
+- `options::BossOptions`: Defines miscellaneous settings.
 """
 function maximize_acquisition(problem::BossProblem, acquisition::AcquisitionFunction, acq_maximizer::AcquisitionMaximizer; options::BossOptions=BossOptions())
     options.info && @info "Maximizing acquisition function ..."
@@ -99,7 +109,13 @@ function check_new_points(X::AbstractArray{<:Real}, problem::BossProblem)
 end
 
 """
+    eval_objective!(::BossProblem, x::AbstractVector{<:Real})
+
 Evaluate the objective function and update the data.
+
+# Keywords
+
+- `options::BossOptions`: Defines miscellaneous settings.
 """
 function eval_objective!(problem::BossProblem, x::AbstractVector{<:Real}; options::BossOptions=BossOptions())
     options.info && @info "Evaluating objective function ..."
