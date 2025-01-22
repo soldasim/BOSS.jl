@@ -63,24 +63,17 @@ function bo!(problem::BossProblem{Missing};
 end
 
 """
-Perform necessary actions and check the problem definition before initiating the optimization.
+Perform some initial sanity checks.
 """
 function initialize!(problem::BossProblem; options::BossOptions=BossOptions())
-    if any(problem.domain.discrete)
-        problem.domain = make_discrete(problem.domain)
-        problem.model = make_discrete(problem.model, problem.domain.discrete)
-    end
-
     problem.data.X, problem.data.Y = exclude_exterior_points(problem.domain, problem.data.X, problem.data.Y; options)
-    isempty(problem.data.X) && throw(ErrorException("Cannot start with empty dataset! Provide at least one interior initial point."))
 
-    # part of a workaround, see '/src/model_fitter/utils.jl'
-    if any(isinf.(problem.y_max))
-        problem.y_max = [isinf(c) ? Infinity() : c for c in problem.y_max]
-    end
+    isempty(problem.data.X) && throw(ErrorException("Cannot start with empty dataset! Provide at least one interior initial point."))
 end
 
 """
+    estimate_parameters!(::BossProblem, ::ModelFitter)
+
 Estimate the model parameters & hyperparameters using the given `model_fitter` algorithm.
 """
 function estimate_parameters!(problem::BossProblem, model_fitter::ModelFitter{T}; options::BossOptions=BossOptions()) where {T}
@@ -101,7 +94,7 @@ end
 
 function check_new_points(X::AbstractArray{<:Real}, problem::BossProblem)
     for x in eachcol(X)
-        in_domain(x, problem.domain) || @warn "The acquisition maximization resulted in an exterior point!\nPoint $(x) not in bounds $(problem.domain.bounds)."
+        in_domain(x, problem.domain) || @warn "The acquisition maximization resulted in an exterior point $(x)!"
     end
 end
 
