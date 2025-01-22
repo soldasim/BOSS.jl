@@ -21,7 +21,7 @@
         @success out == ([5., 5.], [8., 5.])
 
         @params problem([2.;2.;; -1.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;])
-        @success out == ([-1., 5.], [5., 5.])  # ignoring `bounds` is correct behavior
+        @success out == ([-1., 5.], [5., 5.])  # ignoring `domain` is correct behavior
 
         @params problem([2.;2.;; 5.;5.;; 8.;8.;;], [2.;10.;; 5.;10.;; 8.;10.;;])
         @success isnothing(out)

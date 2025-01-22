@@ -20,7 +20,7 @@ Defines the whole optimization problem for the BOSS algorithm.
 - `model::SurrogateModel`: The [`SurrogateModel`](@ref).
 - `data::ExperimentData`: The initial data of objective function evaluations. See [`ExperimentDataPrior`](@ref).
 - `domain::Domain`: The [`Domain`](@ref) of `x`.
-- `y_max`: The constraints on `y`. (See the definition above.)
+- `y_max::AbstractVector{<:Real}`: The constraints on `y`. (See the definition above.)
 
 See also: [`bo!`](@ref)
 """
@@ -33,6 +33,25 @@ See also: [`bo!`](@ref)
     data::ExperimentData
     domain::Domain
     y_max::AbstractVector{<:Real} = fill(Inf, y_dim(data))
+
+    function BossProblem(fitness, f::F, model, data, domain, y_max) where {F}
+        problem = new{F}(fitness, f, model, data, domain, y_max)
+        return _init_problem(problem)
+    end
+end
+
+function _init_problem(problem::BossProblem)
+    if any(problem.domain.discrete)
+        problem.domain = make_discrete(problem.domain)
+        problem.model = make_discrete(problem.model, problem.domain.discrete)
+    end
+
+    # part of a workaround, see '/src/model_fitter/utils.jl'
+    if any(isinf.(problem.y_max))
+        problem.y_max = [isinf(c) ? Infinity() : c for c in problem.y_max]
+    end
+
+    return problem
 end
 
 """
