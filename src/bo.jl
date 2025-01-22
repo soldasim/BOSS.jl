@@ -66,7 +66,9 @@ end
 Perform some initial sanity checks.
 """
 function initialize!(problem::BossProblem; options::BossOptions=BossOptions())
-    problem.data.X, problem.data.Y = exclude_exterior_points(problem.domain, problem.data.X, problem.data.Y; options)
+    # problem.data.X, problem.data.Y = exclude_exterior_points(problem.domain, problem.data.X, problem.data.Y; options)
+    all_in_domain = in_domain.(eachcol(problem.data.X), Ref(problem.domain)) |> all
+    options.info && !all_in_domain && @warn "Some initial datapoints are exterior to the defined domain."
 
     isempty(problem.data.X) && throw(ErrorException("Cannot start with empty dataset! Provide at least one interior initial point."))
 end
