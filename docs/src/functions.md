@@ -25,6 +25,9 @@ The "Recommender mode" is used if the objective function is `missing`. In this m
 ## Utility Functions
 
 ```@docs
+estimate_parameters!
+maximize_acquisition
+eval_objective!
 augment_dataset!
 model_posterior
 model_posterior_slice
