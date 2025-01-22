@@ -149,14 +149,6 @@ function reduce_slice_results(results::AbstractVector{<:Tuple{<:ModelParams, <:R
     return params, loglike
 end
 
-function reduce_slice_params(params::AbstractVector{<:ModelParams})
-    θ = reduce(vcat, ith(1).(params))
-    λ = reduce(hcat, ith(2).(params))
-    α = reduce(vcat, ith(3).(params))
-    noise_std = reduce(vcat, ith(4).(params))
-    return θ, λ, α, noise_std
-end
-
 # `return_all=true` version
 function reduce_slice_results(results::AbstractVector{<:Tuple{<:AbstractVector{<:ModelParams}, <:AbstractVector{<:Real}}})
     y_dim = length(results)
@@ -187,3 +179,15 @@ end
 function reduce_param_samples(θs, λs, αs, noise_stds)
     return tuple.(θs, λs, αs, noise_stds)
 end
+
+function reduce_slice_params(params::AbstractVector{<:ModelParams})
+    θ = reduce_slice_params(ith(1).(params))
+    λ = reduce_slice_params(ith(2).(params))
+    α = reduce_slice_params(ith(3).(params))
+    noise_std = reduce_slice_params(ith(4).(params))
+    return θ, λ, α, noise_std
+end
+
+reduce_slice_params(::AbstractVector{Nothing}) = nothing
+reduce_slice_params(ps::AbstractVector{<:AbstractVector{<:Real}}) = reduce(vcat, ps)
+reduce_slice_params(ps::AbstractVector{<:AbstractMatrix{<:Real}}) = reduce(hcat, ps)

@@ -111,7 +111,7 @@ end
         @success out == ([1., 2., 3., 4.], nothing, nothing, [0.1, 0.1])
 
         @params [4., 4., 5., 5., 1., 1., 0.1, 0.1], deepcopy(nonparametric), activation_function, fill(false, 8), Float64[], fill(true, 8)
-        @success out == (Float64[], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
+        @success out == (nothing, [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
 
         @params [1., 2., 3., 4., 4., 4., 5., 5., 1., 1., 0.1, 0.1], deepcopy(semiparametric), activation_function, fill(false, 12), Float64[], fill(true, 12)
         @success out == ([1., 2., 3., 4.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
@@ -121,7 +121,7 @@ end
         @success out == ([1., 2., 3., 4.], nothing, nothing, [0.1, 0.1])
 
         @params [-4., -4., -5., -5., -1., -1., -0.1, -0.1], deepcopy(nonparametric), activation_function, fill(true, 8), Float64[], fill(true, 8)
-        @success out == (Float64[], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
+        @success out == (nothing, [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
 
         @params [-1., 2., -3., 4., 4., 4., 5., 5., 1., 1., 0.1, 0.1], deepcopy(semiparametric), activation_function, vcat([true, false, true, false], fill(false, 8)), Float64[], fill(true, 12)
         @success out == ([1., 2., 3., 4.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
@@ -131,7 +131,7 @@ end
         @success out == ([1., 2., 3., 4.], nothing, nothing, [0.1, 0.1])
 
         @params [5., 5., 1., 0.1, 0.1], deepcopy(nonparametric), activation_function, fill(false, 8), [4., 4., 1.], vcat([false, false, true, true], [false, true], fill(true, 2))
-        @success out == (Float64[], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
+        @success out == (nothing, [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
 
         @params [2., 4., 4., 4., 5., 5., 1., 1., 0.1, 0.1], deepcopy(semiparametric), activation_function, fill(false, 12), [1., 3.], vcat([false, true, false, true], fill(true, 8))
         @success out == ([1., 2., 3., 4.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
@@ -141,7 +141,7 @@ end
         @success out == ([1., 2., 3., 4.], nothing, nothing, [0.1, 0.1])
 
         @params [-5., -5., -1., -0.1, -0.1], deepcopy(nonparametric), activation_function, fill(true, 8), [4., 4., 1.], vcat([false, false, true, true], [false, true], fill(true, 2))
-        @success out == (Float64[], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
+        @success out == (nothing, [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
 
         @params [3., -4., 4., 4., 5., 5., 1., 1., 0.1, 0.1], deepcopy(semiparametric), activation_function, vcat([false, true, false, true], fill(false, 8)), [1., 2.], vcat([false, false, true, true], fill(true, 8))
         @success out == ([1., 2., 3., 4.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
@@ -182,7 +182,7 @@ end
         @success out == ([1., 2., 3., 4.], nothing, nothing, [0.1, 0.1])
 
         @params [4., 4., 5., 5., 1., 1., 0.1, 0.1], deepcopy(nonparametric)
-        @success out == (Float64[], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
+        @success out == (nothing, [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])
 
         @params [1., 2., 3., 4., 4., 4., 5., 5., 1., 1., 0.1, 0.1], deepcopy(semiparametric)
         @success out == ([1., 2., 3., 4.], [4.;4.;; 5.;5.;;], [1., 1.], [0.1, 0.1])

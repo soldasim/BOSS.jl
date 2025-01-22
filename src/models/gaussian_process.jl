@@ -269,7 +269,7 @@ function sample_params(model::GaussianProcess)
 end
 
 function param_priors(model::GaussianProcess)
-    θ_priors = UnivariateDistribution[]
+    θ_priors = nothing
     λ_priors = model.length_scale_priors
     α_priors = model.amp_priors
     noise_std_priors = model.noise_std_priors

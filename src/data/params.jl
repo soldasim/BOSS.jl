@@ -131,6 +131,8 @@ function slice(params::ModelParams, θ_slice, idx::Int)
     return params_
 end
 
+slice(::Nothing, ::Any) = nothing
+
 slice(M::AbstractMatrix, idx::Int) = M[:,idx:idx]
 slice(v::AbstractVector, idx::Int) = v[idx:idx]
 
