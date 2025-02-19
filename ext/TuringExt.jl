@@ -48,7 +48,7 @@ Turing.@model function turing_model(
     amplitudes ~ product_distribution(model.amp_priors)
     noise_std ~ product_distribution(model.noise_std_priors)
     
-    gps = [BOSS.finite_gp(X, model.mean, model.kernel, length_scales[:,i], amplitudes[i], noise_std[i]) for i in 1:y_dim]
+    gps = [BOSS.finite_gp(X, BOSS.mean_slice(model.mean, i), model.kernel, length_scales[:,i], amplitudes[i], noise_std[i]) for i in 1:y_dim]
 
     Yt = transpose(Y)
     Yt ~ product_distribution(gps)
