@@ -13,3 +13,9 @@ Base.promote_rule(::Type{F}, ::Type{Infinity}) where {F<:AbstractFloat} = F
 for D in subtypes(UnivariateDistribution)
     @eval Distributions.cdf(::$D, ::Infinity) = 1.
 end
+
+# To fix ambiguities detected by Aqua.jl;
+Base.promote_rule(::Type{BigFloat}, ::Type{BOSS.Infinity}) = BigFloat
+Distributions.cdf(::Distributions.LocationScale{T, Distributions.Discrete, D} where {T<:Real, D<:Distributions.Distribution{Distributions.Univariate, Distributions.Discrete}}, ::BOSS.Infinity) = 1.
+Distributions.cdf(::Distributions.Categorical{P} where P<:Real, ::BOSS.Infinity) = 1.
+Distributions.cdf(::Distributions.LocationScale{T, Distributions.Continuous, D} where {T<:Real, D<:Distributions.Distribution{Distributions.Univariate, Distributions.Continuous}}, ::BOSS.Infinity) = 1.
