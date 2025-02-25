@@ -70,10 +70,6 @@ mean_slice(mean::Function, idx::Int) = x -> mean(x)[idx]
 
 θ_slice(::GaussianProcess, ::Int) = nothing
 
-# Workaround: https://discourse.julialang.org/t/zygote-gradient-does-not-work-with-abstractgps-custommean/87815/7
-AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::ColVecs) = map(m.f, eachcol(x.X))
-AbstractGPs.mean_vector(m::AbstractGPs.CustomMean, x::RowVecs) = map(m.f, eachrow(x.X))
-
 """
     DiscreteKernel(kernel::Kernel, dims::AbstractVector{Bool})
     DiscreteKernel(kernel::Kernel)
