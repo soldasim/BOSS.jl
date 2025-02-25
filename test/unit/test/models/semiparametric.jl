@@ -18,7 +18,7 @@
             ),
             nonparametric = Nonparametric(;
                 amp_priors = fill(BOSS.LogNormal(), 2),
-                length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+                length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
                 noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
             ),
         ),
@@ -76,7 +76,7 @@ end
             ),
             nonparametric = Nonparametric(;
                 amp_priors = fill(BOSS.LogNormal(), 2),
-                length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+                length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
                 noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
             ),
         ),
@@ -127,7 +127,7 @@ end
             theta_priors = fill(BOSS.Normal(), 4),
         ),
         nonparametric = Nonparametric(;
-            length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+            length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
             amp_priors = fill(BOSS.LogNormal(), 2),
             noise_std_priors = fill(BOSS.LogNormal(), 2),
         ),

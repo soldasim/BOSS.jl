@@ -35,7 +35,7 @@ Turing.@model function turing_model(
 
     means = model.(eachcol(X), Ref(θ))
     
-    Y ~ product_distribution(MvNormal.(means, Ref(noise_std)))
+    Y ~ product_distribution(BOSS.mvnormal.(means, Ref(noise_std)))
 end
 Turing.@model function turing_model(
     model::GaussianProcess,

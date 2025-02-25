@@ -22,7 +22,7 @@ end
                 mean = x -> [x[1], 0.],
                 kernel = BOSS.Matern32Kernel(),
                 amp_priors = fill(BOSS.LogNormal(), 2),
-                length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+                length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),
             ),
             [false, true],
@@ -38,7 +38,7 @@ end
                 mean = x -> [x[1], 0.],
                 kernel = BOSS.DiscreteKernel(BOSS.Matern32Kernel(), [false, true]),
                 amp_priors = fill(BOSS.LogNormal(), 2),
-                length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+                length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),
             ),
             [false, true],
@@ -54,7 +54,7 @@ end
                 mean = x -> [x[1], 0.],
                 kernel = BOSS.Matern32Kernel(),
                 amp_priors = fill(BOSS.LogNormal(), 2),
-                length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+                length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),
             ),
             [false, false],
@@ -96,7 +96,7 @@ end
         model = Nonparametric(;
             mean = x -> [1., 1.],
             amp_priors = fill(BOSS.LogNormal(), 2),
-            length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+            length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
             noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         ),
         data = ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
@@ -149,7 +149,7 @@ end
         model = Nonparametric(;
             mean = x -> [1., 1.],
             amp_priors = fill(BOSS.LogNormal(), 2),
-            length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+            length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
             noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
         ),
         data = ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
@@ -216,7 +216,7 @@ end
     model = Nonparametric(;
         mean = x -> [1., 1.],
         amp_priors = fill(BOSS.LogNormal(), 2),
-        length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+        length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
         noise_std_priors = fill(BOSS.LogNormal(), 2),
     )
     data = ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;])
@@ -269,7 +269,7 @@ end
         # TODO: Add different priors loaded from a collection.
         @params (
             Nonparametric(;
-                length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+                length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
                 amp_priors = fill(BOSS.LogNormal(), 2),
                 noise_std_priors = fill(BOSS.Dirac(0.1), 2),
             ),
