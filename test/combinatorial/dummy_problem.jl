@@ -123,7 +123,7 @@ end
 
 function construct_acq_maximizer(::Val{:Sampling}, val, problem)
     return SamplingAM(;
-        x_prior = BOSS.product_distribution(BOSS.Uniform.(val("bounds")...)),
+        x_prior = product_distribution(Uniform.(val("bounds")...)),
         samples = 10,#200,  # low to improve test runtime
         parallel = val("AcquisitionMaximizer_parallel"),
     )
@@ -138,7 +138,7 @@ function construct_acq_maximizer(::Val{:Optimization}, val, problem)
 end
 # function construct_acq_maximizer(::Val{:SampleOpt}, val, problem)
 #     return SampleOptAM(;
-#         x_prior = BOSS.product_distribution(BOSS.Uniform.(val("bounds")...)),
+#         x_prior = product_distribution(Uniform.(val("bounds")...)),
 #         samples = 10,#200,  # low to improve test runtime
 #         algorithm = isnothing(val("cons")) ? BOBYQA() : COBYLA(),
 #         multistart = 2,#20,  # low to improve test runtime

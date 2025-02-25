@@ -1,13 +1,13 @@
 
 @testset "(::DiscreteKernel)(x1, x2)" begin
     @param_test BOSS.DiscreteKernel begin
-        @params BOSS.Matern32Kernel(), [false, false]
+        @params Matern32Kernel(), [false, false]
         @success (
-            out([1.2, 1.2], [3.8, 3.8]) == BOSS.Matern32Kernel()([1.2, 1.2], [3.8, 3.8]),
-            out([1.2, 2.], [3.8, 4.]) == BOSS.Matern32Kernel()([1.2, 2.], [3.8, 4.]),
+            out([1.2, 1.2], [3.8, 3.8]) == Matern32Kernel()([1.2, 1.2], [3.8, 3.8]),
+            out([1.2, 2.], [3.8, 4.]) == Matern32Kernel()([1.2, 2.], [3.8, 4.]),
         )
 
-        @params BOSS.Matern32Kernel(), [false, true]
+        @params Matern32Kernel(), [false, true]
         @success (
             out([1.2, 1.2], [3.8, 3.8]) == out([1.2, 1.], [3.8, 4.]),
             out([1.2, 1.2], [3.8, 4.]) == out([1.2, 1.], [3.8, 4.]),
@@ -20,10 +20,10 @@ end
         @params (
             Nonparametric(;
                 mean = x -> [x[1], 0.],
-                kernel = BOSS.Matern32Kernel(),
-                amp_priors = fill(BOSS.LogNormal(), 2),
+                kernel = Matern32Kernel(),
+                amp_priors = fill(LogNormal(), 2),
                 length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             [false, true],
         )
@@ -36,10 +36,10 @@ end
         @params (
             Nonparametric(;
                 mean = x -> [x[1], 0.],
-                kernel = BOSS.DiscreteKernel(BOSS.Matern32Kernel(), [false, true]),
-                amp_priors = fill(BOSS.LogNormal(), 2),
+                kernel = BOSS.DiscreteKernel(Matern32Kernel(), [false, true]),
+                amp_priors = fill(LogNormal(), 2),
                 length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             [false, true],
         )
@@ -52,10 +52,10 @@ end
         @params (
             Nonparametric(;
                 mean = x -> [x[1], 0.],
-                kernel = BOSS.Matern32Kernel(),
-                amp_priors = fill(BOSS.LogNormal(), 2),
+                kernel = Matern32Kernel(),
+                amp_priors = fill(LogNormal(), 2),
                 length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             [false, false],
         )
@@ -69,7 +69,7 @@ end
 
 @testset "make_discrete(kernel, discrete)" begin
     @param_test BOSS.make_discrete begin
-        @params BOSS.Matern32Kernel(), [false, false]
+        @params Matern32Kernel(), [false, false]
         @success (
             out isa BOSS.DiscreteKernel,
             out.kernel == in[1],
@@ -77,7 +77,7 @@ end
             out([1.2, 1.2], [3.8, 3.8]) == in[1]([1.2, 1.2], [3.8, 3.8]),
         )
 
-        @params BOSS.Matern32Kernel(), [false, true]
+        @params Matern32Kernel(), [false, true]
         @success (
             out isa BOSS.DiscreteKernel,
             out.kernel == in[1],
@@ -95,9 +95,9 @@ end
         y_max = [Inf, 5.],
         model = Nonparametric(;
             mean = x -> [1., 1.],
-            amp_priors = fill(BOSS.LogNormal(), 2),
+            amp_priors = fill(LogNormal(), 2),
             length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
-            noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
+            noise_std_priors = fill(Dirac(1e-4), 2),
         ),
         data = ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
     )
@@ -148,9 +148,9 @@ end
         y_max = [Inf, 5.],
         model = Nonparametric(;
             mean = x -> [1., 1.],
-            amp_priors = fill(BOSS.LogNormal(), 2),
+            amp_priors = fill(LogNormal(), 2),
             length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
-            noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
+            noise_std_priors = fill(Dirac(1e-4), 2),
         ),
         data = ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
     )
@@ -215,9 +215,9 @@ end
 @testset "model_loglike(model, data)" begin
     model = Nonparametric(;
         mean = x -> [1., 1.],
-        amp_priors = fill(BOSS.LogNormal(), 2),
+        amp_priors = fill(LogNormal(), 2),
         length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
-        noise_std_priors = fill(BOSS.LogNormal(), 2),
+        noise_std_priors = fill(LogNormal(), 2),
     )
     data = ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;])
 
@@ -239,9 +239,9 @@ end
 @testset "data_loglike(model, X, Y, params)" begin
     model = Nonparametric(;
         mean = x -> [0.],
-        amp_priors = fill(BOSS.LogNormal(), 1),
-        length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 1)), 1),
-        noise_std_priors = fill(BOSS.Dirac(0.1), 1),
+        amp_priors = fill(LogNormal(), 1),
+        length_scale_priors = fill(product_distribution(fill(Dirac(1.), 1)), 1),
+        noise_std_priors = fill(Dirac(0.1), 1),
     )
 
     @param_test BOSS.data_loglike begin
@@ -270,8 +270,8 @@ end
         @params (
             Nonparametric(;
                 length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
-                amp_priors = fill(BOSS.LogNormal(), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                amp_priors = fill(LogNormal(), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             (Float64[], [1.;1.;; 1.;1.;;], [1., 2.], [0.1, 0.1]),
         )
@@ -279,9 +279,9 @@ end
 
         @params (
             Nonparametric(;
-                length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
-                amp_priors = fill(BOSS.Dirac(1.), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                length_scale_priors = fill(product_distribution(fill(Dirac(1.), 2)), 2),
+                amp_priors = fill(Dirac(1.), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             (Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.1]),
         )
@@ -289,25 +289,25 @@ end
 
         @params (
             Nonparametric(;
-                length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
-                amp_priors = fill(BOSS.Dirac(1.), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                length_scale_priors = fill(product_distribution(fill(Dirac(1.), 2)), 2),
+                amp_priors = fill(Dirac(1.), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             (Float64[], [1.;1.;; 5.;5.;;], [1., 1.], [0.1, 0.1]),
         )
         @params (
             Nonparametric(;
-                length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
-                amp_priors = fill(BOSS.Dirac(1.), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                length_scale_priors = fill(product_distribution(fill(Dirac(1.), 2)), 2),
+                amp_priors = fill(Dirac(1.), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             (Float64[], [1.;1.;; 1.;1.;;], [1., 5.], [0.1, 0.1]),
         )
         @params (
             Nonparametric(;
-                length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
-                amp_priors = fill(BOSS.Dirac(1.), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                length_scale_priors = fill(product_distribution(fill(Dirac(1.), 2)), 2),
+                amp_priors = fill(Dirac(1.), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             (Float64[], [1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.5]),
         )

@@ -4,6 +4,8 @@ using Aqua
 
 using Turing
 using LinearAlgebra
+using Distributions
+using KernelFunctions
 
 ```
 Determines whether parallelization of BOSS is allowed during tests.

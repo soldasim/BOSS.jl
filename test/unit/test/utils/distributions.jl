@@ -5,7 +5,7 @@
         @params 5., 8.
         @params 0., 1e-8
         @params 0., 1e8
-        @success BOSS.cdf(out, in[2]) - BOSS.cdf(out, in[1]) > 0.98
+        @success cdf(out, in[2]) - cdf(out, in[1]) > 0.98
 
         @params 0., 0.
         @params 8., 5.
