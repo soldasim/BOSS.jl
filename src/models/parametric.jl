@@ -152,7 +152,7 @@ function data_loglike(
     params::ModelParams,
 )
     θ, λ, α, noise_std = params
-    ll_datum(x, y) = logpdf(MvNormal(model(x, θ), noise_std), y)
+    ll_datum(x, y) = logpdf(mvnormal(model(x, θ), noise_std), y)
     return mapreduce(d -> ll_datum(d...), +, zip(eachcol(X), eachcol(Y)))
 end
 

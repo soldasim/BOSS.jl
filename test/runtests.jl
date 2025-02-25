@@ -2,13 +2,15 @@ using BOSS
 using Test
 using Aqua
 
-# load `TuringExt`
 using Turing
+using LinearAlgebra
 
 ```
 Determines whether parallelization of BOSS is allowed during tests.
 ```
-const PARALLEL_TESTS = true
+# Currently, enabling parallel testing causes `StackOverflowError`s on Ubuntu.
+# See https://github.com/libprima/PRIMA.jl/issues/25
+const PARALLEL_TESTS = false
 
 @testset "BOSS TESTS" verbose=true begin
     @testset "Code quality (Aqua.jl)" begin

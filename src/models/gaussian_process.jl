@@ -149,14 +149,14 @@ function model_posterior_slice(model::GaussianProcess, data::ExperimentDataMAP, 
     post_gp = posterior_gp(model, data, slice)
     
     function post(x::AbstractVector{<:Real})
-        mean_, var_ = mean_and_var(post_gp(hcat(x))) .|> first
+        mean_, var_ = mean_and_var(post_gp(hcat(x); obsdim=2)) .|> first
         var_ = _clip_var(var_)
         μ = mean_
         σ = sqrt(var_)
         return μ, σ # ::Tuple{<:Real, <:Real}
     end
     function post(X::AbstractMatrix{<:Real})
-        μ, Σ = mean_and_cov(post_gp(X))
+        μ, Σ = mean_and_cov(post_gp(X; obsdim=2))
         return μ, Σ # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
     end
     return post

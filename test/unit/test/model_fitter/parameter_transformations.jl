@@ -94,7 +94,7 @@ end
     nonparametric = Nonparametric(;
         kernel = BOSS.Matern32Kernel(),
         amp_priors = fill(BOSS.LogNormal(), 2),
-        length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+        length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
         noise_std_priors = fill(BOSS.Dirac(0.1), 2),
     )
     semiparametric = Semiparametric(;
@@ -168,7 +168,7 @@ end
     nonparametric = Nonparametric(;
         kernel = BOSS.Matern32Kernel(),
         amp_priors = fill(BOSS.LogNormal(), 2),
-        length_scale_priors = fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2),
+        length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
         noise_std_priors = fill(BOSS.Dirac(0.1), 2),
     )
     semiparametric = Semiparametric(;
@@ -243,28 +243,28 @@ end
         @params (fill(BOSS.Normal(), 4), BOSS.MultivariateDistribution[], BOSS.UnivariateDistribution[], fill(BOSS.Dirac(0.1), 2)) |> Tuple
         @success out == (vcat(fill(true, 4), [false, false]), [0.1, 0.1])
 
-        @params (BOSS.UnivariateDistribution[], fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.LogNormal(), 2)) |> Tuple
+        @params (BOSS.UnivariateDistribution[], fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.LogNormal(), 2)) |> Tuple
         @success out == (fill(true, 8), Float64[])
 
-        @params (BOSS.UnivariateDistribution[], [BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), BOSS.MvLogNormal([1., 1.], [1., 1.])], [BOSS.Dirac(1.), BOSS.LogNormal()], fill(BOSS.LogNormal(), 2)) |> Tuple
+        @params (BOSS.UnivariateDistribution[], [BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), BOSS.mvlognormal([1., 1.], [1., 1.])], [BOSS.Dirac(1.), BOSS.LogNormal()], fill(BOSS.LogNormal(), 2)) |> Tuple
         @success out == (vcat([false, false, true, true], [false, true], fill(true,  2)), [1., 1., 1.])
 
-        @params (BOSS.UnivariateDistribution[], fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.Dirac(0.1), 2)) |> Tuple
+        @params (BOSS.UnivariateDistribution[], fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.Dirac(0.1), 2)) |> Tuple
         @success out == (vcat(fill(true, 6), fill(false, 2)), [0.1, 0.1])
 
-        @params (fill(BOSS.Normal(), 4), fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.LogNormal(), 2)) |> Tuple
+        @params (fill(BOSS.Normal(), 4), fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.LogNormal(), 2)) |> Tuple
         @success out == (fill(true, 12), Float64[])
 
-        @params ([BOSS.Dirac(1.), BOSS.Normal(), BOSS.Dirac(3.), BOSS.Normal()], fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.LogNormal(), 2)) |> Tuple
+        @params ([BOSS.Dirac(1.), BOSS.Normal(), BOSS.Dirac(3.), BOSS.Normal()], fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.LogNormal(), 2)) |> Tuple
         @success out == (vcat([false, true, false, true], fill(true, 8)), [1., 3.])
 
-        @params (fill(BOSS.Normal(), 4), [BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), BOSS.MvLogNormal([1., 1.], [1., 1.])], [BOSS.Dirac(1.), BOSS.LogNormal()], fill(BOSS.LogNormal(), 2)) |> Tuple
+        @params (fill(BOSS.Normal(), 4), [BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), BOSS.mvlognormal([1., 1.], [1., 1.])], [BOSS.Dirac(1.), BOSS.LogNormal()], fill(BOSS.LogNormal(), 2)) |> Tuple
         @success out == (vcat(fill(true, 4), [false, false, true, true], [false, true], fill(true, 2)), [1., 1., 1.])
 
-        @params (fill(BOSS.Normal(), 4), fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.Dirac(0.1), 2)) |> Tuple
+        @params (fill(BOSS.Normal(), 4), fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.Dirac(0.1), 2)) |> Tuple
         @success out == (vcat(fill(true, 10), [false, false]), [0.1, 0.1])
 
-        @params ([BOSS.Dirac(1.), BOSS.Normal(), BOSS.Dirac(3.), BOSS.Normal()], fill(BOSS.MvLogNormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.Dirac(0.1), 2)) |> Tuple
+        @params ([BOSS.Dirac(1.), BOSS.Normal(), BOSS.Dirac(3.), BOSS.Normal()], fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2), fill(BOSS.LogNormal(), 2), fill(BOSS.Dirac(0.1), 2)) |> Tuple
         @success out == (vcat([false, true, false, true], fill(true, 4), fill(true, 2), [false, false]), [1., 3., 0.1, 0.1])
     end
 end

@@ -12,3 +12,11 @@ function calc_inverse_gamma(lb, ub)
     b = μ * ((μ^2 / σ^2) + 1)
     return InverseGamma(a, b)
 end
+
+# This constructor is deprecated in Distributions.jl
+mvnormal(μ::AbstractVector{<:Real}, σ::AbstractVector{<:Real}) =
+    MvNormal(μ, Diagonal(map(abs2, σ)))
+
+# This constructor is deprecated in Distributions.jl
+mvlognormal(μ::AbstractVector{<:Real}, σ::AbstractVector{<:Real}) =
+    MvLogNormal(μ, Diagonal(map(abs2, σ)))
