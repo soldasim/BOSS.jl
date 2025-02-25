@@ -14,12 +14,12 @@
                     θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
                     θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
                 ],
-                theta_priors = fill(BOSS.Normal(), 4),
+                theta_priors = fill(Normal(), 4),
             ),
             nonparametric = Nonparametric(;
-                amp_priors = fill(BOSS.LogNormal(), 2),
+                amp_priors = fill(LogNormal(), 2),
                 length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
-                noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
+                noise_std_priors = fill(Dirac(1e-4), 2),
             ),
         ),
         data = ExperimentDataPrior(X, Y),
@@ -72,12 +72,12 @@ end
                     θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
                     θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
                 ],
-                theta_priors = fill(BOSS.Normal(), 4),
+                theta_priors = fill(Normal(), 4),
             ),
             nonparametric = Nonparametric(;
-                amp_priors = fill(BOSS.LogNormal(), 2),
+                amp_priors = fill(LogNormal(), 2),
                 length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
-                noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
+                noise_std_priors = fill(Dirac(1e-4), 2),
             ),
         ),
         data = ExperimentDataPrior(X, Y),
@@ -124,12 +124,12 @@ end
                 θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
                 θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
             ],
-            theta_priors = fill(BOSS.Normal(), 4),
+            theta_priors = fill(Normal(), 4),
         ),
         nonparametric = Nonparametric(;
             length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
-            amp_priors = fill(BOSS.LogNormal(), 2),
-            noise_std_priors = fill(BOSS.LogNormal(), 2),
+            amp_priors = fill(LogNormal(), 2),
+            noise_std_priors = fill(LogNormal(), 2),
         ),
     )
     data = ExperimentDataPrior(X, Y)
@@ -153,12 +153,12 @@ end
 @testset "data_loglike(model, X, Y, params)" begin
     parametric = NonlinModel(;
         predict = (x, θ) -> [θ[1] * x[1]],
-        theta_priors = fill(BOSS.Dirac(1.), 1),
+        theta_priors = fill(Dirac(1.), 1),
     )
     nonparametric = Nonparametric(;
-        amp_priors = fill(BOSS.LogNormal(), 1),
-        length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 1)), 1),
-        noise_std_priors = fill(BOSS.Dirac(0.1), 1),
+        amp_priors = fill(LogNormal(), 1),
+        length_scale_priors = fill(product_distribution(fill(Dirac(1.), 1)), 1),
+        noise_std_priors = fill(Dirac(0.1), 1),
     )
     model = Semiparametric(;
         parametric,
@@ -193,12 +193,12 @@ end
                 θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
                 θ[3] * cos(x[1]) + θ[4] * exp(x[2]),    
             ],
-            theta_priors = fill(BOSS.Dirac(1.), 4),
+            theta_priors = fill(Dirac(1.), 4),
         ),
         Nonparametric(;
-            length_scale_priors = fill(BOSS.product_distribution(fill(BOSS.Dirac(1.), 2)), 2),
-            amp_priors = fill(BOSS.Dirac(1.), 2),
-            noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+            length_scale_priors = fill(product_distribution(fill(Dirac(1.), 2)), 2),
+            amp_priors = fill(Dirac(1.), 2),
+            noise_std_priors = fill(Dirac(0.1), 2),
         ),
     )
 

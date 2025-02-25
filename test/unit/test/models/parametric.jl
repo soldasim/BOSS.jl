@@ -3,7 +3,7 @@
     @param_test LinModel begin
         @params (
             (x) -> [[sin(x[1]), exp(x[1])]],
-            [BOSS.Normal(), BOSS.Normal()],  # irrelevant
+            [Normal(), Normal()],  # irrelevant
             nothing,
             nothing,
         )
@@ -14,7 +14,7 @@
 
         @params (
             (x) -> [[sin(x[1]), exp(x[1])]],
-            [BOSS.Normal(), BOSS.Normal()],  # irrelevant
+            [Normal(), Normal()],  # irrelevant
             [true],
             nothing,
         )
@@ -29,7 +29,7 @@ end
     @param_test NonlinModel begin
         @params (
             (x, θ) -> [θ[1] * sin(θ[2] * x[1]) + exp(θ[3] * x[1])],
-            fill(BOSS.Normal(), 3),  # irrelevant
+            fill(Normal(), 3),  # irrelevant
             nothing,
             nothing,
         )
@@ -40,7 +40,7 @@ end
 
         @params (
             (x, θ) -> [θ[1] * sin(θ[2] * x[1]) + exp(θ[3] * x[1])],
-            fill(BOSS.Normal(), 3),  # irrelevant
+            fill(Normal(), 3),  # irrelevant
             [true],
             nothing,
         )
@@ -57,9 +57,9 @@ end
             NonlinModel,
             LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[1])]],
-                theta_priors = [BOSS.Normal(), BOSS.Normal()],
+                theta_priors = [Normal(), Normal()],
                 discrete = nothing,
-                noise_std_priors = [BOSS.Dirac(0.1)],
+                noise_std_priors = [Dirac(0.1)],
             ),
         )
         @success (
@@ -73,9 +73,9 @@ end
             NonlinModel,
             LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[1])]],
-                theta_priors = [BOSS.Normal(), BOSS.Normal()],
+                theta_priors = [Normal(), Normal()],
                 discrete = [true],
-                noise_std_priors = [BOSS.Dirac(0.1)],
+                noise_std_priors = [Dirac(0.1)],
             ),
         )
         @success (
@@ -92,7 +92,7 @@ end
         @params (
             LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
-                theta_priors = [BOSS.Normal(), BOSS.Normal()],
+                theta_priors = [Normal(), Normal()],
                 discrete = nothing,
             ),
             [false, true],
@@ -100,7 +100,7 @@ end
         @params (
             NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
-                theta_priors = [BOSS.Normal(), BOSS.Normal()],
+                theta_priors = [Normal(), Normal()],
                 discrete = nothing,
             ),
             [false, true],
@@ -114,7 +114,7 @@ end
         @params (
             LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
-                theta_priors = [BOSS.Normal(), BOSS.Normal()],
+                theta_priors = [Normal(), Normal()],
                 discrete = [false, true],
             ),
             [false, true],
@@ -122,7 +122,7 @@ end
         @params (
             NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
-                theta_priors = [BOSS.Normal(), BOSS.Normal()],
+                theta_priors = [Normal(), Normal()],
                 discrete = [false, true],
             ),
             [false, true],
@@ -135,7 +135,7 @@ end
         @params (
             LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
-                theta_priors = [BOSS.Normal(), BOSS.Normal()],
+                theta_priors = [Normal(), Normal()],
                 discrete = nothing,
             ),
             [false, false],
@@ -143,7 +143,7 @@ end
         @params (
             NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
-                theta_priors = [BOSS.Normal(), BOSS.Normal()],
+                theta_priors = [Normal(), Normal()],
                 discrete = nothing,
             ),
             [false, false],
@@ -173,18 +173,18 @@ end
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
         ],
-        theta_priors = fill(BOSS.Normal(), 4),
+        theta_priors = fill(Normal(), 4),
         discrete = nothing,
-        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
+        noise_std_priors = fill(Dirac(1e-4), 2),
     )
     nonlin_model = NonlinModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
         ],
-        theta_priors = fill(BOSS.Normal(), 4),
+        theta_priors = fill(Normal(), 4),
         discrete = nothing,
-        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
+        noise_std_priors = fill(Dirac(1e-4), 2),
     )
 
     problem_lin = problem(lin_model)
@@ -243,18 +243,18 @@ end
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
         ],
-        theta_priors = fill(BOSS.Normal(), 4),
+        theta_priors = fill(Normal(), 4),
         discrete = nothing,
-        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
+        noise_std_priors = fill(Dirac(1e-4), 2),
     )
     nonlin_model = NonlinModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
         ],
-        theta_priors = fill(BOSS.Normal(), 4),
+        theta_priors = fill(Normal(), 4),
         discrete = nothing,
-        noise_std_priors = fill(BOSS.Dirac(1e-4), 2),
+        noise_std_priors = fill(Dirac(1e-4), 2),
     )
 
     problem_lin = problem(lin_model)
@@ -304,18 +304,18 @@ end
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
         ],
-        theta_priors = fill(BOSS.Normal(), 4),
+        theta_priors = fill(Normal(), 4),
         discrete = nothing,
-        noise_std_priors = fill(BOSS.LogNormal(), 2),
+        noise_std_priors = fill(LogNormal(), 2),
     )
     nonlin_model = NonlinModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
         ],
-        theta_priors = fill(BOSS.Normal(), 4),
+        theta_priors = fill(Normal(), 4),
         discrete = nothing,
-        noise_std_priors = fill(BOSS.LogNormal(), 2),
+        noise_std_priors = fill(LogNormal(), 2),
     )
     data = ExperimentDataPrior(X, Y)
 
@@ -343,16 +343,16 @@ end
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
         ],
-        theta_priors = fill(BOSS.Dirac(1.), 4),
-        noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+        theta_priors = fill(Dirac(1.), 4),
+        noise_std_priors = fill(Dirac(0.1), 2),
     )
     nonlin_model = NonlinModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),    
         ],
-        theta_priors = fill(BOSS.Dirac(1.), 4),
-        noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+        theta_priors = fill(Dirac(1.), 4),
+        noise_std_priors = fill(Dirac(0.1), 2),
     )
 
     @param_test BOSS.data_loglike begin
@@ -396,16 +396,16 @@ end
         @params (
             LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
-                theta_priors = [BOSS.Normal(), BOSS.Normal()],
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                theta_priors = [Normal(), Normal()],
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             ([1., 1.], nothing, nothing, [0.1, 0.1]),
         )
         @params (
             NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
-                theta_priors = [BOSS.Normal(), BOSS.Normal()],
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                theta_priors = [Normal(), Normal()],
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             ([1., 1.], nothing, nothing, [0.1, 0.1]),
         )
@@ -414,16 +414,16 @@ end
         @params (
             LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
-                theta_priors = fill(BOSS.Dirac(1.), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                theta_priors = fill(Dirac(1.), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             ([1., 1.], nothing, nothing, [0.1, 0.1]),
         )
         @params (
             NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
-                theta_priors = fill(BOSS.Dirac(1.), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                theta_priors = fill(Dirac(1.), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             ([1., 1.], nothing, nothing, [0.1, 0.1]),
         )
@@ -432,32 +432,32 @@ end
         @params (
             LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
-                theta_priors = fill(BOSS.Dirac(1.), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                theta_priors = fill(Dirac(1.), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             ([1., 5.], nothing, nothing, [0.1, 0.1]),
         )
         @params (
             LinModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
-                theta_priors = fill(BOSS.Dirac(1.), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                theta_priors = fill(Dirac(1.), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             ([1., 1.], nothing, nothing, [0.1, 0.5]),
         )
         @params (
             NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
-                theta_priors = fill(BOSS.Dirac(1.), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                theta_priors = fill(Dirac(1.), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             ([1., 5.], nothing, nothing, [0.1, 0.1]),
         )
         @params (
             NonlinModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
-                theta_priors = fill(BOSS.Dirac(1.), 2),
-                noise_std_priors = fill(BOSS.Dirac(0.1), 2),
+                theta_priors = fill(Dirac(1.), 2),
+                noise_std_priors = fill(Dirac(0.1), 2),
             ),
             ([1., 1.], nothing, nothing, [0.1, 0.5]),
         )

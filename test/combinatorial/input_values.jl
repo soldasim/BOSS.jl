@@ -6,6 +6,9 @@ import ..PARALLEL_TESTS
 using ..BOSS
 using ..FileUtils
 
+using Distributions
+using KernelFunctions
+
 
 # - - - List of All Inputs - - - - -
 
@@ -21,8 +24,8 @@ function OBJ_FUNC(x; noise_std=0.1)
     y = exp(x[1]/10) * cos(2*x[1])
     z = (1/2)^6 * (x[1]^2 - (15.)^2)
     
-    y += rand(BOSS.Normal(0., noise_std))
-    z += rand(BOSS.Normal(0., noise_std))
+    y += rand(Normal(0., noise_std))
+    z += rand(Normal(0., noise_std))
 
     return [y,z]
 end
@@ -70,9 +73,9 @@ const y_max_DICT = Dict(
 )
 
 const noise_std_priors_DICT = Dict(
-    "with_Dirac" => fill(BOSS.Dirac(0.1), 2),
-    "wo_Dirac" => fill(BOSS.LogNormal(-2.3, 1.), 2),
-    "*" => fill(BOSS.Dirac(0.1), 2),
+    "with_Dirac" => fill(Dirac(0.1), 2),
+    "wo_Dirac" => fill(LogNormal(-2.3, 1.), 2),
+    "*" => fill(Dirac(0.1), 2),
 )
 
 const ModelFitter_parallel_DICT = Dict(
@@ -99,10 +102,10 @@ const Parametric_predict_DICT = Dict(
 )
 
 const Parametric_theta_priors_DICT = Dict(
-    "with_Dirac" => [BOSS.Normal(0., 1.), BOSS.Normal(0., 1.), BOSS.Dirac(0.)],
-    "wo_Dirac" => fill(BOSS.Normal(0., 1.), 3),
+    "with_Dirac" => [Normal(0., 1.), Normal(0., 1.), Dirac(0.)],
+    "wo_Dirac" => fill(Normal(0., 1.), 3),
     "INACTIVE" => nothing,
-    "*" => fill(BOSS.Normal(0., 1.), 3),
+    "*" => fill(Normal(0., 1.), 3),
 )
 
 const Nonparametric_mean_DICT = Dict(
@@ -113,23 +116,23 @@ const Nonparametric_mean_DICT = Dict(
 )
 
 const Nonparametric_kernel_DICT = Dict(
-    "valid" => BOSS.Matern32Kernel(),
+    "valid" => Matern32Kernel(),
     "INACTIVE" => nothing,
-    "*" => BOSS.Matern32Kernel(),
+    "*" => Matern32Kernel(),
 )
 
 const Nonparametric_amp_priors_DICT = Dict(
-    "with_Dirac" => fill(BOSS.Dirac(1.), 2),
-    "wo_Dirac" => fill(BOSS.LogNormal(), 2),
+    "with_Dirac" => fill(Dirac(1.), 2),
+    "wo_Dirac" => fill(LogNormal(), 2),
     "INACTIVE" => nothing,
-    "*" => fill(BOSS.LogNormal(), 2),
+    "*" => fill(LogNormal(), 2),
 )
 
 const Nonparametric_length_scale_priors_DICT = Dict(
-    "with_Dirac" => fill(BOSS.product_distribution([BOSS.Dirac(1.)]), 2),
-    "wo_Dirac" => fill(BOSS.MvLogNormal(0.1*ones(1), 1.0*ones(1)), 2),
+    "with_Dirac" => fill(product_distribution([Dirac(1.)]), 2),
+    "wo_Dirac" => fill(MvLogNormal(0.1*ones(1), 1.0*ones(1)), 2),
     "INACTIVE" => nothing,
-    "*" => fill(BOSS.MvLogNormal(0.1*ones(1), 1.0*ones(1)), 2),
+    "*" => fill(MvLogNormal(0.1*ones(1), 1.0*ones(1)), 2),
 )
 
 const Semiparametric_mean_DICT = Dict(

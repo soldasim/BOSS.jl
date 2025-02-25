@@ -4,7 +4,7 @@
         fitness = LinFitness([1.]),
         f = x -> [sin(x[1])],
         domain = Domain(; bounds=([0.], [10.])),
-        model = Nonparametric(; amp_priors=[BOSS.LogNormal()], length_scale_priors=[BOSS.mvlognormal([1.], [1.])], noise_std_priors=[BOSS.Dirac(0.1)]),
+        model = Nonparametric(; amp_priors=[LogNormal()], length_scale_priors=[BOSS.mvlognormal([1.], [1.])], noise_std_priors=[Dirac(0.1)]),
         data = ExperimentDataPrior(hcat([1.,2.,3.]...), hcat(sin.([1.,2.,3.])...)),
     )
 
