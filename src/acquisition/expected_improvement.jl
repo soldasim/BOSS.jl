@@ -75,7 +75,7 @@ end
     end
 
 # Construct averaged acquisition function from multiple sampled posteriors.
-function (ei::ExpectedImprovement)(fitness::Fitness, posteriors::AbstractVector{<:Function}, constraints::Union{Nothing, <:AbstractVector{<:Real}}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Union{Nothing, <:Real})
+function (ei::ExpectedImprovement)(fitness::Fitness, posteriors::AbstractVector{<:Function}, constraints::Union{Nothing, AbstractVector{<:Real}}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Union{Nothing, Real})
     acqs = ei.(Ref(fitness), posteriors, Ref(constraints), eachcol(ϵ_samples), Ref(best_yet))
     x -> mapreduce(a_ -> a_(x), +, acqs) / length(acqs)
 end

@@ -4,20 +4,24 @@ An abstract type for a surrogate model approximating the objective function.
 
 Example usage: `struct CustomModel <: SurrogateModel ... end`
 
-All models *should* implement:
-- `make_discrete(model::CustomModel, discrete::AbstractVector{<:Bool}) -> discrete_model::CustomModel`
+# The Surrogate Model API
+
+All models *should* implement *at least one* of:
 - `model_posterior(model::CustomModel, data::ExperimentDataMAP) -> (x -> mean, std)`
+- `model_posterior_slice(model::CustomModel, data::ExperimentDataMAP, slice::Int) -> (x -> mean, std)`
+
+All models *should* implement:
 - `model_loglike(model::CustomModel, data::ExperimentData) -> (::ModelParams -> ::Real)`
 - `sample_params(model::CustomModel) -> ::ModelParams`
 - `param_priors(model::CustomModel) -> ::ParamPriors`
 
 Models *may* implement:
-- `sliceable(::CustomModel) -> ::Bool`
-- `model_posterior_slice(model::CustomModel, data::ExperimentDataMAP, slice::Int) -> (x -> mean, std)`
+- `make_discrete(model::CustomModel, discrete::AbstractVector{<:Bool}) -> discrete_model::CustomModel`
+- `sliceable(::CustomModel) = true` (false by default)
 
 If `sliceable(::CustomModel) == true`, then the model *should* additionally implement:
-- `model_loglike_slice(model::SliceableModel, data::ExperimentData, slice::Int) -> (::ModelParams -> ::Real)`
-- `θ_slice(model::SliceableModel, idx::Int) -> Union{Nothing, UnitRange{<:Int}}`
+- `slice(model::CustomModel, slice::Int) -> model_slice::CustomModel`
+- `θ_slice(model::CustomModel, idx::Int) -> Union{Nothing, UnitRange{<:Int}}`
 
 See also:
 [`LinModel`](@ref), [`NonlinModel`](@ref),
@@ -35,15 +39,26 @@ See [`SurrogateModel`](@ref).
 """
 sliceable(::SurrogateModel) = false
 
-# Broadcast over hyperparameter samples
-model_posterior(model::SurrogateModel, data::ExperimentDataBI) =
-    model_posterior.(Ref(model), eachsample(data))
+# General method for surrogate models only implementing `model_posterior_slice`.
+function model_posterior(model::SurrogateModel, data::ExperimentDataMAP)
+    slices = model_posterior_slice.(Ref(model), Ref(data), 1:y_dim(data))
 
-# Broadcast over hyperparameter samples
-model_posterior_slice(model::SurrogateModel, data::ExperimentDataBI, slice::Int) =
-    model_posterior_slice.(Ref(model), eachsample(data), Ref(slice))
+    function post(x::AbstractVector{<:Real})
+        means_and_stds = [s(x) for s in slices]
+        μs = first.(means_and_stds)
+        σs = second.(means_and_stds)
+        return μs, σs # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
+    end
+    function post(X::AbstractMatrix{<:Real})
+        means_and_covs = [s(X) for s in slices]
+        μs = reduce(hcat, first.(means_and_covs))
+        Σs = reduce((a,b) -> cat(a,b; dims=3), second.(means_and_covs))
+        return μs, Σs # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}}
+    end
+    return post
+end
 
-# Unspecialized method which brings no computational advantage over `model_posterior`.
+# General method for surrogate models only implementing `model_posterior`.
 function model_posterior_slice(model::SurrogateModel, data::ExperimentDataMAP, slice::Int)
     posterior = model_posterior(model, data)
     
@@ -60,6 +75,14 @@ function model_posterior_slice(model::SurrogateModel, data::ExperimentDataMAP, s
         return μ, Σ # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
     end
 end
+
+# Broadcast over hyperparameter samples
+model_posterior(model::SurrogateModel, data::ExperimentDataBI) =
+    model_posterior.(Ref(model), eachsample(data))
+
+# Broadcast over hyperparameter samples
+model_posterior_slice(model::SurrogateModel, data::ExperimentDataBI, slice::Int) =
+    model_posterior_slice.(Ref(model), eachsample(data), Ref(slice))
 
 """
 Return an averaged posterior predictive distribution of the given posteriors.

@@ -5,7 +5,7 @@ An abstract type for parametric surrogate models.
 See also: [`LinModel`](@ref), [`NonlinModel`](@ref)
 """
 abstract type Parametric{
-    N<:Union{Nothing, <:NoiseStdPriors},
+    N<:Union{Nothing, NoiseStdPriors},
 } <: SurrogateModel end
 
 (model::Parametric)(θ::AbstractVector{<:Real}) = x -> model(x, θ)
@@ -42,8 +42,8 @@ and ``n, m, p ∈ R``.
 """
 @kwdef struct LinModel{
     P<:AbstractVector{<:UnivariateDistribution},
-    D<:Union{Nothing, <:AbstractVector{<:Bool}},
-    N<:Union{Nothing, <:NoiseStdPriors},
+    D<:Union{Nothing, AbstractVector{<:Bool}},
+    N<:Union{Nothing, NoiseStdPriors},
 } <: Parametric{N}
     lift::Function
     theta_priors::P
@@ -68,8 +68,8 @@ Define the model as `y = predict(x, θ)` where `θ` are the model parameters.
 """
 @kwdef struct NonlinModel{
     P<:AbstractVector{<:UnivariateDistribution},
-    D<:Union{Nothing, <:AbstractVector{<:Bool}},
-    N<:Union{Nothing, <:NoiseStdPriors},
+    D<:Union{Nothing, AbstractVector{<:Bool}},
+    N<:Union{Nothing, NoiseStdPriors},
 } <: Parametric{N}
     predict::Function
     theta_priors::P

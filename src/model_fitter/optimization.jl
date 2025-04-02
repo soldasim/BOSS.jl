@@ -6,7 +6,7 @@ Finds the MAP estimate of the model parameters and hyperparameters using the Opt
 
 # Keywords
 - `algorithm::Any`: Defines the optimization algorithm.
-- `multistart::Union{Int, Matrix{Float64}}`: The number of optimization restarts,
+- `multistart::Union{Int, AbstractVector{ModelParams}}`: The number of optimization restarts,
         or a vector of tuples `(θ, λ, α)` containing initial (hyper)parameter values for the optimization runs.
 - `parallel::Bool`: If `parallel=true` then the individual restarts are run in parallel.
 - `softplus_hyperparams::Bool`: If `softplus_hyperparams=true` then the softplus function
@@ -19,7 +19,7 @@ Finds the MAP estimate of the model parameters and hyperparameters using the Opt
 """
 struct OptimizationMAP{
     A<:Any,
-    S<:Union{<:Int, <:AbstractVector{<:ModelParams}},
+    S<:Union{Int, AbstractVector{ModelParams}},
 } <: ModelFitter{MAP}
     algorithm::A
     multistart::S

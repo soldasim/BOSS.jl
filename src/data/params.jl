@@ -17,22 +17,22 @@ Example: `[1., 2., 3.] isa Theta`
 const Theta = Union{Nothing, AbstractVector{<:Real}}
 
 """
-    const LengthScales = Union{Nothing, <:AbstractMatrix{<:Real}}
+    const LengthScales = Union{Nothing, AbstractMatrix{<:Real}}
 
 Length scales of the GP as a `x_dim`×`y_dim` matrix, or `nothing` if the model is purely parametric.
 
 Example: `[1.;5.;; 1.;5.;;] isa LengthScales`
 """
-const LengthScales = Union{Nothing, <:AbstractMatrix{<:Real}}
+const LengthScales = Union{Nothing, AbstractMatrix{<:Real}}
 
 """
-    const Amplitudes = Union{Nothing, <:AbstractVector{<:Real}}
+    const Amplitudes = Union{Nothing, AbstractVector{<:Real}}
 
 Amplitudes of the GP, or `nothing` if the model is purely parametric.
 
 Example: `[1., 5.] isa Amplitudes`
 """
-const Amplitudes = Union{Nothing, <:AbstractVector{<:Real}}
+const Amplitudes = Union{Nothing, AbstractVector{<:Real}}
 
 """
     const NoiseStd = AbstractVector{<:Real}
@@ -82,18 +82,18 @@ Prior of [`Theta`](@ref).
 const ThetaPriors = Union{Nothing, AbstractVector{<:UnivariateDistribution}}
 
 """
-    const LengthScalePriors = Union{Nothing, <:AbstractVector{<:MultivariateDistribution}}
+    const LengthScalePriors = Union{Nothing, AbstractVector{<:MultivariateDistribution}}
 
 Prior of [`LengthScales`](@ref).
 """
-const LengthScalePriors = Union{Nothing, <:AbstractVector{<:MultivariateDistribution}}
+const LengthScalePriors = Union{Nothing, AbstractVector{<:MultivariateDistribution}}
 
 """
-    const AmplitudePriors = Union{Nothing, <:AbstractVector{<:UnivariateDistribution}}
+    const AmplitudePriors = Union{Nothing, AbstractVector{<:UnivariateDistribution}}
 
 Prior of [`Amplitudes`](@ref).
 """
-const AmplitudePriors = Union{Nothing, <:AbstractVector{<:UnivariateDistribution}}
+const AmplitudePriors = Union{Nothing, AbstractVector{<:UnivariateDistribution}}
 
 """
     const NoiseStdPriors = AbstractVector{<:UnivariateDistribution}

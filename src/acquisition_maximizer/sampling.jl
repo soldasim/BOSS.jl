@@ -74,6 +74,6 @@ function rand_in_discrete_(x_prior::MultivariateDistribution, discrete::Abstract
     return x
 end
 
-function reduce_samples_(xs::AbstractVector{<:Union{Nothing, <:AbstractVector{<:Real}}})
+function reduce_samples_(xs::AbstractVector{<:Union{Nothing, AbstractVector{<:Real}}})
     return hcat(filter(!isnothing, xs)...)
 end

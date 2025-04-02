@@ -195,7 +195,7 @@ end
 @testset "_clip_var(var)" begin
     max_neg_var = 1e-8
 
-    @param_test var -> BOSS._clip_var(var; treshold=max_neg_var) begin
+    @param_test var -> BOSS._clip_var(var; threshold=max_neg_var) begin
         @params 0.
         @params 1e-9
         @params 1e-8

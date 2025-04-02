@@ -70,84 +70,14 @@ mean_slice(mean::Function, idx::Int) = x -> mean(x)[idx]
 
 θ_slice(::GaussianProcess, ::Int) = nothing
 
-"""
-    DiscreteKernel(kernel::Kernel, dims::AbstractVector{Bool})
-    DiscreteKernel(kernel::Kernel)
-
-A kernel for dealing with discrete variables.
-It is used as a wrapper around any other `AbstractGPs.Kernel`.
-
-The field `dims` can be used to specify only some dimension as discrete.
-All dimensions are considered as discrete if `dims` is not provided.
-
-This structure is used internally by the BOSS algorithm.
-The end user of BOSS.jl is not expected to use this structure.
-Use the `Domain` passed to the `BossProblem`
-to define discrete dimensions instead.
-
-See also: `BossProblem`(@ref)
-
-# Examples:
-```julia-repl
-julia> BOSS.DiscreteKernel(BOSS.Matern32Kernel())
-BOSS.DiscreteKernel{Missing}(Matern 3/2 Kernel (metric = Distances.Euclidean(0.0)), missing)
-
-julia> BOSS.DiscreteKernel(BOSS.Matern32Kernel(), [true, false, false])
-BOSS.DiscreteKernel{Vector{Bool}}(Matern 3/2 Kernel (metric = Distances.Euclidean(0.0)), Bool[1, 0, 0])
-
-julia> 
-```
-"""
-@kwdef struct DiscreteKernel{D} <: Kernel where {
-    D<:Union{Missing, AbstractVector{Bool}},
-}
-    kernel::Kernel
-    dims::D
-end
-DiscreteKernel(kernel::Kernel) = DiscreteKernel(kernel, missing)
-
-function (dk::DiscreteKernel)(x1, x2)
-    r(x) = discrete_round(dk.dims, x)
-    dk.kernel(r(x1), r(x2))
-end
-
-KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscale::Real) =
-    DiscreteKernel(with_lengthscale(dk.kernel, lengthscale), dk.dims)
-KernelFunctions.with_lengthscale(dk::DiscreteKernel, lengthscales::AbstractVector{<:Real}) =
-    DiscreteKernel(with_lengthscale(dk.kernel, lengthscales), dk.dims)
-
-# Necessary to make `DiscreteKernel` work with ForwardDiff.jl.
-# See: https://github.com/soldasim/BOSS.jl/issues/4
-KernelFunctions.kernelmatrix_diag(dk::DiscreteKernel, x::AbstractVector) =
-    kernelmatrix_diag(dk.kernel, discrete_round.(Ref(dk.dims), x))
-
 make_discrete(m::GaussianProcess, discrete::AbstractVector{<:Bool}) =
     GaussianProcess(m.mean, make_discrete(m.kernel, discrete), m.amp_priors, m.length_scale_priors, m.noise_std_priors)
 
-make_discrete(k::Kernel, discrete::AbstractVector{<:Bool}) = DiscreteKernel(k, discrete)
-make_discrete(k::DiscreteKernel, discrete::AbstractVector{<:Bool}) = make_discrete(k.kernel, discrete)
-
-function model_posterior(model::GaussianProcess, data::ExperimentDataMAP)
-    slices = model_posterior_slice.(Ref(model), Ref(data), 1:y_dim(data))
-
-    function post(x::AbstractVector{<:Real})
-        means_and_stds = [s(x) for s in slices]
-        μs = first.(means_and_stds)
-        σs = second.(means_and_stds)
-        return μs, σs # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
-    end
-    function post(X::AbstractMatrix{<:Real})
-        means_and_covs = [s(X) for s in slices]
-        μs = reduce(hcat, first.(means_and_covs))
-        Σs = reduce((a,b) -> cat(a,b; dims=3), second.(means_and_covs))
-        return μs, Σs # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}}
-    end
-    return post
-end
-
 function model_posterior_slice(model::GaussianProcess, data::ExperimentDataMAP, slice::Int)
     post_gp = posterior_gp(model, data, slice)
-    
+    return model_posterior_slice(post_gp)
+end
+function model_posterior_slice(post_gp::AbstractGPs.PosteriorGP)    
     function post(x::AbstractVector{<:Real})
         mean_, var_ = mean_and_var(post_gp(hcat(x); obsdim=2)) .|> first
         var_ = _clip_var(var_)
@@ -162,13 +92,13 @@ function model_posterior_slice(model::GaussianProcess, data::ExperimentDataMAP, 
     return post
 end
 
-function _clip_var(var::Number;
-    treshold = MAX_NEG_VAR,    
+function _clip_var(var::Real;
+    threshold = MAX_NEG_VAR,    
 )
     (var >= zero(var)) && return var
-    (var >= -treshold) && return zero(var)
+    (var >= -threshold) && return zero(var)
     throw(DomainError(var,
-        "The posterior GP predicted variance $var but only values above -$treshold are tolerated."
+        "The posterior GP predicted variance $var but only values above -$threshold are tolerated."
     ))
 end
 
@@ -232,10 +162,11 @@ function data_loglike(
     means = mean_slice.(Ref(model.mean), 1:y_dim)
     θ, λ, α, noise_std = params
 
-    return sum(data_loglike_slice.(Ref(X), eachrow(Y), means, Ref(model.kernel), eachcol(λ), α, noise_std))
+    return sum(data_loglike_slice.(Ref(model), Ref(X), eachrow(Y), means, Ref(model.kernel), eachcol(λ), α, noise_std))
 end
 
 function data_loglike_slice(
+    ::GaussianProcess,
     X::AbstractMatrix{<:Real},
     y::AbstractVector{<:Real},
     mean::Union{Nothing, Function},
