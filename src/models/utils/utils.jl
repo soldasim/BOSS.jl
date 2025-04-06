@@ -7,6 +7,23 @@ const AmplitudePriors = AbstractVector{<:UnivariateDistribution}
 const NoiseStdPriors = AbstractVector{<:UnivariateDistribution}
 
 """
+    NoBijector()
+
+An auxiliary bijector, which realizes the identity transformation,
+but only works on empty vectors.
+"""
+struct NoBijector <: Bijectors.Bijector end
+
+Bijectors.inverse(b::NoBijector) = b
+
+function Bijectors.transform(::NoBijector, x::AbstractVector)
+    @assert isempty(x)
+    return x
+end
+
+Bijectors.logabsdetjac(::NoBijector, x::AbstractVector) = zero(eltype(x))
+
+"""
     default_bijector(priors::AbstractVector{<:Distribution}) -> ::Bijectors.Transform
 
 Create a `bijector` for a `SurrogateModel` based on the bijectors defined
@@ -18,7 +35,7 @@ and should not be included in the vectorized parameters. See `vectorizer` for mo
 function default_bijector(priors::AbstractVector{<:Distribution})
     priors_ = filter_dirac_priors(priors)
     
-    isempty(priors_) && return nothing
+    isempty(priors_) && return NoBijector()
 
     return Stacked(
         Bijectors.bijector.(priors_),
