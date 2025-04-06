@@ -1,5 +1,12 @@
 
 """
+    apply(f, x) = f(x)
+
+Auxiliary function useful for broadcasting.
+"""
+apply(f, x) = f(x)
+
+"""
     ith(i)(collection) == collection[i]
     ith(i).(collections) == [c[i] for c in collections]
 """

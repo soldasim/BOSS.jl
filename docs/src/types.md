@@ -131,6 +131,13 @@ Semiparametric
 SemiparametricParams
 ```
 
+Other provided surrogate models include: [`NonstationaryGP`](@ref)
+
+```@docs
+NonstationaryGP
+NonstationaryGPParams
+```
+
 Custom surrogate models can be defined by subtyping the [`SurrogateModel`](@ref) type.
 
 ## Model Posterior

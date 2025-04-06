@@ -30,6 +30,7 @@ export SurrogateModel, ModelParams, AbstractModelPosterior, ModelPosterior, Mode
 export Parametric, LinearModel, NonlinearModel, ParametricParams, ParametricPosterior
 export Nonparametric, GaussianProcess, GaussianProcessParams, GaussianProcessPosterior
 export Semiparametric, SemiparametricParams
+export NonstationaryGP, NonstationaryGPParams, ParametrizedGP, ParametrizedGPParams
 
 # Parameters
 export FittedParams, UniFittedParams, MultiFittedParams
@@ -77,6 +78,7 @@ using InteractiveUtils
 using Distributed
 using Bijectors
 using InverseFunctions
+using SpecialFunctions # for models/nonstationary_gp/beta_workaround.jl
 
 include("include.jl")
 
