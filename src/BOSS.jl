@@ -28,6 +28,7 @@ export Parametric, LinearModel, NonlinearModel, ParametricParams
 export Nonparametric, GaussianProcess, GaussianProcessParams
 export Semiparametric, SemiparametricParams
 export IBNN, IBNNLayer, IBNNPriors, IBNNReLU, IBNNParams
+export NonstationaryGP, NonstationaryGPParams, ParametrizedGP, ParametrizedGPParams
 
 # Parameters
 export FittedParams, UniFittedParams, MultiFittedParams
@@ -72,6 +73,7 @@ using InteractiveUtils
 using Distributed
 using Bijectors
 using InverseFunctions
+using SpecialFunctions # for models/nonstationary_gp/beta_workaround.jl
 
 include("include.jl")
 
