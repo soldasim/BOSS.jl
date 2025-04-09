@@ -8,6 +8,7 @@ using ..FileUtils
 
 using Distributions
 using KernelFunctions
+using LinearAlgebra
 
 
 # - - - List of All Inputs - - - - -
@@ -121,18 +122,18 @@ const Nonparametric_kernel_DICT = Dict(
     "*" => Matern32Kernel(),
 )
 
-const Nonparametric_amp_priors_DICT = Dict(
+const Nonparametric_amplitude_priors_DICT = Dict(
     "with_Dirac" => fill(Dirac(1.), 2),
     "wo_Dirac" => fill(LogNormal(), 2),
     "INACTIVE" => nothing,
     "*" => fill(LogNormal(), 2),
 )
 
-const Nonparametric_length_scale_priors_DICT = Dict(
+const Nonparametric_lengthscale_priors_DICT = Dict(
     "with_Dirac" => fill(product_distribution([Dirac(1.)]), 2),
-    "wo_Dirac" => fill(MvLogNormal(0.1*ones(1), 1.0*ones(1)), 2),
+    "wo_Dirac" => fill(MvLogNormal(0.1*ones(1), I(1)), 2),
     "INACTIVE" => nothing,
-    "*" => fill(MvLogNormal(0.1*ones(1), 1.0*ones(1)), 2),
+    "*" => fill(MvLogNormal(0.1*ones(1), I(1)), 2),
 )
 
 const Semiparametric_mean_DICT = Dict(

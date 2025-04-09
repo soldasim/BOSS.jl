@@ -57,8 +57,8 @@ Usually, we will use a Gaussian process.
 ```julia
 nonparametric() = GaussianProcess(;
     kernel = BOSS.Matern32Kernel(),
-    amp_priors = amplitude_priors(),
-    length_scale_priors = length_scale_priors(),
+    amplitude_priors = amplitude_priors(),
+    lengthscale_priors = lengthscale_priors(),
     noise_std_priors = noise_std_priors(),
 )
 ```
@@ -68,7 +68,7 @@ nonparametric() = GaussianProcess(;
 If we have some knowledge about the blackbox function, we can define a parametric model.
 
 ```julia
-parametric() = NonlinModel(;
+parametric() = NonlinearModel(;
     predict = (x, θ) -> [
         θ[1] * x[1] * cos(θ[2] * x[1]) + θ[3],
         0.,
@@ -124,8 +124,8 @@ amplitude_priors() = fill(truncated(Normal(0., 5.); lower=0.), 2)
 Informally, the length scales of the Gaussian process define how far within the input domain does the model extrapolate the information obtained from the dataset. For each output dimension, we define a multivariate prior over all input dimensions. (In our case two 1-variate priors.)
 
 ```julia
-length_scale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2)
-# length_scale_priors() = fill(Product(fill(Dirac(1.), 1)), 2)
+lengthscale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2)
+# lengthscale_priors() = fill(Product(fill(Dirac(1.), 1)), 2)
 ```
 
 ## Model Fitter
@@ -160,7 +160,7 @@ bi_fitter() = TuringBI(;
 )
 ```
 
-See also [`SamplingMAP`](@ref) and [`RandomMAP`](@ref) for more trivial model fitters suitable for simple experimentation with the package.
+See also [`SamplingMAP`](@ref) and [`RandomFitter`](@ref) for more trivial model fitters suitable for simple experimentation with the package.
 
 ## Acquisition Maximizer
 

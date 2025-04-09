@@ -16,16 +16,14 @@ Stores miscellaneous settings of the BOSS algorithm.
 
 See also: [`bo!`](@ref)
 """
-@kwdef struct BossOptions{
-    CB<:BossCallback
-}
+@kwdef struct BossOptions
     info::Bool = true
     debug::Bool = false
     parallel_evals::Symbol = :parallel
-    callback::CB = NoCallback()
+    callback::BossCallback = NoCallback()
 
-    function BossOptions(info, debug, parallel_evals, callback::CB) where {CB}
+    function BossOptions(info, debug, parallel_evals, callback)
         @assert parallel_evals in [:serial, :parallel, :distributed]
-        return new{CB}(info, debug, parallel_evals, callback)
+        return new(info, debug, parallel_evals, callback)
     end
 end

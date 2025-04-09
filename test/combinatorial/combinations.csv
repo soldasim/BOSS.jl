@@ -6,7 +6,7 @@
 # Number of configurations: 17
 
 # VARIABLE NAMES
-XY,f,bounds,discrete,cons,y_max,ModelFitter_parallel,AcquisitionMaximizer_parallel,Acquisition,Parametric_predict,Parametric_theta_priors,Nonparametric_mean,Nonparametric_kernel,Nonparametric_length_scale_priors,Semiparametric_mean,MODEL,LinFitness_coefs,NonlinFitness_fit,FITNESS,ModelFitter,AcquisitionMaximizer,Nonparametric_amp_priors,noise_std_priors,iter_max
+XY,f,bounds,discrete,cons,y_max,ModelFitter_parallel,AcquisitionMaximizer_parallel,Acquisition,Parametric_predict,Parametric_theta_priors,Nonparametric_mean,Nonparametric_kernel,Nonparametric_lengthscale_priors,Semiparametric_mean,MODEL,LinFitness_coefs,NonlinFitness_fit,FITNESS,ModelFitter,AcquisitionMaximizer,Nonparametric_amplitude_priors,noise_std_priors,iter_max
 
 # ITER > 1
 *,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,2

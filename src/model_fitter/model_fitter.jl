@@ -1,20 +1,20 @@
 
 """
-Specifies the library/algorithm used for model parameter estimation.
-Inherit this type to define a custom model-fitting algorithms.
+    ModelFitter{T<:FittedParams}
 
-Example: `struct CustomFitter <: ModelFitter{MAP} ... end` or `struct CustomFitter <: ModelFitter{BI} ... end`
+Specifies the library/algorithm used for model parameter estimation.
+The parametric type `T` specifies the subtype of `FittedParams` returned by the model fitter.
+
+# Defining Custom Model Fitter
+
+Define a custom model fitter algorithm by defining a new subtype of `ModelFitter`.
+
+Example: `struct CustomFitter <: ModelFitter{MAPParams} ... end`
 
 All model fitters *should* implement:
-`estimate_parameters(model_fitter::CustomFitter, problem::BossProblem, options::BossOptions)`.
+`estimate_parameters(model_fitter::CustomFitter, problem::BossProblem, options::BossOptions; return_all::Bool) -> ::FittedParams
 
-This method should return a tuple `(params, val)`.
-The returned `params` should be a `ModelParams` (if `CustomAlg <: ModelFitter{MAP}`)
-or a `AbstractVector{<:ModelParams}` (if `CustomAlg <: ModelFitter{BI}`).
-The returned `val` should be the log likelihood of the parameters (if `CustomAlg <: ModelFitter{MAP}`),
-or a vector of log likelihoods of the individual parameter samples (if `CustomAlg <: ModelFitter{BI}`),
-or `nothing`.
-
-See also: [`OptimizationMAP`](@ref), [`TuringBI`](@ref)
+# See Also
+[`OptimizationMAP`](@ref), [`TuringBI`](@ref)
 """
-abstract type ModelFitter{T<:ModelFit} end
+abstract type ModelFitter{T<:FittedParams} end

@@ -1,2 +1,5 @@
-include("kernel_utils.jl")
-include("discrete_kernel.jl")
+include("utils.jl")
+include("params_prior.jl")
+include("dirac.jl")
+include("kernels.jl")
+include("bijectors.jl")

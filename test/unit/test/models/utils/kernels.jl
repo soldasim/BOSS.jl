@@ -1,4 +1,15 @@
 
+@testset "(::CustomKernel)(x1, x2)" begin
+    @param_test BOSS.CustomKernel begin
+        @params (x,y) -> norm(y - x)
+        @params (x,y) -> x' * y
+        @success (
+            out([1.], [2.]) == in[1]([1.], [2.]),
+            out([1.,1.], [2.,2.]) == in[1]([1.,1.], [2.,2.]),
+        )
+    end
+end
+
 @testset "(::DiscreteKernel)(x1, x2)" begin
     @param_test BOSS.DiscreteKernel begin
         @params Matern32Kernel(), [false, false]

@@ -37,7 +37,7 @@ function bo!(problem::BossProblem;
     options::BossOptions = BossOptions(),
 )
     initialize!(problem; options)
-    consistent(problem.data) || estimate_parameters!(problem, model_fitter; options)
+    is_consistent(problem) || estimate_parameters!(problem, model_fitter; options)
     options.callback(problem; model_fitter, acq_maximizer, acquisition, term_cond, options, first=true)
     
     while term_cond(problem)
@@ -57,7 +57,7 @@ function bo!(problem::BossProblem{Missing};
     options::BossOptions = BossOptions(),
 )
     initialize!(problem; options)
-    consistent(problem.data) || estimate_parameters!(problem, model_fitter; options)
+    is_consistent(problem) || estimate_parameters!(problem, model_fitter; options)
     X = maximize_acquisition(problem, acquisition, acq_maximizer; options)
     return X
 end
@@ -84,8 +84,8 @@ Estimate the model parameters & hyperparameters using the given `model_fitter` a
 """
 function estimate_parameters!(problem::BossProblem, model_fitter::ModelFitter{T}; options::BossOptions=BossOptions()) where {T}
     options.info && @info "Estimating model parameters ..."
-    params, _ = estimate_parameters(model_fitter, problem, options)
-    problem.data = update_parameters!(T, problem.data, params)
+    params = estimate_parameters(model_fitter, problem, options)
+    update_parameters!(problem, params)
 end
 
 """
@@ -122,14 +122,14 @@ Evaluate the objective function and update the data.
 function eval_objective!(problem::BossProblem, x::AbstractVector{<:Real}; options::BossOptions=BossOptions())
     options.info && @info "Evaluating objective function ..."
     y = problem.f(x)
-    augment_dataset!(problem.data, x, y)
+    augment_dataset!(problem, x, y)
     options.info && @info "New data point: $x : $y"
     return y
 end
 function eval_objective!(problem::BossProblem, X::AbstractMatrix{<:Real}; options::BossOptions=BossOptions())
     options.info && @info "Evaluating objective function ..."
     Y = eval_points(Val(options.parallel_evals), problem.f, X)
-    augment_dataset!(problem.data, X, Y)
+    augment_dataset!(problem, X, Y)
     options.info && @info "New data:" * prod(["\n\t$x : $y" for (x, y) in zip(eachcol(X), eachcol(Y))])
     return Y
 end

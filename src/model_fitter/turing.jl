@@ -4,6 +4,8 @@
 
 Samples the model parameters and hyperparameters using the Turing.jl package.
 
+To use this model fitter, first add the Turing.jl package.
+
 # Keywords
 - `sampler::Any`: The sampling algorithm used to draw the samples.
 - `warmup::Int`: The amount of initial unused 'warmup' samples in each chain.
@@ -22,6 +24,6 @@ Then the samples from all chains are concatenated and returned.
 Total drawn samples:    'chain_count * (warmup + leap_size * samples_in_chain)'
 Total returned samples: 'chain_count * samples_in_chain'
 """
-abstract type TuringBI <: ModelFitter{BI} end
+abstract type TuringBI <: ModelFitter{BIParams} end
 
 # Implementation of `TuringBI` is moved to the `TuringExt` extension.

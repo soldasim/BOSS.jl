@@ -1,15 +1,19 @@
 
 """
-Specifies the library/algorithm used for acquisition function optimization.
-Inherit this type to define a custom acquisition maximizer.
+    AcquisitionMaximizer
 
-Example: `struct CustomAlg <: AcquisitionMaximizer ... end`
+Specifies the library/algorithm used for acquisition function optimization.
+
+# Defining Custom Acquisition Maximizer
+
+To define a custom acquisition maximizer, define a new subtype of `AcquisitionMaximizer`.
+- `struct CustomAlg <: AcquisitionMaximizer ... end`
 
 All acquisition maximizers *should* implement:
-`maximize_acquisition(acq_maximizer::CustomAlg, acq::AcquisitionFunction, problem::BossProblem, options::BossOptions)`.
+`maximize_acquisition(acq_maximizer::CustomAlg, acq::AcquisitionFunction, problem::BossProblem, options::BossOptions) -> (x, val)`.
 
-This method should return a tuple `(x, val)`.
-The returned `x` is the point of the input domain which maximizes the given acquisition function `acq` (as a vector),
+This method should return a tuple `(x, val)`. The returned vector `x`
+is the point of the input domain which maximizes the given acquisition function `acq` (as a vector),
 or a batch of points (as a column-wise matrix).
 The returned `val` is the acquisition value `acq(x)`,
 or the values `acq.(eachcol(x))` for each point of the batch,

@@ -1,16 +1,13 @@
 
-@testset "(::LinModel)(x, θ)" begin
-    @param_test LinModel begin
+@testset "(::LinearModel)(x, θ)" begin
+    @param_test LinearModel begin
         @params (
             (x) -> [[sin(x[1]), exp(x[1])]],
             [Normal(), Normal()],  # irrelevant
             nothing,
             nothing,
         )
-        @success (
-            isapprox(out([1.], [4., 5.]), [4. * sin(1.) + 5. * exp(1.)]; atol=1e-20),
-            isapprox(out([4., 5.])([1.]), [4. * sin(1.) + 5. * exp(1.)]; atol=1e-20),
-        )
+        @success out()([1.], [4., 5.]) == out([4., 5.])([1.]) == out([1.], [4., 5.]) ≈ [4. * sin(1.) + 5. * exp(1.)]
 
         @params (
             (x) -> [[sin(x[1]), exp(x[1])]],
@@ -19,24 +16,21 @@
             nothing,
         )
         @success (
-            isapprox(out([4., 5.])([1.2]), [4. * sin(1.) + 5. * exp(1.)]; atol=1e-20),
-            isapprox(out([4., 5.])([1.2]), [4. * sin(1.) + 5. * exp(1.)]; atol=1e-20),
+            out([1.2], [4., 5.]) == out([1.], [4., 5.]),
+            out()([1.2], [4., 5.]) == out([4., 5.])([1.2]) == out([1.2], [4., 5.]) ≈ [4. * sin(1.) + 5. * exp(1.)],
         )
     end
 end
 
-@testset "(::NonlinModel)(x, θ)" begin
-    @param_test NonlinModel begin
+@testset "(::NonlinearModel)(x, θ)" begin
+    @param_test NonlinearModel begin
         @params (
             (x, θ) -> [θ[1] * sin(θ[2] * x[1]) + exp(θ[3] * x[1])],
             fill(Normal(), 3),  # irrelevant
             nothing,
             nothing,
         )
-        @success (
-            isapprox(out([1.], [3., 4., 5.]), [3. * sin(4. * 1.) + exp(5. * 1.)]; atol=1e-20),
-            isapprox(out([3., 4., 5.])([1.]), [3. * sin(4. * 1.) + exp(5. * 1.)]; atol=1e-20),
-        )
+        @success out()([1.], [3., 4., 5.]) == out([3., 4., 5.])([1.]) == out([1.], [3., 4., 5.]) ≈ [3. * sin(4. * 1.) + exp(5. * 1.)]
 
         @params (
             (x, θ) -> [θ[1] * sin(θ[2] * x[1]) + exp(θ[3] * x[1])],
@@ -45,33 +39,32 @@ end
             nothing,
         )
         @success (
-            isapprox(out([1.2], [3., 4., 5.]), [3. * sin(4. * 1.) + exp(5. * 1.)]; atol=1e-20),
-            isapprox(out([3., 4., 5.])([1.2]), [3. * sin(4. * 1.) + exp(5. * 1.)]; atol=1e-20),
+            out([1.2], [3., 4., 5.]) == out([1.], [3., 4., 5.]),
+            out()([1.2], [3., 4., 5.]) == out([3., 4., 5.])([1.2]) == out([1.2], [3., 4., 5.]) ≈ [3. * sin(4. * 1.) + exp(5. * 1.)],
         )
     end
 end
 
-@testset "Base.convert(::Type{NonlinModel}, ::LinModel)" begin
+@testset "Base.convert(::Type{NonlinearModel}, ::LinearModel)" begin
     @param_test Base.convert begin
         @params (
-            NonlinModel,
-            LinModel(;
+            NonlinearModel,
+            LinearModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[1])]],
                 theta_priors = [Normal(), Normal()],
-                discrete = nothing,
                 noise_std_priors = [Dirac(0.1)],
             ),
         )
         @success (
-            out isa NonlinModel,
+            out isa NonlinearModel,
             out([1.], [4., 5.]) == in[2]([1.], [4., 5.]),
             out.theta_priors == in[2].theta_priors,
             out.noise_std_priors == in[2].noise_std_priors,
         )
 
         @params (
-            NonlinModel,
-            LinModel(;
+            NonlinearModel,
+            LinearModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[1])]],
                 theta_priors = [Normal(), Normal()],
                 discrete = [true],
@@ -79,7 +72,7 @@ end
             ),
         )
         @success (
-            out isa NonlinModel,
+            out isa NonlinearModel,
             out([1.2], [4., 5.]) == in[2]([1.2], [4., 5.]),
             out.theta_priors == in[2].theta_priors,
             out.noise_std_priors == in[2].noise_std_priors,
@@ -90,29 +83,28 @@ end
 @testset "make_discrete(model, discrete)" begin
     @param_test BOSS.make_discrete begin
         @params (
-            LinModel(;
+            LinearModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = [Normal(), Normal()],
-                discrete = nothing,
             ),
             [false, true],
         )
         @params (
-            NonlinModel(;
+            NonlinearModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = [Normal(), Normal()],
-                discrete = nothing,
             ),
             [false, true],
         )
         @success (
+            out.discrete == in[2],
             out([1., 1.], [4., 5.]) == in[1]([1., 1.], [4., 5.]),
             out([1.2, 1.2], [4., 5.]) == in[1]([1.2, 1.], [4., 5.]),
             out([1.2, 1.2], [4., 5.]) != in[1]([1.2, 1.2], [4., 5.]),
         )
 
         @params (
-            LinModel(;
+            LinearModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = [Normal(), Normal()],
                 discrete = [false, true],
@@ -120,7 +112,7 @@ end
             [false, true],
         )
         @params (
-            NonlinModel(;
+            NonlinearModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = [Normal(), Normal()],
                 discrete = [false, true],
@@ -133,29 +125,28 @@ end
         )
 
         @params (
-            LinModel(;
+            LinearModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = [Normal(), Normal()],
-                discrete = nothing,
             ),
             [false, false],
         )
         @params (
-            NonlinModel(;
+            NonlinearModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = [Normal(), Normal()],
-                discrete = nothing,
             ),
             [false, false],
         )
         @success (
+            out.discrete == in[2],
             out([1.2, 1.2], [4., 5.]) != in[1]([1., 1.], [4., 5.]),
             out([1.2, 1.2], [4., 5.]) == in[1]([1.2, 1.2], [4., 5.]),
         )
     end
 end
 
-@testset "model_posterior(model, data)" begin
+@testset "model_posterior(model, params, data)" begin
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
@@ -165,25 +156,23 @@ end
         domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
         model,
-        data = ExperimentDataPrior(X, Y),
+        data = ExperimentData(X, Y),
     )
 
-    lin_model = LinModel(;
+    lin_model = LinearModel(;
         lift = (x) -> [
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
         ],
         theta_priors = fill(Normal(), 4),
-        discrete = nothing,
         noise_std_priors = fill(Dirac(1e-4), 2),
     )
-    nonlin_model = NonlinModel(;
+    nonlin_model = NonlinearModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
         ],
         theta_priors = fill(Normal(), 4),
-        discrete = nothing,
         noise_std_priors = fill(Dirac(1e-4), 2),
     )
 
@@ -193,8 +182,8 @@ end
     BOSS.estimate_parameters!(problem_nonlin, SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BossOptions(; info=false))
 
     @param_test model_posterior begin
-        @params problem_lin.model, problem_lin.data
-        @params problem_nonlin.model, problem_nonlin.data
+        @params problem_lin.model, problem_lin.params, problem_lin.data
+        @params problem_nonlin.model, problem_nonlin.params, problem_nonlin.data
         @success (
             out isa Function,
 
@@ -225,7 +214,7 @@ end
     end
 end
 
-@testset "model_posterior_slice(model, data, slice)" begin
+@testset "model_posterior_slice(model, params, data, slice)" begin
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
@@ -235,25 +224,23 @@ end
         domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
         model,
-        data = ExperimentDataPrior(X, Y),
+        data = ExperimentData(X, Y),
     )
 
-    lin_model = LinModel(;
+    lin_model = LinearModel(;
         lift = (x) -> [
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
         ],
         theta_priors = fill(Normal(), 4),
-        discrete = nothing,
         noise_std_priors = fill(Dirac(1e-4), 2),
     )
-    nonlin_model = NonlinModel(;
+    nonlin_model = NonlinearModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
         ],
         theta_priors = fill(Normal(), 4),
-        discrete = nothing,
         noise_std_priors = fill(Dirac(1e-4), 2),
     )
 
@@ -263,10 +250,10 @@ end
     BOSS.estimate_parameters!(problem_nonlin, SamplingMAP(; samples=200, parallel=PARALLEL_TESTS); options=BossOptions(; info=false))
 
     @param_test model_posterior_slice begin
-        @params problem_lin.model, problem_lin.data, 1
-        @params problem_lin.model, problem_lin.data, 2
-        @params problem_nonlin.model, problem_nonlin.data, 1
-        @params problem_nonlin.model, problem_nonlin.data, 2
+        @params problem_lin.model, problem_lin.params, problem_lin.data, 1
+        @params problem_lin.model, problem_lin.params, problem_lin.data, 2
+        @params problem_nonlin.model, problem_nonlin.params, problem_nonlin.data, 1
+        @params problem_nonlin.model, problem_nonlin.params, problem_nonlin.data, 2
         @success (
             out isa Function,
             
@@ -299,46 +286,46 @@ end
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
-    lin_model = LinModel(;
+    lin_model = LinearModel(;
         lift = (x) -> [
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
         ],
         theta_priors = fill(Normal(), 4),
-        discrete = nothing,
         noise_std_priors = fill(LogNormal(), 2),
     )
-    nonlin_model = NonlinModel(;
+    nonlin_model = NonlinearModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),
         ],
         theta_priors = fill(Normal(), 4),
-        discrete = nothing,
         noise_std_priors = fill(LogNormal(), 2),
     )
-    data = ExperimentDataPrior(X, Y)
+    data = ExperimentData(X, Y)
 
     @param_test BOSS.model_loglike begin
         @params lin_model, deepcopy(data)
         @params nonlin_model, deepcopy(data)
         @success (
             out isa Function,
-            out(([1., 1., 1., 1.], nothing, nothing, [1., 1.])) isa Real,
-            out(([1., 1., 1., 1.], nothing, nothing, [1., 1.])) < 0.,
-            out(([1., 1., 1., 1.], nothing, nothing, [1., 1.])) > out(([10., 10., 10., 10.], nothing, nothing, [1., 1.])),
-            out(([1., 1., 1., 1.], nothing, nothing, [5., 5.])) > out(([1., 1., 1., 1.], nothing, nothing, [100., 100.])),
-            out(([1., 1., 1., 1.], nothing, nothing, [1., 1.])) > out(([2., 2., 2., 2.], nothing, nothing, [1., 1.])),
-            out(([1., 1., 1., 1.], nothing, nothing, [1., 1.])) > out(([0.5, 0.5, 0.5, 0.5], nothing, nothing, [1., 1.])),
+            out(ParametricParams([1., 1., 1., 1.], [1., 1.])) isa Real,
+            out(ParametricParams([1., 1., 1., 1.], [1., 1.])) < 0.,
+            out(ParametricParams([1., 1., 1., 1.], [1., 1.])) > out(ParametricParams([10., 10., 10., 10.], [1., 1.])),
+            out(ParametricParams([1., 1., 1., 1.], [5., 5.])) > out(ParametricParams([1., 1., 1., 1.], [100., 100.])),
+            out(ParametricParams([1., 1., 1., 1.], [1., 1.])) > out(ParametricParams([2., 2., 2., 2.], [1., 1.])),
+            out(ParametricParams([1., 1., 1., 1.], [1., 1.])) > out(ParametricParams([0.5, 0.5, 0.5, 0.5], [1., 1.])),
         )
     end
 end
 
-@testset "data_loglike(model, params)" begin
+@testset "data_loglike(model, data)" begin
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
+    data = ExperimentData(X, Y)
+    bad_data = ExperimentData(X, [1.;1.;; 2.;2.;; 3.;3.;;])
 
-    lin_model = LinModel(;
+    lin_model = LinearModel(;
         lift = (x) -> [
             [sin(x[1]), exp(x[2])],
             [cos(x[1]), exp(x[2])],
@@ -346,7 +333,7 @@ end
         theta_priors = fill(Dirac(1.), 4),
         noise_std_priors = fill(Dirac(0.1), 2),
     )
-    nonlin_model = NonlinModel(;
+    nonlin_model = NonlinearModel(;
         predict = (x, θ) -> [
             θ[1] * sin(x[1]) + θ[2] * exp(x[2]),
             θ[3] * cos(x[1]) + θ[4] * exp(x[2]),    
@@ -355,34 +342,31 @@ end
         noise_std_priors = fill(Dirac(0.1), 2),
     )
 
+    t_theta(θ) = ParametricParams(θ, [1., 1.])
+    t_noise_std(σ) = ParametricParams([1., 1., 1., 1.], σ)
+
     @param_test BOSS.data_loglike begin
-        @params deepcopy(lin_model), deepcopy(X), deepcopy(Y), ([1., 1., 1., 1.], nothing, nothing, [1., 1.])
-        @params deepcopy(nonlin_model), deepcopy(X), deepcopy(Y), ([1., 1., 1., 1.], nothing, nothing, [1., 1.])
-        @success out < 0.
-    end
+        @params deepcopy(lin_model), deepcopy(data)
+        @params deepcopy(nonlin_model), deepcopy(data)
+        @success out(ParametricParams([1., 1., 1., 1.], [1., 1.])) < 0.
 
-    t_θ(θ; model) = BOSS.data_loglike(deepcopy(model), deepcopy(X), deepcopy(Y), (θ, nothing, nothing, [1., 1.]))
-    @param_test model -> (θ -> t_θ(θ; model)) begin
-        @params lin_model
-        @params nonlin_model
+        @params deepcopy(lin_model), deepcopy(data)
+        @params deepcopy(nonlin_model), deepcopy(data)
         @success (
-            out([1., 1., 1., 1.]) > out([2., 2., 2., 2.]),
-            out([1., 1., 1., 1.]) > out([0.5, 0.5, 0.5, 0.5]),
+            out(t_theta([1., 1., 1., 1.])) > out(t_theta([2., 2., 2., 2.])),
+            out(t_theta([1., 1., 1., 1.])) > out(t_theta([0.5, 0.5, 0.5, 0.5])),
         )
+
+        @params deepcopy(lin_model), deepcopy(data)
+        @params deepcopy(nonlin_model), deepcopy(data)
+        @success out(t_noise_std([0.1, 0.1])) > out(t_noise_std([1., 1.])) > out(t_noise_std([10., 10.])) # because model fits the data
+
+        @params deepcopy(lin_model), deepcopy(bad_data)
+        @params deepcopy(nonlin_model), deepcopy(bad_data)
+        @success out(t_noise_std([0.1, 0.1])) < out(t_noise_std([1., 1.])) < out(t_noise_std([10., 10.])) # because model does not fit the data
     end
 
-    t_noise_std(σ; model, Y) = BOSS.data_loglike(deepcopy(model), deepcopy(X), deepcopy(Y), ([1., 1., 1., 1.], nothing, nothing, σ))
-    @param_test (model, Y) -> (σ -> t_noise_std(σ; model, Y)) begin
-        @params lin_model, Y
-        @params nonlin_model, Y
-        @success out([0.1, 0.1]) > out([1., 1.]) > out([10., 10.])  # because model fits the data
-
-        @params lin_model, [1.;1.;; 2.;2.;; 3.;3.;;]
-        @params nonlin_model, [1.;1.;; 2.;2.;; 3.;3.;;]
-        @success out([0.1, 0.1]) < out([1., 1.]) < out([10., 10.])  # because model does not fit the data
-    end
-
-    t_data(X, Y; model) = BOSS.data_loglike(deepcopy(model), deepcopy(X), deepcopy(Y), ([1., 1., 1., 1.], nothing, nothing, [1., 1.]))
+    t_data(X, Y; model) = BOSS.data_loglike(deepcopy(model), ExperimentData(deepcopy(X), deepcopy(Y)))(ParametricParams([1., 1., 1., 1.], [1., 1.]))
     @param_test model -> ((X, Y) -> t_data(X, Y; model)) begin
        @params lin_model
        @params nonlin_model
@@ -390,77 +374,56 @@ end
     end
 end
 
-@testset "model_params_loglike(model, params)" begin
-    @param_test BOSS.model_params_loglike begin
+@testset "params_loglike(model)" begin
+    @param_test BOSS.params_loglike begin
         # TODO: Add different priors loaded from a collection.
-        @params (
-            LinModel(;
+        @params LinearModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = [Normal(), Normal()],
                 noise_std_priors = fill(Dirac(0.1), 2),
-            ),
-            ([1., 1.], nothing, nothing, [0.1, 0.1]),
-        )
-        @params (
-            NonlinModel(;
+            )
+        @params NonlinearModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = [Normal(), Normal()],
                 noise_std_priors = fill(Dirac(0.1), 2),
-            ),
-            ([1., 1.], nothing, nothing, [0.1, 0.1]),
-        )
-        @success out isa Real
+            )
+        @success out(ParametricParams([1., 1.], [0.1, 0.1])) isa Real
 
-        @params (
-            LinModel(;
+        @params LinearModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = fill(Dirac(1.), 2),
                 noise_std_priors = fill(Dirac(0.1), 2),
-            ),
-            ([1., 1.], nothing, nothing, [0.1, 0.1]),
-        )
-        @params (
-            NonlinModel(;
+            )
+        @params NonlinearModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = fill(Dirac(1.), 2),
                 noise_std_priors = fill(Dirac(0.1), 2),
-            ),
-            ([1., 1.], nothing, nothing, [0.1, 0.1]),
-        )
-        @success out == 0.
+            )
+        @success out(ParametricParams([1., 1.], [0.1, 0.1])) == 0.
 
-        @params (
-            LinModel(;
+        @params LinearModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = fill(Dirac(1.), 2),
                 noise_std_priors = fill(Dirac(0.1), 2),
-            ),
-            ([1., 5.], nothing, nothing, [0.1, 0.1]),
-        )
-        @params (
-            LinModel(;
+            )
+        @params LinearModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],
                 theta_priors = fill(Dirac(1.), 2),
                 noise_std_priors = fill(Dirac(0.1), 2),
-            ),
-            ([1., 1.], nothing, nothing, [0.1, 0.5]),
-        )
-        @params (
-            NonlinModel(;
+            )
+        @params NonlinearModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = fill(Dirac(1.), 2),
                 noise_std_priors = fill(Dirac(0.1), 2),
-            ),
-            ([1., 5.], nothing, nothing, [0.1, 0.1]),
-        )
-        @params (
-            NonlinModel(;
+            )
+        @params NonlinearModel(;
                 predict = (x, θ) -> [θ[1] * sin(x[1]) + θ[2] * exp(x[2])],
                 theta_priors = fill(Dirac(1.), 2),
                 noise_std_priors = fill(Dirac(0.1), 2),
-            ),
-            ([1., 1.], nothing, nothing, [0.1, 0.5]),
+            )
+        @success (
+            out(ParametricParams([1., 5.], [0.1, 0.1])) == -Inf,
+            out(ParametricParams([1., 1.], [0.1, 0.5])) == -Inf,
         )
-        @success out == -Inf
     end
 end

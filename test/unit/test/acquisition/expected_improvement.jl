@@ -4,11 +4,11 @@
         fitness = LinFitness([1.]),
         f = x -> [sin(x[1])],
         domain = Domain(; bounds=([0.], [10.])),
-        model = Nonparametric(; amp_priors=[BOSS.LogNormal()], length_scale_priors=[BOSS.mvlognormal(ones(1), ones(1))], noise_std_priors=[BOSS.Dirac(0.1)]),
-        data = ExperimentDataPrior(hcat([1.,2.,3.]...), hcat(sin.([1.,2.,3.])...)),
+        model = Nonparametric(; amplitude_priors=[BOSS.LogNormal()], lengthscale_priors=[BOSS.mvlognormal(ones(1), ones(1))], noise_std_priors=[BOSS.Dirac(0.1)]),
+        data = ExperimentData(hcat([1.,2.,3.]...), hcat(sin.([1.,2.,3.])...)),
     )
     options = BossOptions(; info=false)
-    BOSS.estimate_parameters!(problem, RandomMAP(); options)
+    BOSS.estimate_parameters!(problem, RandomFitter(); options)
 
     @param_test ExpectedImprovement() begin
         @params problem, options

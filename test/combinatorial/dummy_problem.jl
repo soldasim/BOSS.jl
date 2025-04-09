@@ -41,7 +41,7 @@ function construct_problem(val)
     )
     model = construct_model(Val(val("MODEL")), val)
 
-    data = ExperimentDataPrior(val("XY")...)
+    data = ExperimentData(val("XY")...)
     
     return BossProblem(;
         fitness,
@@ -61,7 +61,7 @@ function construct_fitness(::Val{:NonlinFitness}, val)
 end
 
 function construct_model(::Val{:Parametric}, val; no_noise=false)
-    return NonlinModel(;
+    return NonlinearModel(;
         predict = val("Parametric_predict"),
         theta_priors = val("Parametric_theta_priors"),
         noise_std_priors = no_noise ? nothing : val("noise_std_priors"),
@@ -71,8 +71,8 @@ function construct_model(::Val{:Nonparametric}, val)
     return Nonparametric(;
         mean = val(String(val("MODEL"))*"_mean"),
         kernel = val("Nonparametric_kernel"),
-        amp_priors = val("Nonparametric_amp_priors"),
-        length_scale_priors = val("Nonparametric_length_scale_priors"),
+        amplitude_priors = val("Nonparametric_amplitude_priors"),
+        lengthscale_priors = val("Nonparametric_lengthscale_priors"),
         noise_std_priors = val("noise_std_priors"),
     )
 end
@@ -118,7 +118,7 @@ function construct_model_fitter(::Val{:Turing}, val)
     )
 end
 function construct_model_fitter(::Val{:Random}, val)
-    return RandomMAP()
+    return RandomFitter()
 end
 
 function construct_acq_maximizer(::Val{:Sampling}, val, problem)

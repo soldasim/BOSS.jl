@@ -28,9 +28,16 @@ The "Recommender mode" is used if the objective function is `missing`. In this m
 estimate_parameters!
 maximize_acquisition
 eval_objective!
+update_parameters!
 augment_dataset!
 model_posterior
 model_posterior_slice
 average_posterior
 result
+x_dim
+y_dim
+cons_dim
+data_count
+is_consistent
+calc_inverse_gamma
 ```

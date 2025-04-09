@@ -42,7 +42,7 @@ an averaged posterior of the model posterior samples is used for the prediction 
 end
 
 function (ei::ExpectedImprovement)(problem::BossProblem, options::BossOptions)
-    posterior = model_posterior(problem.model, problem.data)
+    posterior = model_posterior(problem)
     ϵ_samples = sample_ϵs(y_dim(problem), ϵ_sample_count(posterior, ei.ϵ_samples))
     b = best_so_far(problem, posterior)
     options.info && isnothing(b) && @warn "No feasible solution in the dataset yet. Cannot calculate EI!"

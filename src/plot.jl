@@ -113,18 +113,18 @@ function plot_y_slice(opt::PlotCallback, problem::BossProblem, dim::Int)
     x_points = (opt.xaxis == :log) ? log_range(lb, ub, opt.points) : collect(LinRange(lb, ub, opt.points))
 
     # model
-    if problem.data isa ExperimentDataPost
-        if problem.data isa ExperimentDataPost{MAP}
+    if !isnothing(problem.params)
+        if problem.params isa UniFittedParams
             # MAP -> best fit
-            predict = model_posterior(problem.model, problem.data)
+            predict = model_posterior(problem)
             y_points = (x->predict([x])[1][dim]).(x_points)
             std_points = (x->predict([x])[2][dim]).(x_points)
             opt.Plots.plot!(p, x_points, y_points; ribbon=std_points, label="model", color=MODEL_COLOR)
             ylims = update_ylims(ylims, y_points)
         
-        else
+        else # problem.params isa MultiFittedParams
             # BI -> samples & mean
-            predicts = model_posterior(problem.model, problem.data)
+            predicts = model_posterior(problem)
             for i in eachindex(predicts)
                 y_points = (x->predicts[i]([x])[1][dim]).(x_points)
                 # std_points = (x->predicts[i]([x])[2][dim]).(x_points)

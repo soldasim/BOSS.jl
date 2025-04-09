@@ -6,11 +6,11 @@
         domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
         model = Nonparametric(;
-            amp_priors = fill(LogNormal(), 2),
-            length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
+            amplitude_priors = fill(LogNormal(), 2),
+            lengthscale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
             noise_std_priors = fill(Dirac(1e-4), 2),
         ),
-        data = ExperimentDataPrior(X, Y),
+        data = ExperimentData(X, Y),
     )
 
     @param_test result begin

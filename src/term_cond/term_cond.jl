@@ -1,5 +1,7 @@
 
 """
+    TermCond
+
 Specifies the termination condition of the whole BOSS algorithm.
 Inherit this type to define a custom termination condition.
 

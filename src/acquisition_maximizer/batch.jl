@@ -30,9 +30,9 @@ function maximize_acquisition(sb::SequentialBatchAM, acq::AcquisitionFunction, p
 end
 
 function speculative_evaluation!(problem::BossProblem, am::AcquisitionMaximizer, acq::AcquisitionFunction; options::BossOptions)
-    posterior = model_posterior(problem.model, problem.data)
+    posterior = model_posterior(problem)
     x, _ = maximize_acquisition(am, acq, problem, options)
     y = posterior(x)[1]
-    augment_dataset!(problem.data, x, y)
+    augment_dataset!(problem, x, y)
     return x
 end

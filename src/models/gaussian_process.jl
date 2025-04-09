@@ -18,63 +18,108 @@ const MAX_NEG_VAR = 1e-8
 A Gaussian Process surrogate model. Each output dimension is modeled by a separate independent process.
 
 # Keywords
-- `mean::Union{Nothing, Function}`: Used as the mean function for the GP.
+- `mean::Union{Nothing, AbstractVector{<:Real}, Function}`: Used as the mean function for the GP.
         Defaults to `nothing` equivalent to `x -> zeros(y_dim)`.
 - `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern32Kernel()`.
-- `length_scale_priors::LengthScalePriors`: The prior distributions
-        for the length scales of the GP. The `length_scale_priors` should be a vector
+- `lengthscale_priors::LengthscalePriors`: The prior distributions
+        for the length scales of the GP. The `lengthscale_priors` should be a vector
         of `y_dim` `x_dim`-variate distributions where `x_dim` and `y_dim` are
         the dimensions of the input and output of the model respectively.
-- `amp_priors::AmplitudePriors`: The prior distributions
-        for the amplitude hyperparameters of the GP. The `amp_priors` should be a vector
+- `amplitude_priors::AmplitudePriors`: The prior distributions
+        for the amplitude hyperparameters of the GP. The `amplitude_priors` should be a vector
         of `y_dim` univariate distributions.
 - `noise_std_priors::NoiseStdPriors`: The prior distributions
         of the noise standard deviations of each `y` dimension.
 """
-@kwdef struct GaussianProcess{
-    M<:Union{Nothing, Function},
-    A<:AmplitudePriors,
-    L<:LengthScalePriors,
-    N<:NoiseStdPriors,
+struct GaussianProcess{
+    M<:Union{Nothing, AbstractVector{<:Real}, Function},
 } <: SurrogateModel
-    mean::M = nothing
-    kernel::Kernel = Matern32Kernel()
-    amp_priors::A
-    length_scale_priors::L
-    noise_std_priors::N
+    mean::M
+    kernel::Kernel
+    lengthscale_priors::LengthscalePriors
+    amplitude_priors::AmplitudePriors
+    noise_std_priors::NoiseStdPriors
+end
+# Keyword constructor for `GaussianProcess` is defined in `src/deprecated.jl`.
+
+"""
+    Nonparametric
+
+An alias for `GaussianProcess`.
+"""
+const Nonparametric = GaussianProcess
+
+"""
+    GaussianProcessParams(λ, α, σ)
+
+The parameters of the [`GaussianProcess`](@ref) model.
+
+# Parameters
+- `λ::AbstractMatrix{<:Real}`: The length scales of the GP.
+- `α::AbstractVector{<:Real}`: The amplitudes of the GP.
+- `σ::AbstractVector{<:Real}`: The noise standard deviations.
+"""
+struct GaussianProcessParams{
+    L<:AbstractMatrix{<:Real},
+    A<:AbstractVector{<:Real},
+    N<:AbstractVector{<:Real},
+} <: ModelParams{GaussianProcess}
+    λ::L
+    α::A
+    σ::N
 end
 
-add_mean(m::GaussianProcess{Nothing}, mean::Function) =
-    GaussianProcess(mean, m.kernel, m.amp_priors, m.length_scale_priors, m.noise_std_priors)
+add_mean(m::GaussianProcess{Nothing}, mean) =
+    GaussianProcess(mean, m.kernel, m.lengthscale_priors, m.amplitude_priors, m.noise_std_priors)
 
 remove_mean(m::GaussianProcess) =
-    GaussianProcess(nothing, m.kernel, m.amp_priors, m.length_scale_priors, m.noise_std_priors)
+    GaussianProcess(nothing, m.kernel,  m.lengthscale_priors, m.amplitude_priors, m.noise_std_priors)
+
+make_discrete(m::GaussianProcess, discrete::AbstractVector{Bool}) =
+    GaussianProcess(m.mean, make_discrete(m.kernel, discrete), m.lengthscale_priors, m.amplitude_priors, m.noise_std_priors)
+
+param_count(params::GaussianProcessParams) = sum(param_lengths(params))
+param_lengths(params::GaussianProcessParams) = (length(params.λ), length(params.α), length(params.σ))
+param_shapes(params::GaussianProcessParams) = (size(params.λ), size(params.α), size(params.σ))
 
 sliceable(::GaussianProcess) = true
 
 function slice(m::GaussianProcess, idx::Int)
-    mean_ = m.mean
-    mean_slice_ = isnothing(mean_) ? nothing : x -> mean_(x)[idx:idx]
-
     return GaussianProcess(
-        mean_slice_,
+        mean_slice(m.mean, idx),
         m.kernel,
-        m.amp_priors[idx:idx],
-        m.length_scale_priors[idx:idx],
+        m.lengthscale_priors[idx:idx],
+        m.amplitude_priors[idx:idx],
         m.noise_std_priors[idx:idx],
     )
 end
 
 mean_slice(mean::Nothing, idx::Int) = nothing
-mean_slice(mean::Function, idx::Int) = x -> mean(x)[idx]
+mean_slice(mean::AbstractVector{<:Real}, idx::Int) = mean[idx:idx]
+mean_slice(mean::Function, idx::Int) = x -> @view mean(x)[idx:idx]
 
-θ_slice(::GaussianProcess, ::Int) = nothing
+mean_getindex(mean::Nothing, idx::Int) = nothing
+mean_getindex(mean::AbstractVector{<:Real}, idx::Int) = mean[idx]
+mean_getindex(mean::Function, idx::Int) = x -> mean(x)[idx]
 
-make_discrete(m::GaussianProcess, discrete::AbstractVector{<:Bool}) =
-    GaussianProcess(m.mean, make_discrete(m.kernel, discrete), m.amp_priors, m.length_scale_priors, m.noise_std_priors)
+function slice(p::GaussianProcessParams, idx::Int)
+    return GaussianProcessParams(
+        p.λ[:,idx:idx],
+        p.α[idx:idx],
+        p.σ[idx:idx],
+    )
+end
 
-function model_posterior_slice(model::GaussianProcess, data::ExperimentDataMAP, slice::Int)
-    post_gp = posterior_gp(model, data, slice)
+function join_slices(ps::AbstractVector{<:GaussianProcessParams})
+    return GaussianProcessParams(
+        hcat(getfield.(ps, Ref(:λ))...),
+        vcat(getfield.(ps, Ref(:α))...),
+        vcat(getfield.(ps, Ref(:σ))...),
+    )
+end
+
+function model_posterior_slice(model::GaussianProcess, params::GaussianProcessParams, data::ExperimentData, slice::Int)
+    post_gp = posterior_gp(model, params, data, slice)
     return model_posterior_slice(post_gp)
 end
 function model_posterior_slice(post_gp::AbstractGPs.PosteriorGP)    
@@ -105,17 +150,15 @@ end
 """
 Construct posterior GP for a given `y` dimension via the AbstractGPs.jl library.
 """
-function posterior_gp(model::GaussianProcess, data::ExperimentDataMAP, slice::Int) 
-    _, length_scales, amplitudes, noise_std = data.params
-    
+function posterior_gp(model::GaussianProcess, params::GaussianProcessParams, data::ExperimentData, slice::Int)     
     return AbstractGPs.posterior(
         finite_gp(
             data.X,
-            mean_slice(model.mean, slice),
+            mean_getindex(model.mean, slice),
             model.kernel,
-            length_scales[:,slice],
-            amplitudes[slice],
-            noise_std[slice],
+            params.λ[:,slice],
+            params.α[slice],
+            params.σ[slice],
         ),
         data.Y[slice,:],
     )
@@ -126,79 +169,123 @@ Construct finite GP via the AbstractGPs.jl library.
 """
 function finite_gp(
     X::AbstractMatrix{<:Real},
-    mean::Union{Nothing, Function},
+    mean::Union{Nothing, Real, Function},
     kernel::Kernel,
-    length_scales::AbstractVector{<:Real},
+    lengthscales::AbstractVector{<:Real},
     amplitude::Real,
     noise_std::Real;
     min_param_val::Real = MIN_PARAM_VALUE,
 )
+    # zero values are set to `min_param_val` anyway
+    # but negative values signal some error
+    @assert all(lengthscales .>= 0)
+    @assert amplitude >= 0
+    @assert noise_std >= 0
+
     # for numerical stability
-    length_scales = max.(length_scales, min_param_val)
-    noise_std = max(noise_std, min_param_val)
+    # lengthscales = max.(lengthscales, min_param_val)
+    # amplitude = max(amplitude, min_param_val)
+    # noise_std = max(noise_std, min_param_val)
+    lengthscales = lengthscales .+ min_param_val
+    amplitude = amplitude + min_param_val
+    noise_std = noise_std + min_param_val
 
-    kernel = (amplitude^2) * with_lengthscale(kernel, length_scales)
-    return finite_gp_(X, mean, kernel, noise_std)
+    kernel = (amplitude^2) * with_lengthscale(kernel, lengthscales)
+    return _finite_gp(X, mean, kernel, noise_std)
 end
 
-finite_gp_(X::AbstractMatrix{<:Real}, mean::Nothing, kernel::Kernel, noise_std::Real) = GP(kernel)(X, noise_std^2; obsdim=2)
-finite_gp_(X::AbstractMatrix{<:Real}, mean::Function, kernel::Kernel, noise_std::Real) = GP(mean, kernel)(X, noise_std^2; obsdim=2)
-
-function model_loglike(model::GaussianProcess, data::ExperimentData)
-    function loglike(params)
-        ll_data = data_loglike(model, data.X, data.Y, params)
-        ll_params = model_params_loglike(model, params)
-        return ll_data + ll_params
-    end
-end
+_finite_gp(X::AbstractMatrix{<:Real}, mean::Nothing, kernel::Kernel, noise_std::Real) = GP(kernel)(X, noise_std^2; obsdim=2)
+_finite_gp(X::AbstractMatrix{<:Real}, mean, kernel::Kernel, noise_std::Real) = GP(mean, kernel)(X, noise_std^2; obsdim=2)
 
 function data_loglike(
     model::GaussianProcess,
-    X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real},
-    params::ModelParams,
+    data::ExperimentData,
 )
-    y_dim = size(Y)[1]
-    means = mean_slice.(Ref(model.mean), 1:y_dim)
-    θ, λ, α, noise_std = params
+    y_dim_ = size(data.Y)[1]
 
-    return sum(data_loglike_slice.(Ref(model), Ref(X), eachrow(Y), means, Ref(model.kernel), eachcol(λ), α, noise_std))
+    function ll_data(params::GaussianProcessParams)
+        return gp_data_loglike_slice.(
+            Ref(data.X),
+            eachrow(data.Y),
+            mean_getindex.(Ref(model.mean), 1:y_dim_),
+            Ref(model.kernel),
+            eachcol(params.λ),
+            params.α,
+            params.σ,
+        ) |> sum
+    end
 end
 
-function data_loglike_slice(
-    ::GaussianProcess,
+function gp_data_loglike_slice(
     X::AbstractMatrix{<:Real},
     y::AbstractVector{<:Real},
-    mean::Union{Nothing, Function},
+    mean,
     kernel::Kernel,
-    length_scales::AbstractVector{<:Real},
+    lengthscales::AbstractVector{<:Real},
     amplitude::Real,
     noise_std::Real,
 )
-    gp = finite_gp(X, mean, kernel, length_scales, amplitude, noise_std)
+    gp = finite_gp(X, mean, kernel, lengthscales, amplitude, noise_std)
     return logpdf(gp, y)
 end
 
-function model_params_loglike(model::GaussianProcess, params::ModelParams)
-    θ, λ, α, noise_std = params
-    ll_λ = sum(logpdf.(model.length_scale_priors, eachcol(λ)))
-    ll_α = sum(logpdf.(model.amp_priors, α))
-    ll_noise = sum(logpdf.(model.noise_std_priors, noise_std))
-    return ll_λ + ll_α + ll_noise
+function params_loglike(model::GaussianProcess)
+    function ll_params(params::GaussianProcessParams)
+        ll_λ = sum(logpdf.(model.lengthscale_priors, eachcol(params.λ)))
+        ll_α = sum(logpdf.(model.amplitude_priors, params.α))
+        ll_noise = sum(logpdf.(model.noise_std_priors, params.σ))
+        return ll_λ + ll_α + ll_noise
+    end
 end
 
-function sample_params(model::GaussianProcess)
-    θ = nothing
-    λ = reduce(hcat, rand.(model.length_scale_priors))
-    α = rand.(model.amp_priors)
-    noise_std = rand.(model.noise_std_priors)
-    return θ, λ, α, noise_std
+function _params_sampler(model::GaussianProcess)
+    function sample(rng::AbstractRNG)
+        λ = hcat(rand.(Ref(rng), model.lengthscale_priors)...)
+        α = rand.(Ref(rng), model.amplitude_priors)
+        σ = rand.(Ref(rng), model.noise_std_priors)
+        return GaussianProcessParams(λ, α, σ)
+    end
+end
+
+function vectorizer(model::GaussianProcess)
+    is_dirac, dirac_vals = create_dirac_mask(param_priors(model))
+
+    function vectorize(params::GaussianProcessParams)
+        ps = vcat(
+            vec(params.λ),
+            params.α,
+            params.σ,
+        )
+        
+        ps = filter_diracs(ps, is_dirac)
+        return ps
+    end
+
+    function devectorize(params::GaussianProcessParams, ps::AbstractVector{<:Real})
+        ps = insert_diracs(ps, is_dirac, dirac_vals)
+        
+        λ_len, α_len, n_len = param_lengths(params)
+        λ_shape = size(params.λ)
+
+        λ = reshape(ps[1:λ_len], λ_shape)
+        α = ps[λ_len+1:λ_len+α_len]
+        σ = ps[λ_len+α_len+1:end]
+    
+        return GaussianProcessParams(λ, α, σ)
+    end
+
+    return vectorize, devectorize
+end
+
+function bijector(model::GaussianProcess)
+    priors = param_priors(model)
+    return default_bijector(priors)
 end
 
 function param_priors(model::GaussianProcess)
-    θ_priors = nothing
-    λ_priors = model.length_scale_priors
-    α_priors = model.amp_priors
-    noise_std_priors = model.noise_std_priors
-    return θ_priors, λ_priors, α_priors, noise_std_priors
+    return vcat(
+        model.lengthscale_priors,
+        model.amplitude_priors,
+        model.noise_std_priors,
+    )
 end

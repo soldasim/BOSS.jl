@@ -31,11 +31,11 @@ GivenSequenceAM(X::AbstractMatrix) = GivenSequenceAM(collect(eachcol(X)))
 GivenSequenceAM(X::AbstractVector{<:AbstractVector}) = GivenSequenceAM(X, 0)
 
 function maximize_acquisition(opt::GivenPointAM, ::AcquisitionFunction, ::BossProblem, ::BossOptions)
-    return opt.point
+    return opt.point, nothing
 end
 
 function maximize_acquisition(opt::GivenSequenceAM, ::AcquisitionFunction, ::BossProblem, ::BossOptions)
-    (opt.used == length(opt.points)) && throw(BoundsError("`$(typeof(opt))` run out of predefined evaluation points."))
+    (opt.used == length(opt.points)) && throw(ErrorException("`$(typeof(opt))` run out of predefined evaluation points."))
     opt.used += 1
-    return opt.points[opt.used]
+    return opt.points[opt.used], nothing
 end

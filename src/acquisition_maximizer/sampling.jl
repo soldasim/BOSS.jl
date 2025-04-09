@@ -41,8 +41,8 @@ end
 
 
 function sample(parallel::Val{false}, acq, domain, x_prior, samples; max_attempts::Int)
-    xs = [rand_in_domain_(x_prior, domain; max_attempts) for _ in 1:samples]
-    xs = reduce_samples_(xs)
+    xs = [_rand_in_domain(x_prior, domain; max_attempts) for _ in 1:samples]
+    xs = _reduce_samples(xs)
     vals = acq.(eachcol(xs))
     return xs, vals
 end
@@ -56,11 +56,11 @@ function sample(parallel::Val{true}, acq, domain, x_prior, samples; max_attempts
     return xs, vals
 end
 
-function rand_in_domain_(x_prior::MultivariateDistribution, domain::Domain; max_attempts::Int=200)
-    x = rand_in_discrete_(x_prior, domain.discrete)
+function _rand_in_domain(x_prior::MultivariateDistribution, domain::Domain; max_attempts::Int=200)
+    x = _rand_in_discrete(x_prior, domain.discrete)
     for _ in 1:max_attempts-1
         in_domain(x, domain) && break
-        x = rand_in_discrete_(x_prior, domain.discrete)
+        x = _rand_in_discrete(x_prior, domain.discrete)
     end
     if in_domain(x, domain)
         return x
@@ -68,12 +68,12 @@ function rand_in_domain_(x_prior::MultivariateDistribution, domain::Domain; max_
         return nothing
     end
 end
-function rand_in_discrete_(x_prior::MultivariateDistribution, discrete::AbstractVector{<:Bool})
+function _rand_in_discrete(x_prior::MultivariateDistribution, discrete::AbstractVector{Bool})
     x = rand(x_prior)
     x = cond_func(round).(x, discrete)
     return x
 end
 
-function reduce_samples_(xs::AbstractVector{<:Union{Nothing, AbstractVector{<:Real}}})
+function _reduce_samples(xs::AbstractVector{<:Union{Nothing, AbstractVector{<:Real}}})
     return hcat(filter(!isnothing, xs)...)
 end

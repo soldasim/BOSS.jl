@@ -1,5 +1,7 @@
 
 """
+    Fitness
+
 An abstract type for a fitness function
 measuring the quality of an output `y` of the objective function.
 

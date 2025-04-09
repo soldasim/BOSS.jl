@@ -20,116 +20,56 @@ BOSS.TuringBI(args...; kwargs...) = TuringBI(args...; kwargs...)
 
 total_samples(t::TuringBI) = t.chain_count * t.samples_in_chain
 
-function BOSS.estimate_parameters(turing::TuringBI, problem::BossProblem, options::BossOptions)
-    samples = sample_params(turing, problem.model, problem.data.X, problem.data.Y)
-    return BOSS.reduce_param_samples(samples...), nothing
-end
-
-Turing.@model function turing_model(
-    model::Parametric,
-    X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real},
-)
-    θ ~ product_distribution(model.theta_priors)
-    noise_std ~ product_distribution(model.noise_std_priors)
-
-    means = model.(eachcol(X), Ref(θ))
+function BOSS.estimate_parameters(turing::TuringBI, problem::BossProblem, options::BossOptions; return_all::Bool=false)
+    if BOSS.sliceable(problem.model)
+        # In case of sliceable model, handle each y dimension separately.
+        y_dim_ = BOSS.y_dim(problem)
+        problem_slices = BOSS.slice.(Ref(problem), 1:y_dim_)
+        
+        results = _estimate_parameters.(Ref(turing), problem_slices, Ref(options); return_all)
+        return reduce_slice_results(results)
     
-    Y ~ product_distribution(BOSS.mvnormal.(means, Ref(noise_std)))
+    else
+        # In case of non-sliceable model, optimize all parameters simultaneously.
+        return _estimate_parameters(turing, problem, options; return_all)
+    end
 end
-Turing.@model function turing_model(
-    model::GaussianProcess,
-    X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real},
-)
-    y_dim = size(Y)[1]
 
-    length_scales ~ product_distribution(model.length_scale_priors)
-    amplitudes ~ product_distribution(model.amp_priors)
-    noise_std ~ product_distribution(model.noise_std_priors)
+function _estimate_parameters(turing::TuringBI, problem::BossProblem, options::BossOptions; return_all::Bool=false)
+    params = BOSS.params_sampler(problem.model, problem.data)()
     
-    gps = [BOSS.finite_gp(X, BOSS.mean_slice(model.mean, i), model.kernel, length_scales[:,i], amplitudes[i], noise_std[i]) for i in 1:y_dim]
-
-    Yt = transpose(Y)
-    Yt ~ product_distribution(gps)
-end
-Turing.@model function turing_model(
-    model::Semiparametric,
-    X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real},
-)
-    y_dim = size(Y)[1]
-
-    θ ~ product_distribution(model.parametric.theta_priors)
-    length_scales ~ product_distribution(model.nonparametric.length_scale_priors)
-    amplitudes ~ product_distribution(model.nonparametric.amp_priors)
-    noise_std ~ product_distribution(model.nonparametric.noise_std_priors)
-
-    mean = model.parametric(θ)
-    gps = [BOSS.finite_gp(X, x->mean(x)[i], model.nonparametric.kernel, length_scales[:,i], amplitudes[i], noise_std[i]) for i in 1:y_dim]
+    tm = turing_model(problem.model, params, problem.data)
     
-    Yt = transpose(Y)
-    Yt ~ product_distribution(gps)
-end
-
-function sample_params(
-    turing::TuringBI,
-    model::Parametric,
-    X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real},
-)
-    x_dim, y_dim = size(X)[1], size(Y)[1]
-    θ_len, _, _, _ = BOSS.param_counts(model)
-
-    tm = turing_model(model, X, Y)
-    chains = sample_params_turing(turing, tm)
-
-    thetas = get_samples(chains, "θ", (θ_len,))
-    length_scales = fill(nothing, total_samples(turing))
-    amplitudes = fill(nothing, total_samples(turing))
-    noise_std = get_samples(chains, "noise_std", (y_dim,))
-
-    return thetas, length_scales, amplitudes, noise_std
-end
-function sample_params(
-    turing::TuringBI,
-    model::GaussianProcess,
-    X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real},
-)
-    x_dim, y_dim = size(X)[1], size(Y)[1]
+    # if all parameters have Dirac priors
+    if isnothing(tm)
+        return BOSS.BIParams([deepcopy(params) for _ in 1:total_samples(turing)])
+    end
     
-    tm = turing_model(model, X, Y)
-    chains = sample_params_turing(turing, tm)
-    
-    thetas = fill(Float64[], total_samples(turing))
-    length_scales = get_samples(chains, "length_scales", (x_dim, y_dim))
-    amplitudes = get_samples(chains, "amplitudes", (y_dim,))
-    noise_std = get_samples(chains, "noise_std", (y_dim,))
+    chains = sample_chains(turing, tm)
+    samples = devec_chains(chains, problem.model, params, problem.data)
 
-    return thetas, length_scales, amplitudes, noise_std
-end
-function sample_params(
-    turing::TuringBI,
-    model::Semiparametric,
-    X::AbstractMatrix{<:Real},
-    Y::AbstractMatrix{<:Real},
-)    
-    x_dim, y_dim = size(X)[1], size(Y)[1]
-    θ_len, _, _, _ = BOSS.param_counts(model)
-    
-    tm = turing_model(model, X, Y)
-    chains = sample_params_turing(turing, tm)
-
-    thetas = get_samples(chains, "θ", (θ_len,))
-    length_scales = get_samples(chains, "length_scales", (x_dim, y_dim))
-    amplitudes = get_samples(chains, "amplitudes", (y_dim,))
-    noise_std = get_samples(chains, "noise_std", (y_dim,))
-
-    return thetas, length_scales, amplitudes, noise_std
+    return BOSS.BIParams(samples)
 end
 
-function sample_params_turing(turing::TuringBI, turing_model)
+function turing_model(model::SurrogateModel, params::ModelParams, data::ExperimentData)
+    vec_, devec_ = BOSS.vectorizer(model, data)
+    params_prior_ = BOSS.ModelParamsPrior(model, data)
+
+    if length(params_prior_) == 0
+        return nothing
+    end
+
+    data_loglike = BOSS.data_loglike(model, data)
+    data_loglike_(ps) = data_loglike(devec_(params, ps))
+
+    return turing_model(params_prior_, data_loglike_)
+end
+Turing.@model function turing_model(params_prior::BOSS.ModelParamsPrior, data_loglike::Function)
+    ps ~ params_prior
+    Turing.@addlogprob! data_loglike(ps)
+end
+
+function sample_chains(turing::TuringBI, turing_model)
     samples_in_chain = turing.warmup + (turing.leap_size * turing.samples_in_chain)
     if turing.parallel
         chains = Turing.sample(turing_model, turing.sampler, MCMCThreads(), samples_in_chain, turing.chain_count; progress=false)
@@ -140,13 +80,27 @@ function sample_params_turing(turing::TuringBI, turing_model)
     return chains
 end
 
-function get_samples(chains, param_name, param_shape)
-    # retrieve matrix (samples × param_count × chains)
-    samples = group(chains, param_name).value
-    # concatenate chains & transpose into matrix (param_count × samples)
-    samples = reduce(vcat, (samples[:,:,i] for i in 1:size(samples)[3])) |> transpose
-    # return vector of reshaped samples
-    return [reshape(s, param_shape) for s in eachcol(samples)]
+function devec_chains(chains, model::SurrogateModel, params::ModelParams, data::ExperimentData)
+    chains_matrix = chains[chains.name_map.parameters].value.data
+    samples = hcat((chains_matrix[:,:,i]' for i in axes(chains_matrix, 3))...)
+
+    vec_, devec_ = BOSS.vectorizer(model, data)
+    return devec_.(Ref(params), eachcol(samples))
+end
+
+function reduce_slice_results(results::AbstractVector{<:BOSS.BIParams})
+    @assert allequal(length.(results))
+    sample_count = length(first(results))
+
+    samples = [BOSS.join_slices(getindex.(results, Ref(i))) for i in 1:sample_count]
+    return BOSS.BIParams(samples)
+end
+
+# workaround for Turing erroring with `Bijector`s without defined `with_logabsdet_jacobian` method
+function Turing.with_logabsdet_jacobian(b::Bijector, x)
+    y = transform(b, x)
+    ladj = logabsdetjac(b, x)
+    return y, ladj
 end
 
 end # module TuringExt

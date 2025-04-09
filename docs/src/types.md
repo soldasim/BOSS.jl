@@ -11,7 +11,7 @@ This reminder of this page contains documentation for all exported types and str
 
 ## Problem Definition
 
-The `BossProblem` structure contains the whole problem definition, the model definition, and the data together with the current parameter and hyperparameter values.
+The [`BossProblem`](@ref) structure contains the whole optimization problem definition together with the surrogate model.
 
 ```@docs
 BossProblem
@@ -19,31 +19,40 @@ BossProblem
 
 ## Fitness
 
-The `Fitness` type is used to define the fitness function ``\text{fit}(y) \rightarrow \mathbb{R}``.
-
-The `NoFitness` can be used in problems without defined fitness (such as active learning problems). It is the default option used if no fitness is provided to [`BossProblem`](@ref). The `NoFitness` can only be used with [`AcquisitionFunction`](@ref) that does not require fitness.
-
-The `LinFitness` can be used to define a simple linear fitness function
-```math
-\text{fit}(y) = \alpha^T y \;.
-```
-Using `LinFitness` instead of `NonlinFitness` may allow for simpler/faster computation of some acquisition functions.
-
-The `NonlinFitness` can be used to define an arbitrary fitness function
-```math
-\text{fit}(y) \rightarrow \mathbb{R} \;.
-```
+The [`Fitness`](@ref) type is used to define the fitness function ``\text{fit}(y) \rightarrow \mathbb{R}`` and is passed to the [`BossProblem`](@ref).
 
 ```@docs
 Fitness
+```
+
+The [`NoFitness`](@ref) can be used in problems without defined fitness (such as active learning problems). It is the default option used if no fitness is provided to [`BossProblem`](@ref). The `NoFitness` can only be used with a custom [`AcquisitionFunction`](@ref) that does not require fitness.
+
+```@docs
 NoFitness
+```
+
+The [`LinFitness`](@ref) can be used to define a simple fitness function depending linearly on the objective function outputs.
+```math
+\text{fit}(y) = \alpha^T y
+```
+Using [`LinFitness`](@ref) instead of [`NonlinFitness`](@ref) may allow for simpler/faster computation of some acquisition functions (if they are defined that way).
+
+```@docs
 LinFitness
+```
+
+The [`NonlinFitness`](@ref) can be used to define an arbitrary fitness function.
+```math
+\text{fit}(y) \rightarrow \mathbb{R}
+```
+
+```@docs
 NonlinFitness
 ```
 
 ## Input Domain
 
-The `Domain` structure is used to define the input domain ``x \in \text{Domain}``. The domain is formalized as
+The [`Domain`](@ref) structure is used to define the input domain ``x \in \text{Domain}``. The domain is formalized as
 ```math
 \begin{aligned}
 & lb < x < ub \\
@@ -59,7 +68,7 @@ AbstractBounds
 
 ## Output Constraints
 
-Constraints on output vector `y` can be defined using the `y_max` field. Providing `y_max` to [`BossProblem`](@ref) defines the linear constraints `y < y_max`.
+Constraints on the output `y` can be defined using the `y_max` field of the [`BossProblem`](@ref). Providing `y_max` to [`BossProblem`](@ref) defines the linear constraints `y < y_max`.
 
 Arbitrary nonlinear constraints can be defined by augmenting the objective function. For example to define the constraint `y[1] * y[2] < c`, one can define an augmented objective function
 ```julia
@@ -77,75 +86,64 @@ where `y_dim` is the output dimension of the original objective function. Note t
 
 ## Surrogate Model
 
-The surrogate model is defined using the [`SurrogateModel`](@ref) type.
+The surrogate model is defined using the [`SurrogateModel`](@ref) type and passed to the [`BossProblem`](@ref).
 
 ```@docs
 SurrogateModel
 ```
 
-The `LinModel` and `NonlinModel` structures are used to define parametric models. (Some compuatations are simpler/faster with linear model, so the `LinModel` might provide better performance in the future. This functionality is not implemented yet, so using the `NonlinModel` is equiavalent for now.)
+Each subtype of [`SurrogateModel`](@ref) has its own subtype of [`ModelParams`](@ref) defined, which stores all its (hyper)parameters.
+
+```@docs
+ModelParams
+```
+
+The [`LinearModel`](@ref) and [`NonlinearModel`](@ref) structures are used to define parametric models. (Some compuatations are simpler/faster with linear model, so the [`LinearModel`](@ref) might provide better performance in the future. This functionality is not implemented yet, so using the [`NonlinearModel`](@ref) is equiavalent for now.)
 
 ```@docs
 Parametric
-LinModel
-NonlinModel
+LinearModel
+NonlinearModel
+ParametricParams
 ```
 
-The `GaussianProcess` structure is used to define a Gaussian process model. See [1] for more information about Gaussian processes.
+The [`GaussianProcess`](@ref) structure is used to define a Gaussian process model. See [1] for more information about Gaussian processes.
 
 ```@docs
 Nonparametric
 GaussianProcess
+GaussianProcessParams
 ```
 
-The `Semiparametric` structure is used to define a semiparametric model combining the parametric and nonparametric (Gaussian process) models.
+The [`Semiparametric`](@ref) structure is used to define a semiparametric model combining the parametric and nonparametric (Gaussian process) models.
 
 ```@docs
 Semiparametric
+SemiparametricParams
 ```
 
-## Parameters & Hyperparameters
+## Model Parameters
 
-The `BOSS.ModelParams` and `BOSS.ParamPriors` type aliases are used throughout the package to pass around model (hyper)parameters and their priors. These types are only important for advanced usage of BOSS.jl. (E.g. implementing custom surrogate models.)
+The fitted model parameters are stored in subtypes of [`FittedParams`](@ref) in the `params` field of the [`BossProblem`](@ref).
 
 ```@docs
-BOSS.ModelParams
-BOSS.Theta
-BOSS.LengthScales
-BOSS.Amplitudes
-BOSS.NoiseStd
+FittedParams
 ```
+
+Different model fitters create different subtypes of [`FittedParams`](@ref). For example, MAP model fitters result in the [`MAPParams`](@ref) containing the MAP [`ModelParams`](@ref), and variational model fitters results in the [`BIParams`](@ref) containing the posterior [`ModelParams`](@ref) samples.
 
 ```@docs
-BOSS.ParamPriors
-BOSS.ThetaPriors
-BOSS.LengthScalePriors
-BOSS.AmplitudePriors
-BOSS.NoiseStdPriors
+MAPParams
+BIParams
+RandomParams
 ```
-
-All (hyper)parameter priors are defined as a part of the surrogate model definition. All surrogate models share the `noise_std_priors` field, but other priors may be missing depending on the particular model.
 
 ## Experiment Data
 
-The data from all past objective function evaluations as well as estimated parameter and/or hyperparameter values of the surrogate model are stored in the `ExperimentData` types.
+The data from all past objective function evaluations are stored in the `ExperimentData` structure. It is also used to provide the intial training data to [`BossProblem`](@ref).
 
 ```@docs
 ExperimentData
-```
-
-The `ExperimentDataPrior` structure is used to pass the initial dataset to the [`BossProblem`](@ref).
-
-```@docs
-ExperimentDataPrior
-```
-
-The `ExperimentDataPost` types contain the estimated model (hyper)parameters in addition to the dataset. The `ExperimentDataMAP` structure contains the MAP estimate of the parameters in case a MAP model fitter is used, and the `ExperimentDataBI` structure contains samples of the parameters in case a Bayesian inference model fitter is used.
-
-```@docs
-ExperimentDataPost
-ExperimentDataMAP
-ExperimentDataBI
 ```
 
 ## Model Fitter
@@ -154,7 +152,6 @@ The `ModelFitter` type defines the algorithm used to estimate the model (hyper)p
 
 ```@docs
 ModelFitter
-ModelFit
 ```
 
 The `OptimizationMAP` model fitter can be used to utilize any optimization algorithm from the Optimization.jl package in order to find the MAP estimate of the (hyper)parameters. (See the example usage.)
@@ -175,10 +172,10 @@ The `SamplingMAP` model fitter preforms MAP estimation by sampling the parameter
 SamplingMAP
 ```
 
-The `RandomMAP` model fitter samples random parameter values from their priors. It does NOT optimize for the most probable parameters in any way. This model fitter is provided solely for easy experimentation with BOSS.jl and should not be used to solve problems.
+The `RandomFitter` model fitter samples random parameter values from their priors. It does NOT optimize for the most probable parameters in any way. This model fitter is provided solely for easy experimentation with BOSS.jl and should not be used to solve problems.
 
 ```@docs
-RandomMAP
+RandomFitter
 ```
 
 The `SampleOptMAP` model fitter combines the `SamplingMAP` and `OptimizationMAP`. It first samples many model parameter samples from their priors, and subsequently runs multiple optimization runs initiated at the best samples.

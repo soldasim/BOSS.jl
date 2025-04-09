@@ -6,11 +6,11 @@
         domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
         model = Nonparametric(;
-            amp_priors = fill(LogNormal(), 2),
-            length_scale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
+            amplitude_priors = fill(LogNormal(), 2),
+            lengthscale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
             noise_std_priors = fill(Dirac(1e-4), 2),
         ),
-        data = ExperimentDataPrior([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
+        data = ExperimentData([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
     )
     turing = TuringBI(;
         sampler = PG(20),
@@ -21,7 +21,7 @@
         parallel = false,
     )
     BOSS.estimate_parameters!(problem, turing; options=BossOptions(; info=false))
-    posteriors = model_posterior(problem.model, problem.data)
+    posteriors = model_posterior(problem)
 
     @param_test average_posterior begin
         @params posteriors

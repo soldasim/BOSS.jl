@@ -1,5 +1,18 @@
 
 """
+    CustomKernel(::Function)
+
+Auxiliary structure to define a custom kernel by passing a function:
+
+`(x::AbstractVector{<:Real}, y::AbstractVector{<:Real}) -> value::Real`
+"""
+struct CustomKernel <: Kernel
+    f::Function
+end
+
+(k::CustomKernel)(x, y) = k.f(x, y)
+
+"""
     DiscreteKernel(kernel::Kernel, dims::AbstractVector{Bool})
     DiscreteKernel(kernel::Kernel)
 

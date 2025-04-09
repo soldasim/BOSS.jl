@@ -113,7 +113,7 @@
       <basechoices />
       <invalidValues />
     </Parameter>
-    <Parameter id="18" name="Nonparametric_length_scale_priors" type="1">
+    <Parameter id="18" name="Nonparametric_lengthscale_priors" type="1">
       <values>
         <value>with_Dirac</value>
         <value>wo_Dirac</value>
@@ -190,7 +190,7 @@
       <basechoices />
       <invalidValues />
     </Parameter>
-    <Parameter id="27" name="Nonparametric_amp_priors" type="1">
+    <Parameter id="27" name="Nonparametric_amplitude_priors" type="1">
       <values>
         <value>with_Dirac</value>
         <value>wo_Dirac</value>
@@ -263,16 +263,16 @@
         <Parameter name="Nonparametric_kernel" />
       </Parameters>
     </Constraint>
-    <Constraint text="(MODEL = &quot;Parametric&quot;) =&gt; (Nonparametric_length_scale_priors = &quot;INACTIVE&quot;)">
+    <Constraint text="(MODEL = &quot;Parametric&quot;) =&gt; (Nonparametric_lengthscale_priors = &quot;INACTIVE&quot;)">
       <Parameters>
         <Parameter name="MODEL" />
-        <Parameter name="Nonparametric_length_scale_priors" />
+        <Parameter name="Nonparametric_lengthscale_priors" />
       </Parameters>
     </Constraint>
-    <Constraint text="(MODEL != &quot;Parametric&quot;) =&gt; (Nonparametric_length_scale_priors != &quot;INACTIVE&quot;)">
+    <Constraint text="(MODEL != &quot;Parametric&quot;) =&gt; (Nonparametric_lengthscale_priors != &quot;INACTIVE&quot;)">
       <Parameters>
         <Parameter name="MODEL" />
-        <Parameter name="Nonparametric_length_scale_priors" />
+        <Parameter name="Nonparametric_lengthscale_priors" />
       </Parameters>
     </Constraint>
     <Constraint text="(MODEL = &quot;Nonparametric&quot;) =&gt; (Parametric_predict = &quot;INACTIVE&quot;)">
@@ -323,16 +323,16 @@
         <Parameter name="NonlinFitness_fit" />
       </Parameters>
     </Constraint>
-    <Constraint text="(MODEL = &quot;Parametric&quot;) =&gt; (Nonparametric_amp_priors = &quot;INACTIVE&quot;)">
+    <Constraint text="(MODEL = &quot;Parametric&quot;) =&gt; (Nonparametric_amplitude_priors = &quot;INACTIVE&quot;)">
       <Parameters>
         <Parameter name="MODEL" />
-        <Parameter name="Nonparametric_amp_priors" />
+        <Parameter name="Nonparametric_amplitude_priors" />
       </Parameters>
     </Constraint>
-    <Constraint text="(MODEL != &quot;Parametric&quot;) =&gt; (Nonparametric_amp_priors != &quot;INACTIVE&quot;)">
+    <Constraint text="(MODEL != &quot;Parametric&quot;) =&gt; (Nonparametric_amplitude_priors != &quot;INACTIVE&quot;)">
       <Parameters>
         <Parameter name="MODEL" />
-        <Parameter name="Nonparametric_amp_priors" />
+        <Parameter name="Nonparametric_amplitude_priors" />
       </Parameters>
     </Constraint>
   </Constraints>
@@ -921,7 +921,7 @@
     <Value>PARAMETRIC_THETA_PRIORS</Value>
     <Value>NONPARAMETRIC_MEAN</Value>
     <Value>NONPARAMETRIC_KERNEL</Value>
-    <Value>NONPARAMETRIC_LENGTH_SCALE_PRIORS</Value>
+    <Value>NONPARAMETRIC_lengthscale_priors</Value>
     <Value>SEMIPARAMETRIC_MEAN</Value>
     <Value>MODEL</Value>
     <Value>LINFITNESS_COEFS</Value>
@@ -930,7 +930,7 @@
     <Value>ITER_MAX</Value>
     <Value>MODELFITTER</Value>
     <Value>ACQUISITIONMAXIMIZER</Value>
-    <Value>NONPARAMETRIC_AMP_PRIORS</Value>
+    <Value>NONPARAMETRIC_amplitude_priors</Value>
   </Header>
   <Stat-Data>
     <ExecutionTime>0.25</ExecutionTime>

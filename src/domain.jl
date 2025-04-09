@@ -15,7 +15,7 @@ Describes the optimization domain.
 
 # Keywords
 - `bounds::AbstractBounds`: The basic box-constraints on `x`. This field is mandatory.
-- `discrete::AbstractVector{<:Bool}`: Can be used to designate some dimensions
+- `discrete::AbstractVector{Bool}`: Can be used to designate some dimensions
         of the domain as discrete.
 - `cons::Union{Nothing, Function}`: Used to define arbitrary nonlinear constraints on `x`.
         Feasible points `x` must satisfy `all(cons(x) .> 0.)`. An appropriate acquisition
@@ -24,7 +24,7 @@ Describes the optimization domain.
 """
 @kwdef struct Domain{
     B<:AbstractBounds,
-    D<:AbstractVector{<:Bool},
+    D<:AbstractVector{Bool},
     C<:Union{Nothing, Function},
 }
     bounds::B
@@ -36,6 +36,11 @@ Describes the optimization domain.
         return new{B,D,C}(bounds, discrete, cons)
     end
 end
+
+x_dim(d::Domain) = length(d.discrete)
+
+cons_dim(d::Domain{<:Any, <:Any, Nothing}) = 0
+cons_dim(d::Domain{<:Any, <:Any, <:Any}) = length(d.cons(mean(d.bounds)))
 
 function make_discrete(domain::Domain)
     isnothing(domain.cons) && return domain
@@ -67,7 +72,7 @@ function in_bounds(x::AbstractVector{<:Real}, bounds::AbstractBounds)
     return true
 end
 
-in_discrete(x::AbstractVector{<:Real}, discrete::AbstractVector{<:Bool}) =
+in_discrete(x::AbstractVector{<:Real}, discrete::AbstractVector{Bool}) =
     all(round.(x[discrete]) .== x[discrete])
 
 in_cons(x::AbstractVector{<:Real}, cons::Nothing) = true

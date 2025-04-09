@@ -87,7 +87,7 @@ function optimize(
     cons_func,
     lb::AbstractVector{<:Real},
     ub::AbstractVector{<:Real},
-    discrete::AbstractVector{<:Bool},
+    discrete::AbstractVector{Bool},
     c_dim::Int,
     starts::AbstractMatrix{<:Real},
     options::BossOptions,

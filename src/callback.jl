@@ -1,5 +1,7 @@
 
 """
+    BossCallback
+
 If a `BossCallback` is provided to `BossOptions`,
 the callback is called once before the BO procedure starts,
 and after each iteration.

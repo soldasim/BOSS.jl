@@ -33,7 +33,7 @@ function good_parametric_model()
 
     theta_priors = fill(Normal(0., 1.), 3)
 
-    NonlinModel(; predict, theta_priors)
+    NonlinearModel(; predict, theta_priors)
 end
 # You can also try how the Parametric and Semiparametric models behave
 # when we provide a completely wrong parametric model.
@@ -46,18 +46,18 @@ function bad_parametric_model()
 
     theta_priors = fill(Normal(0., 1.), 3)
 
-    NonlinModel(; predict, theta_priors)
+    NonlinearModel(; predict, theta_priors)
 end
 
 # Our prediction about the noise and GP hyperparameters.
 # - - A) Predefined values - - - -
-# noise_std_priors() = fill(Dirac(0.1), 2)
-# length_scale_priors() = fill(Product(fill(Dirac(1.), 1)), 2)
+# lengthscale_priors() = fill(Product(fill(Dirac(1.), 1)), 2)
 # amplitude_priors() = fill(Dirac(1.), 2)
+# noise_std_priors() = fill(Dirac(0.1), 2)
 # - - B) Priors - - - -
-noise_std_priors() = fill(truncated(Normal(0., 1.); lower=0.), 2)
-length_scale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2)
+lengthscale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2)
 amplitude_priors() = fill(truncated(Normal(0., 10.); lower=0.), 2)
+noise_std_priors() = fill(truncated(Normal(0., 1.); lower=0.), 2)
 
 # Generate some initial data.
 function gen_data(count, bounds)
@@ -79,15 +79,15 @@ function opt_problem(init_data)
     #     # bad_parametric_model(),
     #     Nonparametric(;
     #         kernel = BOSS.Matern32Kernel(),
-    #         amp_priors = amplitude_priors(),
-    #         length_scale_priors = length_scale_priors(),
+    #         amplitude_priors = amplitude_priors(),
+    #         lengthscale_priors = lengthscale_priors(),
     #         noise_std_priors = noise_std_priors(),
     #     ),
     # )
     model = Nonparametric(;
         kernel = BOSS.Matern32Kernel(),
-        amp_priors = amplitude_priors(),
-        length_scale_priors = length_scale_priors(),
+        amplitude_priors = amplitude_priors(),
+        lengthscale_priors = lengthscale_priors(),
         noise_std_priors = noise_std_priors(),
     )
 
@@ -97,7 +97,7 @@ function opt_problem(init_data)
         domain,
         y_max = [Inf, 0.],
         model,
-        data = ExperimentDataPrior(data...),
+        data = ExperimentData(data...),
     )
 end
 

@@ -9,13 +9,14 @@ second(xs) = xs[2]
 
 """
     cond_func(f)(x, b) == (b ? f(x) : x)
-    conf_func(f).(xs, bs) == [b ? f(x) : x for (b,x) in zip(bs,xs)]
+
+Useful for combining broadcasting and ternary operator.
 """
-cond_func(f::Function) = (x, b) -> b ? f(x) : x
+cond_func(f::Function) = (x, b::Bool) -> b ? f(x) : x
 
 discrete_round(::Nothing, x::AbstractVector{<:Real}) = x
 discrete_round(::Missing, x::AbstractVector{<:Real}) = round.(x)
-discrete_round(dims::AbstractVector{<:Bool}, x::AbstractVector{<:Real}) = cond_func(round).(x, dims)
+discrete_round(dims::AbstractVector{Bool}, x::AbstractVector{<:Real}) = cond_func(round).(x, dims)
 
 """
     is_feasible(y, y_max) -> Bool
