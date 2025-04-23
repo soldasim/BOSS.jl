@@ -27,6 +27,7 @@ export SurrogateModel, ModelParams
 export Parametric, LinearModel, NonlinearModel, ParametricParams
 export Nonparametric, GaussianProcess, GaussianProcessParams
 export Semiparametric, SemiparametricParams
+export IBNN, IBNNLayer, IBNNPriors, IBNNReLU, IBNNParams
 
 # Parameters
 export FittedParams, UniFittedParams, MultiFittedParams
