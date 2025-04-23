@@ -97,9 +97,9 @@ function reduce_slice_results(results::AbstractVector{<:BOSS.BIParams})
 end
 
 # workaround for Turing erroring with `Bijector`s without defined `with_logabsdet_jacobian` method
-function Turing.with_logabsdet_jacobian(b::Bijector, x)
-    y = transform(b, x)
-    ladj = logabsdetjac(b, x)
+function Turing.with_logabsdet_jacobian(b::Turing.Bijector, x)
+    y = Turing.transform(b, x)
+    ladj = Turing.logabsdetjac(b, x)
     return y, ladj
 end
 
