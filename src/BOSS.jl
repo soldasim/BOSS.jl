@@ -10,7 +10,7 @@ export result
 # utils
 export x_dim, y_dim, cons_dim, data_count, is_consistent
 export get_params
-export calc_inverse_gamma
+export calc_inverse_gamma, TruncatedMvNormal
 
 # Problem Definition
 export BossProblem

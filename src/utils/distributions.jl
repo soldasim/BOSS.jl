@@ -20,3 +20,53 @@ mvnormal(μ::AbstractVector{<:Real}, σ::AbstractVector{<:Real}) =
 # This constructor is deprecated in Distributions.jl
 mvlognormal(μ::AbstractVector{<:Real}, σ::AbstractVector{<:Real}) =
     MvLogNormal(μ, Diagonal(map(abs2, σ)))
+
+
+# --- Truncated multivariate normal distribution ---
+
+@kwdef struct TruncatedMvNormal <: ContinuousMultivariateDistribution
+    μ::AbstractVector{<:Real}
+    Σ::AbstractMatrix{<:Real}
+    lb::AbstractVector{<:Real}
+    ub::AbstractVector{<:Real}
+
+    function TruncatedMvNormal(μ, Σ, lb, ub)
+        @warn "The `logpdf` of `TruncatedMvNormal` is only valid up to a constant." maxlog=1
+        return new(μ, Σ, lb, ub)
+    end
+end
+
+Base.length(d::TruncatedMvNormal) = length(d.μ)
+# Distributions.sampler(d::TruncatedMvNormal)
+# Base.eltype(d::TruncatedMvNormal)
+
+Base.minimum(d::TruncatedMvNormal) = d.lb
+Base.maximum(d::TruncatedMvNormal) = d.ub
+
+# simple rejection sampling
+function Distributions._rand!(rng::AbstractRNG, d::TruncatedMvNormal, x::AbstractVector{<:Real})
+    Distributions._rand!(rng, MvNormal(d.μ, d.Σ), x)
+    while _out_of_bounds(d, x)
+        Distributions._rand!(rng, MvNormal(d.μ, d.Σ), x)
+    end
+    return x
+end
+
+function _out_of_bounds(d::TruncatedMvNormal, x::AbstractVector{<:Real})
+    for i in eachindex(x)
+        if x[i] < d.lb[i] || x[i] > d.ub[i]
+            return true
+        end
+    end
+    return false
+end
+
+# return logpdf of the non-truncated MvNormal - valid up to a constant
+function Distributions._logpdf(d::TruncatedMvNormal, x::AbstractVector{<:Real})
+    _out_of_bounds(d, x) && (return -Inf)
+    return Distributions._logpdf(MvNormal(d.μ, d.Σ), x)
+end
+
+function Bijectors.bijector(d::TruncatedMvNormal)
+    return Bijectors.TruncatedBijector(d.lb, d.ub)
+end
