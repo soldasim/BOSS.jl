@@ -82,3 +82,13 @@ function exclude_exterior_points(domain::Domain, X::AbstractMatrix{<:Real}, Y::A
     options.info && @warn "Some data are exterior to the domain and will be discarded!"
     return X[:,interior], Y[:,interior]
 end
+
+function ranges(lengths::AbstractVector{<:Integer})
+    ranges = UnitRange{eltype(lengths)}[]
+    last_i = 0
+    for len in lengths
+        push!(ranges, (last_i + 1):(last_i + len))
+        last_i += len
+    end
+    return ranges
+end
