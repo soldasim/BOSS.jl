@@ -1,10 +1,10 @@
 # Data Types & Structures
 
-The following diagram showcases the type hierarchy of all BOSS inputs and hyperparameters.
+The following diagram showcases the hierarchy of the most important inputs & settings for the main function `bo!`.
 
 | | | | | |
 | --- | --- | --- | --- | --- |
-| | | ![BOSS Pipeline](img/boss_inputs.drawio.png) | | |
+| | | ![BOSS Data Types](img/boss_inputs.drawio.png) | | |
 | | | | | |
 
 This reminder of this page contains documentation for all exported types and structures.
@@ -15,39 +15,6 @@ The [`BossProblem`](@ref) structure contains the whole optimization problem defi
 
 ```@docs
 BossProblem
-```
-
-## Fitness
-
-The [`Fitness`](@ref) type is used to define the fitness function ``\text{fit}(y) \rightarrow \mathbb{R}`` and is passed to the [`BossProblem`](@ref).
-
-```@docs
-Fitness
-```
-
-The [`NoFitness`](@ref) can be used in problems without defined fitness (such as active learning problems). It is the default option used if no fitness is provided to [`BossProblem`](@ref). The `NoFitness` can only be used with a custom [`AcquisitionFunction`](@ref) that does not require fitness.
-
-```@docs
-NoFitness
-```
-
-The [`LinFitness`](@ref) can be used to define a simple fitness function depending linearly on the objective function outputs.
-```math
-\text{fit}(y) = \alpha^T y
-```
-Using [`LinFitness`](@ref) instead of [`NonlinFitness`](@ref) may allow for simpler/faster computation of some acquisition functions (if they are defined that way).
-
-```@docs
-LinFitness
-```
-
-The [`NonlinFitness`](@ref) can be used to define an arbitrary fitness function.
-```math
-\text{fit}(y) \rightarrow \mathbb{R}
-```
-
-```@docs
-NonlinFitness
 ```
 
 ## Input Domain
@@ -82,11 +49,56 @@ and use
 ```julia
 y_max = [fill(Inf, y_dim)..., c]
 ```
-where `y_dim` is the output dimension of the original objective function. Note that defining nonlinear constraints this way increases the output dimension of the objective function and thus the model definition has to be modified accordingly.
+where `y_dim` is the output dimension of the original objective function `f(x)`. Note that defining nonlinear constraints this way increases the output dimension of the modeled objective function and thus the definition of the [`SurrogateModel`](@ref) has to be modified accordingly.
+
+## Acquisition Function
+
+The acquisition function is defined using the subtypes of `AcquisitionFunction`.
+
+```@docs
+AcquisitionFunction
+```
+
+Currently, only the expected improvement acuiqistion function is provided out-of-the-box.
+
+```@docs
+ExpectedImprovement
+```
+
+Custom acquisition functions can be defined by subtyping the [`AcquisitionFunction`](@ref) type.
+
+## Fitness
+
+Subtype of [`Fitness`](@ref) are used to define the fitness function ``\text{fit}(y) \rightarrow \mathbb{R}`` and is passed to the [`AcquisitionFunction`](@ref).
+
+```@docs
+Fitness
+```
+
+(Note that the acquisition function does not _have to_ include `Fitness`. For example, it may not make sense to include `Fitness` in specialized acquisition functions for active learning tasks. Acquisition function for optimization tasks should usually work with `Fitness`.)
+
+The [`LinFitness`](@ref) can be used to define a simple fitness function depending linearly on the objective function outputs.
+```math
+\text{fit}(y) = \alpha^T y
+```
+Using [`LinFitness`](@ref) instead of [`NonlinFitness`](@ref) may allow for simpler/faster computation of some acquisition functions (if they are defined that way).
+
+```@docs
+LinFitness
+```
+
+The [`NonlinFitness`](@ref) can be used to define an arbitrary fitness function.
+```math
+\text{fit}(y) \rightarrow \mathbb{R}
+```
+
+```@docs
+NonlinFitness
+```
 
 ## Surrogate Model
 
-The surrogate model is defined using the [`SurrogateModel`](@ref) type and passed to the [`BossProblem`](@ref).
+The surrogate model is defined using subtypes of [`SurrogateModel`](@ref) and passed to the [`BossProblem`](@ref).
 
 ```@docs
 SurrogateModel
@@ -98,7 +110,9 @@ Each subtype of [`SurrogateModel`](@ref) has its own subtype of [`ModelParams`](
 ModelParams
 ```
 
-The [`LinearModel`](@ref) and [`NonlinearModel`](@ref) structures are used to define parametric models. (Some compuatations are simpler/faster with linear model, so the [`LinearModel`](@ref) might provide better performance in the future. This functionality is not implemented yet, so using the [`NonlinearModel`](@ref) is equiavalent for now.)
+The [`LinearModel`](@ref) and [`NonlinearModel`](@ref) structures are used to define parametric models.
+
+(Some compuatations are simpler/faster with linear model, so the [`LinearModel`](@ref) might provide better performance in the future. This functionality is not implemented yet, so using the [`NonlinearModel`](@ref) is equiavalent for now.)
 
 ```@docs
 Parametric
@@ -122,20 +136,23 @@ Semiparametric
 SemiparametricParams
 ```
 
+Custom surrogate models can be defined by subtyping the [`SurrogateModel`](@ref) type.
+
 ## Model Parameters
 
-The fitted model parameters are stored in subtypes of [`FittedParams`](@ref) in the `params` field of the [`BossProblem`](@ref).
+The estimated model parameters are stored as subtypes of [`FittedParams`](@ref) in the `params` field of the [`BossProblem`](@ref).
 
 ```@docs
 FittedParams
 ```
 
-Different model fitters create different subtypes of [`FittedParams`](@ref). For example, MAP model fitters result in the [`MAPParams`](@ref) containing the MAP [`ModelParams`](@ref), and variational model fitters results in the [`BIParams`](@ref) containing the posterior [`ModelParams`](@ref) samples.
+Different [`ModelFitter`](@ref)s create different subtypes of [`FittedParams`](@ref). For example, MAP model fitters result in the [`MAPParams`](@ref) containing the MAP [`ModelParams`](@ref), and variational model fitters results in the [`BIParams`](@ref) containing multiple posterior [`ModelParams`](@ref) samples.
 
 ```@docs
 MAPParams
 BIParams
 RandomParams
+FixedParams
 ```
 
 ## Experiment Data
@@ -183,6 +200,8 @@ The `SampleOptMAP` model fitter combines the `SamplingMAP` and `OptimizationMAP`
 ```@docs
 SampleOptMAP
 ```
+
+Custom model fitters can be defined by subtyping the [`ModelFitter`](@ref) type.
 
 ## Acquisition Maximizer
 
@@ -237,19 +256,7 @@ The `SequentialBatchAM` can be used as a wrapper of any of the other acquisition
 SequentialBatchAM
 ```
 
-## Acquisition Function
-
-The acquisition function is defined using the `AcquisitionFunction` type.
-
-```@docs
-AcquisitionFunction
-```
-
-The `ExpectedImprovement` defines the expected improvement acquisition function. See [1] for more information.
-
-```@docs
-ExpectedImprovement
-```
+Custom acquisitions maximizers can be defined by subtyping the [`AcquisitionMaximizer`](@ref) type.
 
 ## Termination Conditions
 
@@ -271,6 +278,8 @@ The `IterLimit` terminates the procedure after a predefined number of iterations
 IterLimit
 ```
 
+Custom termination conditions can be defined by subtyping the [`TermCond`](@ref) type.
+
 ## Miscellaneous
 
 The `BossOptions` structure is used to define miscellaneous hyperparameters of the BOSS.jl package.
@@ -279,14 +288,14 @@ The `BossOptions` structure is used to define miscellaneous hyperparameters of t
 BossOptions
 ```
 
-The `BossCallback` type is used to pass callbacks which will be called in every iteration of the BO procedure (and once before the procedure starts).
+The `BossCallback` type can be subtyped to define a custom callback, which is called in every iteration of the BO procedure (and once before the procedure starts). Pass the callback to the [`BossOptions`](@ref).
 
 ```@docs
 BossCallback
 NoCallback
 ```
 
-The `PlotCallback` provides plots the state of the BO procedure in every iteration. It currently only supports one-dimensional input spaces.
+The provided `PlotCallback` plots the state of the BO procedure in every iteration. It currently only supports one-dimensional input spaces.
 
 ```@docs
 PlotCallback

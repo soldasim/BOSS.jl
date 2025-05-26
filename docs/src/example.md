@@ -27,12 +27,14 @@ First, we define the problem as an instance of [`BossProblem`](@ref).
 
 ```julia
 problem() = BossProblem(;
-    fitness = LinFitness([1, 0]),   # maximize y
     f = blackbox,
     domain = Domain(;
         bounds = ([0.], [20.]),     # x ∈ <0, 20>
     ),
     y_max = [Inf, 0.],              # z < 0
+    acquisition = ExpectedImprovement(;
+        fitness = LinFitness([1, 0]),   # maximize y
+    ),
     model = nonparametric(), # or `parametric()` or `semiparametric()`
     data = init_data(),
 )

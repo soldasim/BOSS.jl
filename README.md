@@ -2,9 +2,11 @@
 
 # BOSS (Bayesian Optimization with Semiparametric Surrogate)
 
-BOSS.jl is a Julia package for Bayesian optimization. It provides a compact way to define an optimization problem and a surrogate model, and solve the problem. It allows changing the algorithms used for the subtasks of fitting the surrogate model and optimizing the acquisition function. Simple interfaces are defined for the use of custom surrogate models and/or algorithms for the subtasks. (See [1] for more information about Bayesian optimization.)
+BOSS stands for "Bayesian Optimization with Semiparametric Surrogate". BOSS.jl is a Julia package for Bayesian optimization. It provides a straight-forward way to define a BO problem, a surrogate model, and an acquisition function. It allows changing the algorithms used for the subtasks of estimating the model parameters and optimizing the acquisition function. Simple interfaces are defined for the use of custom surrogate models, acquisition functions, and algorithms for the subtasks. Therefore, the package is easily extendable and can be used as a practical skeleton for implementing other BO approaches.
 
-See the [documentation](https://soldasim.github.io/BOSS.jl/) for more information.
+See the [documentation](https://soldasim.github.io/BOSS.jl/) for more information about BOSS.jl.
+
+See [1] for more information about Bayesian optimization.
 
 ## Problem Definition
 
@@ -14,27 +16,32 @@ There is some (possibly noisy) blackbox function `y = f(x) = f_true(x) + ϵ` whe
 
 We have some surrogate model `y = model(x) ≈ f_true(x)` describing our limited knowledge about the blackbox function.
 
-We wish to find `x ∈ domain` such that `fitness(f(x))` is maximized while satisfying the constraints `f(x) < cons`.
+We wish to find `x ∈ domain` such that `fitness(f(x))` is maximized while satisfying the constraints `f(x) < y_max`.
 
-## The Model
+## The Surrogate Model
 
-BOSS can be used with purely parametric models (via the `Parametric` type), Gaussian Processes (via the `Nonparametric` or `GaussianProcess` type) or with a semiparametric model (via the `Semiparametric`) which combines the two previously mentioned models by supplying the parametric model as the mean of the GP.
+BOSS can be used with purely parametric models, Gaussian Processes, or with a semiparametric models combining the two previous models by supplying the parametric model as the mean of the GP. Alternatively, any custom surrogate model can be defined by extending the `SurrogateModel` type.
 
 ## Algorithms
 
-BOSS offers both MAP estimation of model parameters and Bayesian inference (BI) via sampling. 
+BOSS allows defining custom algorithms for the substeps of model parameter estimation and acquisition function maximization. Both MAP estimation of model parameters and Bayesian inference (BI) via sampling are supported. 
 
-Currently, the Optimization.jl library is supported for the MAP estimation and the Turing.jl library is supported for the BI sampling. The Optimization.jl library is supported for the acquisition function maximization.
+Use the `OptimizationMAP` model fitter for MAP estimation via the Optimization.jl library.
+Use the `TuringBI` model fitter for BI sampling via the Turing.jl library.
+See other available `ModelFitter`s in the [documentation](https://soldasim.github.io/BOSS.jl/).
 
-BOSS also provides a simple interface for the use of other custom alagorithms/libraries for model-fitting and/or acquisition maximization by extending the abstract types `ModelFitter` and `AcquisitionMaximizer`.
+Use the `OptimizationAM` for acquisition maximization via the Optimization.jl library.
+See other available `AcquisitionMaximizer`s in the [documentation](https://soldasim.github.io/BOSS.jl/).
 
-## Plotting
-
-A simple plotting script is provided to visualize the optimization process using the Plots.jl package. Use the `PlotCallback` to utilize this feature.
+BOSS also provides a simple interface for the use of other custom alagorithms/libraries for model parameter estimation and/or acquisition maximization by extending the abstract types `ModelFitter` and `AcquisitionMaximizer`.
 
 ## Examples
 
 See the [documentation](https://soldasim.github.io/BOSS.jl/dev/example/) for example usage.
+
+## Plotting
+
+A simple plotting script is provided to visualize the optimization process using the Plots.jl package. Use the `PlotCallback` to utilize this feature. Only problems with one-dimensional input domains are supported for plotting.
 
 ## References
 
