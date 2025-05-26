@@ -4,10 +4,12 @@
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
     
     problem = BossProblem(;
-        fitness = LinFitness([1., 0.]),
         f = x -> x,
         domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
+        acquisition = ExpectedImprovement(;
+            fitness = LinFitness([1., 0.]),
+        ),
         model = Semiparametric(;
             parametric = NonlinearModel(;
                 predict = (x, θ) -> [
@@ -62,10 +64,12 @@ end
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
     
     problem = BossProblem(;
-        fitness = LinFitness([1., 0.]),
         f = x -> x,
         domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
+        acquisition = ExpectedImprovement(;
+            fitness = LinFitness([1., 0.]),
+        ),
         model = Semiparametric(;
             parametric = NonlinearModel(;
                 predict = (x, θ) -> [

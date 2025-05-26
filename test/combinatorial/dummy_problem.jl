@@ -9,7 +9,6 @@ function create_problem(val)
     problem = construct_problem(val)
     model_fitter = construct_model_fitter(Val(val("ModelFitter")), val)
     acq_maximizer = construct_acq_maximizer(Val(val("AcquisitionMaximizer")), val, problem)
-    acquisition = val("Acquisition")
     options = BossOptions(; info=true, debug=true)
     term_cond = IterLimit(val("iter_max"))
 
@@ -17,14 +16,12 @@ function create_problem(val)
         return () -> bo!(problem;
             model_fitter,
             acq_maximizer,
-            acquisition,
             options,
         )
     else
         return () -> bo!(problem;
             model_fitter,
             acq_maximizer,
-            acquisition,
             term_cond,
             options,
         )
@@ -33,6 +30,9 @@ end
 
 function construct_problem(val)
     fitness = construct_fitness(Val(val("FITNESS")), val)
+    
+    # assumes that the returned `AcquisitionFunction` support the kwarg `fitness`
+    acquisition = val("Acquisition")(; fitness)
 
     domain = Domain(;
         bounds = val("bounds"),
@@ -44,9 +44,9 @@ function construct_problem(val)
     data = ExperimentData(val("XY")...)
     
     return BossProblem(;
-        fitness,
         f = val("f"),
         domain,
+        acquisition,
         model,
         y_max = val("y_max"),
         data,

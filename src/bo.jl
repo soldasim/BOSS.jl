@@ -13,8 +13,6 @@ or give a recommendation for the next evaluation point if `problem.f == missing`
 
 - `model_fitter::ModelFitter`: Defines the algorithm used to estimate model parameters.
 - `acq_maximizer::AcquisitionMaximizer`: Defines the algorithm used to maximize the acquisition function.
-- `acquisition::AcquisitionFunction`: Defines the acquisition function maximized to select
-        promising candidates for further evaluation.
 - `term_cond::TermCond`: Defines the termination condition.
 - `options::BossOptions`: Defines miscellaneous settings.
 
@@ -30,7 +28,6 @@ or give a recommendation for the next evaluation point if `problem.f == missing`
 See 'https://soldasim.github.io/BOSS.jl/stable/example/' for example usage.
 """
 function bo!(problem::BossProblem;
-    acquisition::AcquisitionFunction = ExpectedImprovement(),
     model_fitter::ModelFitter,
     acq_maximizer::AcquisitionMaximizer,
     term_cond::TermCond = IterLimit(1),
@@ -38,27 +35,26 @@ function bo!(problem::BossProblem;
 )
     initialize!(problem; options)
     is_consistent(problem) || estimate_parameters!(problem, model_fitter; options)
-    options.callback(problem; model_fitter, acq_maximizer, acquisition, term_cond, options, first=true)
+    options.callback(problem; model_fitter, acq_maximizer, term_cond, options, first=true)
     
     while term_cond(problem)
-        X = maximize_acquisition(problem, acquisition, acq_maximizer; options)
+        X = maximize_acquisition(problem, acq_maximizer; options)
         eval_objective!(problem, X; options)
         estimate_parameters!(problem, model_fitter; options)
-        options.callback(problem; model_fitter, acq_maximizer, acquisition, term_cond, options, first=false)
+        options.callback(problem; model_fitter, acq_maximizer, term_cond, options, first=false)
     end
     
     return problem
 end
 
 function bo!(problem::BossProblem{Missing};
-    acquisition::AcquisitionFunction = ExpectedImprovement(),
     model_fitter::ModelFitter,
     acq_maximizer::AcquisitionMaximizer,
     options::BossOptions = BossOptions(),
 )
     initialize!(problem; options)
     is_consistent(problem) || estimate_parameters!(problem, model_fitter; options)
-    X = maximize_acquisition(problem, acquisition, acq_maximizer; options)
+    X = maximize_acquisition(problem, acq_maximizer; options)
     return X
 end
 
@@ -89,7 +85,7 @@ function estimate_parameters!(problem::BossProblem, model_fitter::ModelFitter{T}
 end
 
 """
-    x = maximize_acquisition(::BossProblem, ::AcquisitionFunction, ::AcquisitionMaximizer)
+    x = maximize_acquisition(::BossProblem, ::AcquisitionMaximizer)
 
 Maximize the given `acquisition` function via the given `acq_maximizer` algorithm to find the optimal next evaluation point(s).
 
@@ -97,9 +93,9 @@ Maximize the given `acquisition` function via the given `acq_maximizer` algorith
 
 - `options::BossOptions`: Defines miscellaneous settings.
 """
-function maximize_acquisition(problem::BossProblem, acquisition::AcquisitionFunction, acq_maximizer::AcquisitionMaximizer; options::BossOptions=BossOptions())
+function maximize_acquisition(problem::BossProblem, acq_maximizer::AcquisitionMaximizer; options::BossOptions=BossOptions())
     options.info && @info "Maximizing acquisition function ..."
-    X, _ = maximize_acquisition(acq_maximizer, acquisition, problem, options)
+    X, _ = maximize_acquisition(acq_maximizer, problem, options)
     options.info && check_new_points(X, problem)
     return X
 end

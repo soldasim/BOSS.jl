@@ -43,7 +43,6 @@ PlotCallback(Plots::Module;
 ) = PlotCallback(Plots, nothing, f_true, points, xaxis, yaxis, title)
 
 function (plt::PlotCallback)(problem::BossProblem;
-    acquisition::AcquisitionFunction,
     options::BossOptions,
     first::Bool,
     kwargs...
@@ -52,14 +51,14 @@ function (plt::PlotCallback)(problem::BossProblem;
         plt.prev_state = deepcopy(problem)
     else
         acq_opt = problem.data.X[:,end]
-        make_plot(plt, plt.prev_state, acquisition, acq_opt; info=options.info)
+        make_plot(plt, plt.prev_state, acq_opt; info=options.info)
         plt.prev_state = deepcopy(problem)
     end
 end
 
-function make_plot(opt::PlotCallback, problem::BossProblem, acquisition::AcquisitionFunction, acq_opt::AbstractArray{<:Real}; info::Bool)
+function make_plot(opt::PlotCallback, problem::BossProblem, acq_opt::AbstractArray{<:Real}; info::Bool)
     info && @info "Plotting ..."
-    acq = acquisition(problem, BossOptions())
+    acq = construct_acquisition(problem, BossOptions())
     display(plot_problem(opt, problem, acq, acq_opt))
 end
 

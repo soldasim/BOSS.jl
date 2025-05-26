@@ -92,3 +92,32 @@ function ranges(lengths::AbstractVector{<:Integer})
     end
     return ranges
 end
+
+"""
+    result(problem) -> (x, y)
+
+Return the best found point `(x, y)`.
+
+The provided `BossProblem` must contain an `AcquisitionFunction`,
+with the `get_fitness` function defined.
+
+Returns the point `(x, y)` from the dataset of the given problem
+such that `y` satisfies the constraints and `fitness(y)` is maximized.
+Returns nothing if the dataset is empty or if no feasible point is present.
+
+Does not check whether `x` belongs to the domain as no exterior points
+should be present in the dataset.
+"""
+function result(problem::BossProblem)
+    X, Y = problem.data.X, problem.data.Y
+    @assert size(X)[2] == size(Y)[2]
+    isempty(X) && return nothing
+
+    feasible = is_feasible.(eachcol(Y), Ref(problem.y_max))
+    fitness = get_fitness(problem.acquisition).(eachcol(Y))
+    fitness[.!feasible] .= -Inf
+    best = argmax(fitness)
+
+    feasible[best] || return nothing
+    return X[:,best], Y[:,best]
+end

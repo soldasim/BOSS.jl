@@ -4,18 +4,23 @@ module BOSS
 export bo!
 export estimate_parameters!, maximize_acquisition, eval_objective!
 export update_parameters!, augment_dataset!
+export construct_acquisition
 export model_posterior, model_posterior_slice, average_posterior
-export result
 
 # utils
 export x_dim, y_dim, cons_dim, data_count, is_consistent
-export get_params
+export get_fitness, get_params
+export result
 export calc_inverse_gamma, TruncatedMvNormal
 
 # Problem Definition
 export BossProblem
-export Fitness, NoFitness, LinFitness, NonlinFitness
 export Domain, AbstractBounds
+
+# Acquisition Functions
+export AcquisitionFunction
+export Fitness, LinFitness, NonlinFitness
+export ExpectedImprovement
 
 # Surrogate Models
 export SurrogateModel, ModelParams
@@ -26,14 +31,9 @@ export Semiparametric, SemiparametricParams
 # Parameters
 export FittedParams, UniFittedParams, MultiFittedParams
 export FixedParams, RandomParams, MAPParams, BIParams
-export get_params
 
 # Experiment Data
 export ExperimentData
-
-# Acquisition Functions
-export AcquisitionFunction
-export ExpectedImprovement
 
 # Model Fitters
 export ModelFitter

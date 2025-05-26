@@ -151,10 +151,12 @@ end
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
     problem(model) = BossProblem(;
-        fitness = LinFitness([1., 0.]),
         f = x -> x,
         domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
+        acquisition = ExpectedImprovement(;
+            fitness = LinFitness([1., 0.]),
+        ),
         model,
         data = ExperimentData(X, Y),
     )
@@ -219,10 +221,12 @@ end
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
     problem(model) = BossProblem(;
-        fitness = LinFitness([1., 0.]),
         f = x -> x,
         domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
+        acquisition = ExpectedImprovement(;
+            fitness = LinFitness([1., 0.]),
+        ),
         model,
         data = ExperimentData(X, Y),
     )

@@ -56,10 +56,12 @@ end
 
 @testset "model_posterior(model, params, data)" begin
     problem = BossProblem(;
-        fitness = LinFitness([1., 0.]),
         f = x -> x,
         domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
+        acquisition = ExpectedImprovement(;
+            fitness = LinFitness([1., 0.]),
+        ),
         model = Nonparametric(;
             mean = x -> [1., 1.],
             amplitude_priors = fill(LogNormal(), 2),
@@ -109,10 +111,12 @@ end
 
 @testset "model_posterior_slice(model, params, data, slice)" begin
     problem = BossProblem(;
-        fitness = LinFitness([1., 0.]),
         f = x -> x,
         domain = Domain(; bounds=([0., 0.], [10., 10.])),
         y_max = [Inf, 5.],
+        acquisition = ExpectedImprovement(;
+            fitness = LinFitness([1., 0.]),
+        ),
         model = Nonparametric(;
             mean = x -> [1., 1.],
             amplitude_priors = fill(LogNormal(), 2),

@@ -92,8 +92,8 @@ const AcquisitionMaximizer_parallel_DICT = Dict(
 )
 
 const Acquisition_DICT = Dict(
-    "EI" => ExpectedImprovement(),
-    "*" => ExpectedImprovement(),
+    "EI" => ExpectedImprovement,
+    "*" => ExpectedImprovement,
 )
 
 const Parametric_predict_DICT = Dict(

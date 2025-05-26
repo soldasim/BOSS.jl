@@ -92,10 +92,12 @@ function opt_problem(init_data)
     )
 
     BossProblem(;
-        fitness = LinFitness([1, 0]),
         f = blackbox,
         domain,
         y_max = [Inf, 0.],
+        acquisition = ExpectedImprovement(;
+            fitness = LinFitness([1, 0]),
+        ),
         model,
         data = ExperimentData(data...),
     )
@@ -141,10 +143,9 @@ function main(problem=opt_problem(3), iters=20;
         rhoend = 1e-4,
     )
 
-    acquisition = ExpectedImprovement()
     term_cond = IterLimit(iters)
     options = boss_options()
 
     # Run BOSS:
-    bo!(problem; model_fitter, acq_maximizer, acquisition, term_cond, options)
+    bo!(problem; model_fitter, acq_maximizer, term_cond, options)
 end
