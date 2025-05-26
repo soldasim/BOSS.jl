@@ -24,6 +24,12 @@ mvlognormal(μ::AbstractVector{<:Real}, σ::AbstractVector{<:Real}) =
 
 # --- Truncated multivariate normal distribution ---
 
+"""
+    TruncatedMvNormal(μ, Σ, lb, ub)
+
+Defines the truncated multivariate normal distribution with mean `μ`, covariance matrix `Σ`,
+lower bounds `lb`, and upper bounds `ub`.
+"""
 @kwdef struct TruncatedMvNormal <: ContinuousMultivariateDistribution
     μ::AbstractVector{<:Real}
     Σ::AbstractMatrix{<:Real}
