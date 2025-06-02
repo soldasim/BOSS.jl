@@ -12,6 +12,8 @@ to load some optimization algorithms which are passed to the `OptimizationMAP` c
 - `multistart::Union{Int, AbstractVector{<:ModelParams}}`: The number of optimization restarts,
         or a vector of `ModelParams` containing initial (hyper)parameter values for the optimization runs.
 - `parallel::Bool`: If `parallel=true` then the individual restarts are run in parallel.
+- `static_schedule::Bool`: If `static_schedule=true` then the `:static` schedule is used for parallelization.
+        This is makes the parallel tasks sticky (non-migrating), but can decrease performance.
 - `autodiff::Union{SciMLBase.AbstractADType, Nothing}:`: The automatic differentiation module
     passed to `Optimization.OptimizationFunction`. 
 - `kwargs::Base.Pairs{Symbol, <:Any}`: Other kwargs are passed to the optimization algorithm.
@@ -23,6 +25,7 @@ struct OptimizationMAP{
     algorithm::A
     multistart::S
     parallel::Bool
+    static_schedule::Bool
     autodiff::SciMLBase.AbstractADType
     kwargs::Base.Pairs{Symbol, <:Any}
 end
@@ -30,11 +33,12 @@ function OptimizationMAP(;
     algorithm,
     multistart = 200,
     parallel = true,
+    static_schedule = false,
     autodiff = AutoForwardDiff(),
     kwargs...
 )
     isnothing(autodiff) && (autodiff = SciMLBase.NoAD())
-    return OptimizationMAP(algorithm, multistart, parallel, autodiff, kwargs)
+    return OptimizationMAP(algorithm, multistart, parallel, static_schedule, autodiff, kwargs)
 end
 
 function set_starts(opt::OptimizationMAP, starts::AbstractVector{<:ModelParams})
@@ -42,6 +46,7 @@ function set_starts(opt::OptimizationMAP, starts::AbstractVector{<:ModelParams})
         opt.algorithm,
         multistart = starts,
         opt.parallel,
+        opt.static_schedule,
         opt.autodiff,
         opt.kwargs...
     )
@@ -52,6 +57,7 @@ function slice(opt::OptimizationMAP, idx::Int)
         opt.algorithm,
         multistart = starts_slice(opt.multistart, idx),
         opt.parallel,
+        opt.static_schedule,
         opt.autodiff,
         opt.kwargs...
     )
@@ -139,7 +145,7 @@ function optimize(
         return params, ll
     end
 
-    params, val = optimize_multistart(optim, starts, opt.parallel, options; return_all)
+    params, val = optimize_multistart(optim, starts; opt.parallel, opt.static_schedule, options, return_all)
     return params, val
 end
 

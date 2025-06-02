@@ -11,6 +11,8 @@ Can handle constraints on `x` if according optimization algorithm is selected.
 - `multistart::Union{Int, AbstractMatrix{<:Real}}`: The number of optimization restarts,
         or a matrix of optimization intial points as columns.
 - `parallel::Bool`: If `parallel=true` then the individual restarts are run in parallel.
+- `static_schedule::Bool`: If `static_schedule=true` then the `:static` schedule is used for parallelization.
+        This is makes the parallel tasks sticky (non-migrating), but can decrease performance.
 - `autodiff:SciMLBase.AbstractADType:`: The automatic differentiation module
         passed to `Optimization.OptimizationFunction`.
 - `kwargs...`: Other kwargs are passed to the optimization algorithm.
@@ -22,6 +24,7 @@ struct OptimizationAM{
     algorithm::A
     multistart::S
     parallel::Bool
+    static_schedule::Bool
     autodiff::SciMLBase.AbstractADType
     kwargs::Base.Pairs{Symbol, <:Any}
 end
@@ -29,12 +32,13 @@ function OptimizationAM(;
     algorithm,
     multistart = 200,
     parallel = true,
+    static_schedule = false,
     autodiff = AutoForwardDiff(),
     kwargs...
 )
     ((:lb in keys(kwargs)) || (:ub in keys(kwargs))) && @warn "The provided `:lb` and `:ub` kwargs of `OptimizationAM` are ignored!\nUse the `domain` field of the `BossProblem` instead."
     isnothing(autodiff) && (autodiff = SciMLBase.NoAD())
-    return OptimizationAM(algorithm, multistart, parallel, autodiff, kwargs)
+    return OptimizationAM(algorithm, multistart, parallel, static_schedule, autodiff, kwargs)
 end
 
 function set_starts(opt::OptimizationAM, starts::AbstractMatrix{<:Real})
@@ -42,6 +46,7 @@ function set_starts(opt::OptimizationAM, starts::AbstractMatrix{<:Real})
         opt.algorithm,
         multistart = starts,
         opt.parallel,
+        opt.static_schedule,
         opt.autodiff,
         opt.kwargs...
     )
@@ -107,7 +112,7 @@ function optimize(
         return x, val
     end
 
-    best_x, _ = optimize_multistart(acq_optimize, starts, opt.parallel, options)
+    best_x, _ = optimize_multistart(acq_optimize, starts; opt.parallel, opt.static_schedule, options)
     best_x = cond_func(round).(best_x, discrete)  # assure discrete dims
     return best_x, obj_func(best_x)
 end

@@ -22,10 +22,11 @@ Throws an error if all optimization runs fail.
 """
 function optimize_multistart(
     optimize::Function,  # arg, val = optimize(start)
-    starts::AbstractMatrix{<:Real},
-    parallel::Bool,
-    options::BossOptions;
+    starts::AbstractMatrix{<:Real};
+    parallel::Bool = true,
+    static_schedule::Bool = false, # makes the tasks sticky (non-migrating)
     return_all::Bool = false,
+    options::BossOptions = BossOptions(),
 )   
     multistart = size(starts)[2]
 
@@ -34,42 +35,13 @@ function optimize_multistart(
     errors = Threads.Atomic{Int}(0)
     
     if parallel
-        io_lock = Threads.SpinLock()
-        Threads.@threads for i in 1:multistart
-            try
-                a, v = optimize(starts[:,i])
-                args[i] = a
-                vals[i] = v
-
-            catch e
-                if options.info
-                    lock(io_lock)
-                    try
-                        warn_optim_err(e, options.debug)
-                    finally
-                        unlock(io_lock)
-                    end
-                end
-                Threads.atomic_add!(errors, 1)
-                args[i] = Float64[]
-                vals[i] = -Inf
-            end
+        if static_schedule
+            _optim_parallel_static(optimize, multistart, starts, options, args, vals, errors)
+        else
+            _optim_parallel(optimize, multistart, starts, options, args, vals, errors)
         end
-
     else
-        for i in 1:multistart
-            try
-                a, v = optimize(starts[:,i])
-                args[i] = a
-                vals[i] = v
-
-            catch e
-                options.info && warn_optim_err(e, options.debug)
-                errors.value += 1
-                args[i] = Float64[]
-                vals[i] = -Inf
-            end
-        end
+        _optim_serial(optimize, multistart, starts, options, args, vals, errors)
     end
 
     (errors.value == multistart) && throw(ErrorException("All optimization runs failed!"))
@@ -81,6 +53,68 @@ function optimize_multistart(
     else
         b = argmax(vals)
         return args[b], vals[b]
+    end
+end
+
+function _optim_serial(optimize, multistart, starts, options, args, vals, errors)
+    for i in 1:multistart
+        try
+            a, v = optimize(starts[:,i])
+            args[i] = a
+            vals[i] = v
+
+        catch e
+            options.info && warn_optim_err(e, options.debug)
+            errors.value += 1
+            args[i] = Float64[]
+            vals[i] = -Inf
+        end
+    end
+end
+function _optim_parallel(optimize, multistart, starts, options, args, vals, errors)
+    io_lock = Threads.SpinLock()
+    Threads.@threads for i in 1:multistart
+        try
+            a, v = optimize(starts[:,i])
+            args[i] = a
+            vals[i] = v
+
+        catch e
+            if options.info
+                lock(io_lock)
+                try
+                    warn_optim_err(e, options.debug)
+                finally
+                    unlock(io_lock)
+                end
+            end
+            Threads.atomic_add!(errors, 1)
+            args[i] = Float64[]
+            vals[i] = -Inf
+        end
+    end
+end
+function _optim_parallel_static(optimize, multistart, starts, options, args, vals, errors)
+    io_lock = Threads.SpinLock()
+    Threads.@threads :static for i in 1:multistart
+        try
+            a, v = optimize(starts[:,i])
+            args[i] = a
+            vals[i] = v
+
+        catch e
+            if options.info
+                lock(io_lock)
+                try
+                    warn_optim_err(e, options.debug)
+                finally
+                    unlock(io_lock)
+                end
+            end
+            Threads.atomic_add!(errors, 1)
+            args[i] = Float64[]
+            vals[i] = -Inf
+        end
     end
 end
 
