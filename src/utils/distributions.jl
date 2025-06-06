@@ -30,7 +30,9 @@ mvlognormal(μ::AbstractVector{<:Real}, σ::AbstractVector{<:Real}) =
 Defines the truncated multivariate normal distribution with mean `μ`, covariance matrix `Σ`,
 lower bounds `lb`, and upper bounds `ub`.
 """
-@kwdef struct TruncatedMvNormal <: ContinuousMultivariateDistribution
+@kwdef struct TruncatedMvNormal{
+    D, #::Bool
+} <: ContinuousMultivariateDistribution
     μ::AbstractVector{<:Real}
     Σ::AbstractMatrix{<:Real}
     lb::AbstractVector{<:Real}
@@ -38,7 +40,8 @@ lower bounds `lb`, and upper bounds `ub`.
 
     function TruncatedMvNormal(μ, Σ, lb, ub)
         @warn "The `logpdf` of `TruncatedMvNormal` is only valid up to a constant." maxlog=1
-        return new(μ, Σ, lb, ub)
+        diag = isdiag(Σ)
+        return new{diag}(μ, Σ, lb, ub)
     end
 end
 
@@ -50,10 +53,16 @@ Base.minimum(d::TruncatedMvNormal) = d.lb
 Base.maximum(d::TruncatedMvNormal) = d.ub
 
 # simple rejection sampling
-function Distributions._rand!(rng::AbstractRNG, d::TruncatedMvNormal, x::AbstractVector{<:Real})
+function Distributions._rand!(rng::AbstractRNG, d::TruncatedMvNormal{false}, x::AbstractVector{<:Real})    
     Distributions._rand!(rng, MvNormal(d.μ, d.Σ), x)
     while _out_of_bounds(d, x)
         Distributions._rand!(rng, MvNormal(d.μ, d.Σ), x)
+    end
+    return x
+end
+function Distributions._rand!(rng::AbstractRNG, d::TruncatedMvNormal{true}, x::AbstractVector{<:Real})
+    for i in eachindex(x)
+        x[i] = rand(rng, truncated(Normal(d.μ[i], d.Σ[i,i]); lower=d.lb[i], upper=d.ub[i]))
     end
     return x
 end
@@ -67,9 +76,11 @@ function _out_of_bounds(d::TruncatedMvNormal, x::AbstractVector{<:Real})
     return false
 end
 
-# return logpdf of the non-truncated MvNormal - valid up to a constant
+# return logpdf of the non-truncated MvNormal - valid up to an additive constant
 function Distributions._logpdf(d::TruncatedMvNormal, x::AbstractVector{<:Real})
-    _out_of_bounds(d, x) && (return -Inf)
+    if _out_of_bounds(d, x)
+        return -Inf
+    end
     return Distributions._logpdf(MvNormal(d.μ, d.Σ), x)
 end
 
