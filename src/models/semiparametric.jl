@@ -79,7 +79,8 @@ param_shapes(params::SemiparametricParams) = (size(params.θ), size(params.λ), 
 function model_posterior_slice(model::Semiparametric, params::SemiparametricParams, data::ExperimentData, slice::Int)
     f = model.parametric(params.θ)
     gp = add_mean(model.nonparametric, f)
-    return model_posterior_slice(gp, _extract_gp_params(params), data, slice)
+    post = model_posterior_slice(gp, _extract_gp_params(params), data, slice)
+    return post # ::GaussianProcessPosterior
 end
 
 function data_loglike(model::Semiparametric, data::ExperimentData)

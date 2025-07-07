@@ -187,33 +187,68 @@ end
         @params problem_lin.model, problem_lin.params, problem_lin.data
         @params problem_nonlin.model, problem_nonlin.params, problem_nonlin.data
         @success (
-            out isa Function,
-
             # vector
-            out([2., 2.]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}},
-            length(out([2., 2.])[1]) == 2,
-            length(out([2., 2.])[2]) == 2,
-            out([2., 2.])[2] == [1e-4, 1e-4],
-            all(out([2., 2.])[2] == out([3., 3.])[2]),
-            all(out([10., 10.])[2] == out([11., 11.])[2]),
+            mean(out, [2., 2.]) isa AbstractVector{<:Real},
+            std(out, [2., 2.]) isa AbstractVector{<:Real},
+            var(out, [2., 2.]) isa AbstractVector{<:Real},
+            mean_and_std(out, [2., 2.]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}},
+            mean_and_var(out, [2., 2.]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}},
+            size(mean(out, [2., 2.])) == (2,),
+            size(std(out, [2., 2.])) == (2,),
+            size(var(out, [2., 2.])) == (2,),
+
+            isapprox(mean(out, [2., 2.]), mean_and_std(out, [2., 2.])[1]; atol=1e-8),
+            isapprox(mean(out, [2., 2.]), mean_and_var(out, [2., 2.])[1]; atol=1e-8),
+            isapprox(std(out, [2., 2.]), mean_and_std(out, [2., 2.])[2]; atol=1e-8),
+            isapprox(var(out, [2., 2.]), mean_and_var(out, [2., 2.])[2]; atol=1e-8),
+            std(out, [2., 2.]) == [1e-4, 1e-4],
+            std(out, [2., 2.]) == std(out, [3., 3.]),
+            std(out, [10., 10.]) == std(out, [11., 11.]),
 
             # matrix
-            out([1.;1.;; 2.;2.;; 3.;3.;;]) isa Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}},
-            size(out([1.;1.;; 2.;2.;; 3.;3.;;])[1]) == (3, 2),
-            size(out([1.;1.;; 2.;2.;; 3.;3.;;])[2]) == (3, 3, 2),
-            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][1,:], out([1., 1.])[1]; atol=1e-8) |> all,
-            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][2,:], out([2., 2.])[1]; atol=1e-8) |> all,
-            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][3,:], out([3., 3.])[1]; atol=1e-8) |> all,
-            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][1,1,:], out([1., 1.])[2] .^ 2; atol=1e-8) |> all,
-            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][2,2,:], out([2., 2.])[2] .^ 2; atol=1e-8) |> all,
-            isapprox.(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][3,3,:], out([3., 3.])[2] .^ 2; atol=1e-8) |> all,
+            mean(out, [1.;1.;; 2.;2.;; 3.;3.;;]) isa AbstractMatrix{<:Real},
+            std(out, [1.;1.;; 2.;2.;; 3.;3.;;]) isa AbstractMatrix{<:Real},
+            var(out, [1.;1.;; 2.;2.;; 3.;3.;;]) isa AbstractMatrix{<:Real},
+            mean_and_std(out, [1.;1.;; 2.;2.;; 3.;3.;;]) isa Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}},
+            mean_and_var(out, [1.;1.;; 2.;2.;; 3.;3.;;]) isa Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}},
+            size(mean(out, [1.;1.;; 2.;2.;; 3.;3.;;])) == (3, 2),
+            size(std(out, [1.;1.;; 2.;2.;; 3.;3.;;])) == (3, 2),
+            size(var(out, [1.;1.;; 2.;2.;; 3.;3.;;])) == (3, 2),
+            
+            isapprox(mean(out, [1.;1.;; 2.;2.;; 3.;3.;;]), mean_and_std(out, [1.;1.;; 2.;2.;; 3.;3.;;])[1]; atol=1e-8),
+            isapprox(mean(out, [1.;1.;; 2.;2.;; 3.;3.;;]), mean_and_var(out, [1.;1.;; 2.;2.;; 3.;3.;;])[1]; atol=1e-8),
+            isapprox(std(out, [1.;1.;; 2.;2.;; 3.;3.;;]), mean_and_std(out, [1.;1.;; 2.;2.;; 3.;3.;;])[2]; atol=1e-8),
+            isapprox(var(out, [1.;1.;; 2.;2.;; 3.;3.;;]), mean_and_var(out, [1.;1.;; 2.;2.;; 3.;3.;;])[2]; atol=1e-8),
+            isapprox(mean(out, [1.;1.;; 2.;2.;; 3.;3.;;])[1,:], mean(out, [1., 1.]); atol=1e-8),
+            isapprox(mean(out, [1.;1.;; 2.;2.;; 3.;3.;;])[2,:], mean(out, [2., 2.]); atol=1e-8),
+            isapprox(mean(out, [1.;1.;; 2.;2.;; 3.;3.;;])[3,:], mean(out, [3., 3.]); atol=1e-8),
+            isapprox(var(out, [1.;1.;; 2.;2.;; 3.;3.;;])[1,:], var(out, [1., 1.]); atol=1e-8),
+            isapprox(var(out, [1.;1.;; 2.;2.;; 3.;3.;;])[2,:], var(out, [2., 2.]); atol=1e-8),
+            isapprox(var(out, [1.;1.;; 2.;2.;; 3.;3.;;])[3,:], var(out, [3., 3.]); atol=1e-8),
 
             # single-element matrix
-            out([1.;1.;;]) isa Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}},
-            size(out([1.;1.;;])[1]) == (1, 2),
-            size(out([1.;1.;;])[2]) == (1, 1, 2),
+            mean(out, [1.;1.;;]) isa AbstractMatrix{<:Real},
+            std(out, [1.;1.;;]) isa AbstractMatrix{<:Real},
+            var(out, [1.;1.;;]) isa AbstractMatrix{<:Real},
+            mean_and_std(out, [1.;1.;;]) isa Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}},
+            mean_and_var(out, [1.;1.;;]) isa Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}},
+            size(mean(out, [1.;1.;;])) == (1, 2),
+            size(std(out, [1.;1.;;])) == (1, 2),
+            size(var(out, [1.;1.;;])) == (1, 2),
+
+            isapprox(mean(out, [1.;1.;;]), mean_and_std(out, [1.;1.;;])[1]; atol=1e-8),
+            isapprox(mean(out, [1.;1.;;]), mean_and_var(out, [1.;1.;;])[1]; atol=1e-8),
+            isapprox(std(out, [1.;1.;;]), mean_and_std(out, [1.;1.;;])[2]; atol=1e-8),
+            isapprox(var(out, [1.;1.;;]), mean_and_var(out, [1.;1.;;])[2]; atol=1e-8),
         )
     end
+
+    # Test that covariance is not defined
+    post = model_posterior(lin_model, problem_lin.params, problem_lin.data)
+    @test_throws MethodError cov(post, [2., 2.])
+    @test_throws MethodError cov(post, [1.;1.;; 2.;2.;; 3.;3.;;])
+    @test_throws MethodError mean_and_cov(post, [2., 2.])
+    @test_throws MethodError mean_and_cov(post, [1.;1.;; 2.;2.;; 3.;3.;;])
 end
 
 @testset "model_posterior_slice(model, params, data, slice)" begin
@@ -258,32 +293,62 @@ end
         @params problem_lin.model, problem_lin.params, problem_lin.data, 2
         @params problem_nonlin.model, problem_nonlin.params, problem_nonlin.data, 1
         @params problem_nonlin.model, problem_nonlin.params, problem_nonlin.data, 2
-        @success (
-            out isa Function,
-            
+        @success (            
             # vector
-            out([2., 2.]) isa Tuple{<:Real, <:Real},
-            out([2., 2.])[2] == 1e-4,
-            out([2., 2.])[2] == out([3., 3.])[2],
-            out([10., 10.])[2] == out([11., 11.])[2],
+            mean(out, [2., 2.]) isa Real,
+            std(out, [2., 2.]) isa Real,
+            var(out, [2., 2.]) isa Real,
+            mean_and_std(out, [2., 2.]) isa Tuple{<:Real, <:Real},
+            mean_and_var(out, [2., 2.]) isa Tuple{<:Real, <:Real},
+
+            isapprox(mean(out, [2., 2.]), mean_and_std(out, [2., 2.])[1]; atol=1e-8),
+            isapprox(mean(out, [2., 2.]), mean_and_var(out, [2., 2.])[1]; atol=1e-8),
+            isapprox(std(out, [2., 2.]), mean_and_std(out, [2., 2.])[2]; atol=1e-8),
+            isapprox(var(out, [2., 2.]), mean_and_var(out, [2., 2.])[2]; atol=1e-8),
+            std(out, [2., 2.]) == 1e-4,
+            std(out, [2., 2.]) == std(out, [3., 3.]),
+            std(out, [10., 10.]) == std(out, [11., 11.]),
 
             # matrix
-            out([1.;1.;; 2.;2.;; 3.;3.;;]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}},
-            size(out([1.;1.;; 2.;2.;; 3.;3.;;])[1]) == (3,),
-            size(out([1.;1.;; 2.;2.;; 3.;3.;;])[2]) == (3, 3),
-            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][1], out([1., 1.])[1]; atol=1e-8),
-            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][2], out([2., 2.])[1]; atol=1e-8),
-            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[1][3], out([3., 3.])[1]; atol=1e-8),
-            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][1,1], out([1., 1.])[2] ^ 2; atol=1e-8),
-            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][2,2], out([2., 2.])[2] ^ 2; atol=1e-8),
-            isapprox(out([1.;1.;; 2.;2.;; 3.;3.;;])[2][3,3], out([3., 3.])[2] ^ 2; atol=1e-8),
+            mean(out, [1.;1.;; 2.;2.;; 3.;3.;;]) isa AbstractVector{<:Real},
+            std(out, [1.;1.;; 2.;2.;; 3.;3.;;]) isa AbstractVector{<:Real},
+            var(out, [1.;1.;; 2.;2.;; 3.;3.;;]) isa AbstractVector{<:Real},
+            mean_and_std(out, [1.;1.;; 2.;2.;; 3.;3.;;]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}},
+            mean_and_var(out, [1.;1.;; 2.;2.;; 3.;3.;;]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}},
+            size(mean(out, [1.;1.;; 2.;2.;; 3.;3.;;])) == (3,),
+            size(std(out, [1.;1.;; 2.;2.;; 3.;3.;;])) == (3,),
+            size(var(out, [1.;1.;; 2.;2.;; 3.;3.;;])) == (3,),
+
+            isapprox(mean(out, [1.;1.;; 2.;2.;; 3.;3.;;])[1], mean(out, [1., 1.]); atol=1e-8),
+            isapprox(mean(out, [1.;1.;; 2.;2.;; 3.;3.;;])[2], mean(out, [2., 2.]); atol=1e-8),
+            isapprox(mean(out, [1.;1.;; 2.;2.;; 3.;3.;;])[3], mean(out, [3., 3.]); atol=1e-8),
+            isapprox(var(out, [1.;1.;; 2.;2.;; 3.;3.;;])[1], var(out, [1., 1.]); atol=1e-8),
+            isapprox(var(out, [1.;1.;; 2.;2.;; 3.;3.;;])[2], var(out, [2., 2.]); atol=1e-8),
+            isapprox(var(out, [1.;1.;; 2.;2.;; 3.;3.;;])[3], var(out, [3., 3.]); atol=1e-8),
 
             # single-element matrix
-            out([1.;1.;;]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}},
-            size(out([1.;1.;;])[1]) == (1,),
-            size(out([1.;1.;;])[2]) == (1, 1),
+            mean(out, [1.;1.;;]) isa AbstractVector{<:Real},
+            std(out, [1.;1.;;]) isa AbstractVector{<:Real},
+            var(out, [1.;1.;;]) isa AbstractVector{<:Real},
+            mean_and_std(out, [1.;1.;;]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}},
+            mean_and_var(out, [1.;1.;;]) isa Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}},
+            size(mean(out, [1.;1.;;])) == (1,),
+            size(std(out, [1.;1.;;])) == (1,),
+            size(var(out, [1.;1.;;])) == (1,),
+
+            isapprox(mean(out, [1.;1.;;]), mean_and_std(out, [1.;1.;;])[1]; atol=1e-8),
+            isapprox(mean(out, [1.;1.;;]), mean_and_var(out, [1.;1.;;])[1]; atol=1e-8),
+            isapprox(std(out, [1.;1.;;]), mean_and_std(out, [1.;1.;;])[2]; atol=1e-8),
+            isapprox(var(out, [1.;1.;;]), mean_and_var(out, [1.;1.;;])[2]; atol=1e-8),
         )
     end
+
+    # Test that covariance is not defined
+    post = model_posterior_slice(lin_model, problem_lin.params, problem_lin.data, 1)
+    @test_throws MethodError cov(post, [2., 2.])
+    @test_throws MethodError cov(post, [1.;1.;; 2.;2.;; 3.;3.;;])
+    @test_throws MethodError mean_and_cov(post, [2., 2.])
+    @test_throws MethodError mean_and_cov(post, [1.;1.;; 2.;2.;; 3.;3.;;])
 end
 
 @testset "model_loglike(model, data)" begin

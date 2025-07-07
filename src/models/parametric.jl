@@ -153,6 +153,32 @@ param_count(params::ParametricParams) = sum(param_lengths(params))
 param_lengths(params::ParametricParams) = (length(params.θ), length(params.σ))
 param_shapes(params::ParametricParams) = (size(params.θ), size(params.σ))
 
+"""
+    ParametricPosterior
+
+# Fields
+- `f::Function`: The predictive mean function.
+- `noise_std::N`: The (constant) noise standard deviations of the model.
+"""
+@kwdef struct ParametricPosterior{
+    N<:AbstractVector{<:Real},
+} <: ModelPosterior{Parametric}
+    f::Function
+    noise_std::N
+end
+
+function model_posterior(model::Parametric, params::ParametricParams, data::ExperimentData)
+    return model_posterior(model, params)
+end
+function model_posterior(model::Parametric, params::ParametricParams)
+    f = model(params.θ)
+    
+    return ParametricPosterior(
+        f,
+        params.σ,
+    )
+end
+
 # function barrier to infer the types of the arguments
 _construct_model(model::LinearModel) = _construct_linear_model(model.lift, model.discrete)
 _construct_model(model::NonlinearModel) = _construct_nonlinear_model(model.predict, model.discrete)
@@ -180,36 +206,40 @@ function _construct_nonlinear_model(predict, discrete)
     end
 end
 
-model_posterior(model::Parametric{<:NoiseStdPriors}, params::ParametricParams, data::ExperimentData) =
-    model_posterior(model, params)
-model_posterior(model::Parametric{<:NoiseStdPriors}, params::ParametricParams) =
-    model_posterior(model, params.θ, params.σ)
-
-function model_posterior(
-    model::Parametric{<:NoiseStdPriors},
-    theta::AbstractVector{<:Real},
-    noise_std::AbstractVector{<:Real},
-)
-    f = model(theta)
-
-    function post(x::AbstractVector{<:Real})
-        μs = f(x)
-        σs = noise_std
-        return μs, σs # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
-    end
-    function post(X::AbstractMatrix{<:Real})
-        count = size(X)[2]
-        μs = mapreduce(f, hcat, eachcol(X))'
-        Σs = mapreduce(σ -> Diagonal(fill(σ^2, count)), (a,b) -> cat(a,b; dims=3), noise_std)
-        return μs, Σs # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}}
-    end
-    return post
+function mean(post::ParametricPosterior, x::AbstractVector{<:Real})
+    μ = post.f(x)
+    return μ # ::AbstractVector{<:Real}
 end
+function mean(post::ParametricPosterior, X::AbstractMatrix{<:Real})
+    μs = hcat(post.f.(eachcol(X))...)'
+    return μs # ::AbstractMatrix{<:Real}
+end
+
+function std(post::ParametricPosterior, x::AbstractVector{<:Real})
+    σ2 = post.noise_std
+    return σ2 # ::AbstractVector{<:Real}
+end
+function std(post::ParametricPosterior, X::AbstractMatrix{<:Real})
+    σ2s = repeat(post.noise_std, 1, size(X, 2))'
+    return σ2s # ::AbstractMatrix{<:Real}
+end
+
+function var(post::ParametricPosterior, x::AbstractVector{<:Real})
+    σ2 = post.noise_std .^ 2
+    return σ2 # ::AbstractVector{<:Real}
+end
+function var(post::ParametricPosterior, X::AbstractMatrix{<:Real})
+    σ2s = repeat(post.noise_std .^ 2, 1, size(X, 2))'
+    return σ2s # ::AbstractMatrix{<:Real}
+end
+
+# Not defined for `Parametric` models.
+# # function cov(post::ParametricPosterior, X::AbstractMatrix{<:Real}) end
 
 function data_loglike(model::Parametric{<:NoiseStdPriors}, data::ExperimentData)
     function ll_data(params::ParametricParams)
         post = model_posterior(model, params)
-        loglike = mapreduce((x, y) -> logpdf(mvnormal(post(x)...), y), +, eachcol(data.X), eachcol(data.Y))
+        loglike = mapreduce((x, y) -> logpdf(mvnormal(mean_and_std(post, x)...), y), +, eachcol(data.X), eachcol(data.Y))
         return loglike
     end
 end

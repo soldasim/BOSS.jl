@@ -35,7 +35,6 @@ augment_dataset!
 construct_acquisition
 model_posterior
 model_posterior_slice
-average_posterior
 x_dim
 y_dim
 cons_dim
