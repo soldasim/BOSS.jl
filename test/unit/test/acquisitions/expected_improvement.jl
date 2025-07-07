@@ -39,10 +39,13 @@ end
     end
 end
 
-@testset "_ei(fitness, posterior, constraints, ϵ_samples, best_yet)" begin
+@testset "construct_ei(fitness, posterior, constraints, ϵ_samples, best_yet)" begin
     lin_fitness = LinFitness([1., 0.])
     nonlin_fitness = NonlinFitness(x -> x[1])
-    posterior(x) = x, [1., 1.]
+    posterior = ParametricPosterior(;
+        f = identity,
+        noise_std = [1., 1.],
+    )
     posteriors = fill(posterior, 4)
     ϵ_samples = [
         0.422498  -1.33921    0.490985  -0.951167
@@ -161,17 +164,16 @@ end
 
 @testset "best_so_far(fitness, X, Y, y_max, posterior)" begin
     @param_test BOSS.best_so_far begin
-        @params LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> (x, [0.1])
-        @params LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [5.], x -> (x, [0.1])
-        @params LinFitness([1.]), [10.;; 2.;; 3.;;], [10.;; 2.;; 3.;;], [5.], x -> (x, [0.1])
-        @params LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> ([x[1]^2], [0.1])
+        @params LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf]
+        @params LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [5.]
+        @params LinFitness([1.]), [10.;; 2.;; 3.;;], [10.;; 2.;; 3.;;], [5.]
         @success out == 3.
 
-        @params LinFitness([2.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf], x -> (x, [0.1])
+        @params LinFitness([2.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [Inf]
         @success out == 6.
 
-        @params LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [0.], x -> (x, [0.1])
-        @params LinFitness([1.]), Float64[;;], Float64[;;], [0.], x -> (x, [0.1])
+        @params LinFitness([1.]), [1.;; 2.;; 3.;;], [1.;; 2.;; 3.;;], [0.]
+        @params LinFitness([1.]), Float64[;;], Float64[;;], [0.]
         @success isnothing(out)
     end
 end

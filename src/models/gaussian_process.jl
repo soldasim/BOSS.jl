@@ -118,23 +118,69 @@ function join_slices(ps::AbstractVector{<:GaussianProcessParams})
     )
 end
 
-function model_posterior_slice(model::GaussianProcess, params::GaussianProcessParams, data::ExperimentData, slice::Int)
-    post_gp = posterior_gp(model, params, data, slice)
-    return model_posterior_slice(post_gp)
+"""
+    GaussianProcessPosterior
+
+# Fields
+- `post_gp::AbstractGPs.PosteriorGP`: The posterior GP constructed via the AbstractGPs.jl library.
+"""
+@kwdef struct GaussianProcessPosterior{
+    P<:AbstractGPs.PosteriorGP,
+} <: ModelPosteriorSlice{GaussianProcess}
+    post_gp::P
 end
-function model_posterior_slice(post_gp::AbstractGPs.PosteriorGP)    
-    function post(x::AbstractVector{<:Real})
-        mean_, var_ = mean_and_var(post_gp(hcat(x); obsdim=2)) .|> first
-        var_ = _clip_var(var_)
-        μ = mean_
-        σ = sqrt(var_)
-        return μ, σ # ::Tuple{<:Real, <:Real}
-    end
-    function post(X::AbstractMatrix{<:Real})
-        μ, Σ = mean_and_cov(post_gp(X; obsdim=2))
-        return μ, Σ # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
-    end
-    return post
+
+function model_posterior_slice(
+    model::GaussianProcess,
+    params::GaussianProcessParams,
+    data::ExperimentData,
+    slice::Int,
+)
+    post_gp = posterior_gp(model, params, data, slice)
+    return GaussianProcessPosterior(post_gp)
+end
+
+function mean(post::GaussianProcessPosterior, x::AbstractVector{<:Real})
+    μ = post.post_gp(hcat(x); obsdim=2) |> mean |> first
+    return μ # ::Real
+end
+function mean(post::GaussianProcessPosterior, X::AbstractMatrix{<:Real})
+    μs = post.post_gp(X; obsdim=2) |> mean
+    return μs # ::AbstractVector{<:Real}
+end
+
+function var(post::GaussianProcessPosterior, x::AbstractVector{<:Real})
+    σ2 = post.post_gp(hcat(x); obsdim=2) |> var |> first
+    σ2 = _clip_var(σ2)
+    return σ2 # ::Real
+end
+function var(post::GaussianProcessPosterior, X::AbstractMatrix{<:Real})
+    σ2s = post.post_gp(X; obsdim=2) |> var
+    σ2s .= _clip_var.(σ2s)
+    return σ2s # ::AbstractVector{<:Real}
+end
+
+function cov(post::GaussianProcessPosterior, X::AbstractMatrix{<:Real})
+    Σs = post.post_gp(X; obsdim=2) |> cov
+    Σs[diagind(Σs)] .= _clip_var.(diag(Σs))
+    return Σs # ::AbstractMatrix{<:Real}
+end
+
+function mean_and_var(post::GaussianProcessPosterior, x::AbstractVector{<:Real})
+    μ, σ2 = post.post_gp(hcat(x); obsdim=2) |> mean_and_var .|> first
+    σ2 = _clip_var(σ2)
+    return μ, σ2 # ::Tuple{<:Real, <:Real}
+end
+function mean_and_var(post::GaussianProcessPosterior, X::AbstractMatrix{<:Real})
+    μs, σ2s = post.post_gp(X; obsdim=2) |> mean_and_var
+    σ2s .= _clip_var.(σ2s)
+    return μs, σ2s # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
+end
+
+function mean_and_cov(post::GaussianProcessPosterior, X::AbstractMatrix{<:Real})
+    μs, Σs = post.post_gp(X; obsdim=2) |> mean_and_cov
+    Σs[diagind(Σs)] .= _clip_var.(diag(Σs))
+    return μs, Σs # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
 end
 
 function _clip_var(var::Real;

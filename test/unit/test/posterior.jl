@@ -1,5 +1,5 @@
 
-@testset "average_posterior(posteriors)" begin
+@testset "average_mean(posteriors)" begin
     problem = BossProblem(;
         f = x -> x,
         domain = Domain(; bounds=([0., 0.], [10., 10.])),
@@ -23,16 +23,8 @@
         parallel = false,
     )
     BOSS.estimate_parameters!(problem, turing; options=BossOptions(; info=false))
-    posteriors = model_posterior(problem)
+    posts = model_posterior(problem)
 
-    @param_test average_posterior begin
-        @params posteriors
-        @success (
-            out isa Function,
-            isapprox(out([3., 3.])[1], sum((p([3., 3.])[1] for p in posteriors)) / length(posteriors); atol=1e-20),
-            isapprox(out([3., 3.])[2], sum((p([3., 3.])[2] for p in posteriors)) / length(posteriors); atol=1e-20),
-            isapprox(out([5., 5.])[1], sum((p([5., 5.])[1] for p in posteriors)) / length(posteriors); atol=1e-20),
-            isapprox(out([5., 5.])[2], sum((p([5., 5.])[2] for p in posteriors)) / length(posteriors); atol=1e-20),
-        )
-    end
+    @test average_mean(posts, [3., 3.]) ≈ sum((mean(p, [3., 3.]) for p in posts)) / length(posts)
+    @test average_mean(posts, [5., 5.]) ≈ sum((mean(p, [5., 5.]) for p in posts)) / length(posts)
 end

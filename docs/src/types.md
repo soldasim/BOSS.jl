@@ -138,6 +138,16 @@ SemiparametricParams
 
 Custom surrogate models can be defined by subtyping the [`SurrogateModel`](@ref) type.
 
+## Model Posterior
+
+The functions [`model_posterior`](@ref) and [`model_posterior_slice`](@ref) can be used to obtain an instance of the [`ModelPosterior`](@ref) and [`ModelPosteriorSlice`](@ref) structures.
+
+```@docs
+AbstractModelPosterior
+ModelPosterior
+ModelPosteriorSlice
+```
+
 ## Model Parameters
 
 The estimated model parameters are stored as subtypes of [`FittedParams`](@ref) in the `params` field of the [`BossProblem`](@ref).

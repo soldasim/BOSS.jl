@@ -45,11 +45,11 @@ end
 get_fitness(ei::ExpectedImprovement) = ei.fitness
 
 function construct_acquisition(ei::ExpectedImprovement, problem::BossProblem, options::BossOptions)
-    posterior = model_posterior(problem)
-    ϵ_samples = sample_ϵs(y_dim(problem), ϵ_sample_count(posterior, ei.ϵ_samples))
-    b = best_so_far(problem, ei.fitness, posterior)
+    post = model_posterior(problem)
+    ϵ_samples = sample_ϵs(y_dim(problem), ϵ_sample_count(post, ei.ϵ_samples))
+    b = best_so_far(problem, ei.fitness)
     options.info && isnothing(b) && @warn "No feasible solution in the dataset yet. Cannot calculate EI!"
-    acq = construct_ei(ei.fitness, posterior, problem.y_max, ϵ_samples, b)
+    acq = construct_ei(ei.fitness, post, problem.y_max, ϵ_samples, b)
     return ei.cons_safe ? make_safe(acq, problem.domain) : acq
 end
 
@@ -63,35 +63,35 @@ function make_safe(acq::Function, domain::Domain)
 end
 
 # Construct acquisition function from a single posterior.
-function construct_ei(fitness::Fitness, posterior::Function, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing)
+function construct_ei(fitness::Fitness, post::ModelPosterior, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing)
     acq(x) = 0.
 end
-function construct_ei(fitness::Fitness, posterior::Function, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing)
-    acq(x) = feas_prob(posterior(x)..., constraints)
+function construct_ei(fitness::Fitness, post::ModelPosterior, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing)
+    acq(x) = feas_prob(mean_and_var(post, x)..., constraints)
 end
-function construct_ei(fitness::Fitness, posterior::Function, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
-    acq(x) = expected_improvement(fitness, posterior(x)..., ϵ_samples, best_yet)
+function construct_ei(fitness::Fitness, post::ModelPosterior, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
+    acq(x) = expected_improvement(fitness, mean_and_var(post, x)..., ϵ_samples, best_yet)
 end
-function construct_ei(fitness::Fitness, posterior::Function, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
+function construct_ei(fitness::Fitness, post::ModelPosterior, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
     function acq(x)
-        mean, std = posterior(x)
-        ei_ = expected_improvement(fitness, mean, std, ϵ_samples, best_yet)
-        fp_ = feas_prob(mean, std, constraints)
+        μ, σ2 = mean_and_var(post, x)
+        ei_ = expected_improvement(fitness, μ, σ2, ϵ_samples, best_yet)
+        fp_ = feas_prob(μ, σ2, constraints)
         return ei_ * fp_
     end
 end
 
 # Construct averaged acquisition function from multiple sampled posteriors.
-function construct_ei(fitness::Fitness, posteriors::AbstractVector{<:Function}, constraints::Union{Nothing, AbstractVector{<:Real}}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Union{Nothing, Real})
+function construct_ei(fitness::Fitness, posteriors::AbstractVector{<:ModelPosterior}, constraints::Union{Nothing, AbstractVector{<:Real}}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Union{Nothing, Real})
     acqs = construct_ei.(Ref(fitness), posteriors, Ref(constraints), eachcol(ϵ_samples), Ref(best_yet))
     x -> mapreduce(a_ -> a_(x), +, acqs) / length(acqs)
 end
 
 # Analytical EI for linear fitness function.
-function expected_improvement(fitness::LinFitness, mean::AbstractVector{<:Real}, std::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
+function expected_improvement(fitness::LinFitness, mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
     # https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7352306 Eq(44)
     μf = fitness.coefs' * mean
-    σf = sqrt((fitness.coefs .^ 2)' * (std .^ 2))
+    σf = sqrt((fitness.coefs .^ 2)' * (var))
     diff = (μf - best_yet)
     (diff == 0. && σf == 0.) && return 0.
     norm_ϵ = diff / σf
@@ -99,28 +99,25 @@ function expected_improvement(fitness::LinFitness, mean::AbstractVector{<:Real},
 end
 
 # Approximated EI for nonlinear fitness function.
-function expected_improvement(fitness::NonlinFitness, mean::AbstractVector{<:Real}, std::AbstractVector{<:Real}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Real)
-    pred_samples = (mean .+ (std .* ϵ) for ϵ in eachcol(ϵ_samples))
+function expected_improvement(fitness::NonlinFitness, mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, ϵ_samples::AbstractMatrix{<:Real}, best_yet::Real)
+    pred_samples = (mean .+ (sqrt.(var) .* ϵ) for ϵ in eachcol(ϵ_samples))
     return sum(max.(0, fitness.(pred_samples) .- best_yet)) / size(ϵ_samples)[2]
 end
-function expected_improvement(fitness::NonlinFitness, mean::AbstractVector{<:Real}, std::AbstractVector{<:Real}, ϵ::AbstractVector{<:Real}, best_yet::Real)
-    pred_sample = mean .+ (std .* ϵ)
+function expected_improvement(fitness::NonlinFitness, mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, ϵ::AbstractVector{<:Real}, best_yet::Real)
+    pred_sample = mean .+ (sqrt.(var) .* ϵ)
     return max(0, fitness(pred_sample) - best_yet)
 end
 
-feas_prob(mean::AbstractVector{<:Real}, std::AbstractVector{<:Real}, constraints::Nothing) = 1.
-feas_prob(mean::AbstractVector{<:Real}, std::AbstractVector{<:Real}, constraints::AbstractVector{<:Real}) = prod(cdf.(Distributions.Normal.(mean, std), constraints))
+feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::Nothing) = 1.
+feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::AbstractVector{<:Real}) = prod(cdf.(Distributions.Normal.(mean, sqrt.(var)), constraints))
 
-ϵ_sample_count(predict::Function, ϵ_samples::Int) = ϵ_samples
-ϵ_sample_count(predict::AbstractVector{<:Function}, ϵ_samples::Int) = length(predict)
+ϵ_sample_count(post::ModelPosterior, ϵ_samples::Int) = ϵ_samples
+ϵ_sample_count(post::AbstractVector{<:ModelPosterior}, ϵ_samples::Int) = length(post)
 
 sample_ϵs(y_dim::Int, sample_count::Int) = rand(Normal(), (y_dim, sample_count))
 
-best_so_far(problem::BossProblem, fitness::Fitness, posteriors::AbstractVector{<:Function}) =
-    best_so_far(problem, fitness, average_posterior(posteriors))
-
-best_so_far(problem::BossProblem, fitness::Fitness, posterior::Function) =
-    best_so_far(fitness, problem.data.X, problem.data.Y, problem.y_max, posterior)
+best_so_far(problem::BossProblem, fitness::Fitness) =
+    best_so_far(fitness, problem.data.X, problem.data.Y, problem.y_max)
 
 # # noisy EI
 # # Causes point clustering, needs further inspection.
@@ -133,7 +130,7 @@ best_so_far(problem::BossProblem, fitness::Fitness, posterior::Function) =
 # end
 
 # classic EI
-function best_so_far(fitness::Fitness, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, y_max::AbstractVector{<:Real}, posterior::Function)
+function best_so_far(fitness::Fitness, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real}, y_max::AbstractVector{<:Real})
     isempty(Y) && return nothing
     feasible = is_feasible.(eachcol(Y), Ref(y_max))
     any(feasible) || return nothing

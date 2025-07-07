@@ -5,6 +5,7 @@ const DATA_COLOR = :yellow
 const CONSTRAINT_COLOR = :black
 const CONSTRAINT_STYLE = :dash
 const ACQUISITION_COLOR = :blue
+const SAMPLES_ALPHA = 0.4
 
 """
     PlotOptions(Plots; kwargs...)
@@ -65,8 +66,10 @@ end
 function plot_problem(opt::PlotCallback, problem::BossProblem, acq, acq_opt)
     @assert x_dim(problem) == 1
 
-    subplots = opt.Plots.Plot[]
-    push!(subplots, [plot_y_slice(opt, problem, dim) for dim in 1:y_dim(problem)]...)
+    subplots = []
+    for dim in 1:y_dim(problem)
+        push!(subplots, plot_y_slice(opt, problem, dim))
+    end
     push!(subplots, plot_acquisition(opt, problem, acq, acq_opt))
     
     opt.Plots.plot!(first(subplots); title=opt.title)
@@ -113,26 +116,27 @@ function plot_y_slice(opt::PlotCallback, problem::BossProblem, dim::Int)
 
     # model
     if !isnothing(problem.params)
+        post = model_posterior_slice(problem, dim)
+
         if problem.params isa UniFittedParams
             # MAP -> best fit
-            predict = model_posterior(problem)
-            y_points = (x->predict([x])[1][dim]).(x_points)
-            std_points = (x->predict([x])[2][dim]).(x_points)
+            y_points = (x -> mean(post, [x])).(x_points)
+            std_points = (x -> std(post, [x])).(x_points)
             opt.Plots.plot!(p, x_points, y_points; ribbon=std_points, label="model", color=MODEL_COLOR)
             ylims = update_ylims(ylims, y_points)
         
         else # problem.params isa MultiFittedParams
             # BI -> samples & mean
-            predicts = model_posterior(problem)
+            posts = model_posterior(problem)
+
             for i in eachindex(predicts)
-                y_points = (x->predicts[i]([x])[1][dim]).(x_points)
-                # std_points = (x->predicts[i]([x])[2][dim]).(x_points)
+                y_points = (x -> mean(posts[i], [x])).(x_points)
+                # std_points = (x -> std(posts[i], [x])).(x_points)
                 label = (i == 1) ? "model samples" : nothing
-                opt.Plots.plot!(p, x_points, y_points; label, color=MODEL_SAMPLE_COLOR, style=:dash, alpha=0.2)
+                opt.Plots.plot!(p, x_points, y_points; label, color=MODEL_SAMPLE_COLOR, style=:dash, alpha=SAMPLES_ALPHA)
             end
 
-            pred_mean(x) = mean(map(p->p(x)[1][dim], predicts))
-            y_points = (x->first(pred_mean([x]))).(x_points)
+            y_points = (x -> average_mean(posts, [x])).(x_points)
             opt.Plots.plot!(p, x_points, y_points; label="averaged model", color=MODEL_COLOR)
             ylims = update_ylims(ylims, y_points)
         end
