@@ -31,6 +31,7 @@ export Parametric, LinearModel, NonlinearModel, ParametricParams, ParametricPost
 export Nonparametric, GaussianProcess, GaussianProcessParams, GaussianProcessPosterior
 export Semiparametric, SemiparametricParams
 export NonstationaryGP, NonstationaryGPParams, ParametrizedGP, ParametrizedGPParams
+export IBNN, IBNNLayer, IBNNPriors, IBNNReLU, IBNNParams
 
 # Parameters
 export FittedParams, UniFittedParams, MultiFittedParams
