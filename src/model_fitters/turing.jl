@@ -6,7 +6,7 @@ Samples the model parameters and hyperparameters using the Turing.jl package.
 
 To use this model fitter, first add the Turing.jl package.
 
-# Keywords
+## Keywords
 - `sampler::Any`: The sampling algorithm used to draw the samples.
 - `warmup::Int`: The amount of initial unused 'warmup' samples in each chain.
 - `samples_in_chain::Int`: The amount of samples used from each chain.
@@ -14,7 +14,7 @@ To use this model fitter, first add the Turing.jl package.
 - `leap_size`: Every `leap_size`-th sample is used from each chain. (To avoid correlated samples.)
 - `parallel`: If `parallel=true` then the chains are sampled in parallel.
 
-# Sampling Process
+## Sampling Process
 
 In each sampled chain;
   - The first `warmup` samples are discarded.

@@ -79,7 +79,7 @@ The termination condition of the BO procedure can be defined using the [`TermCon
 
 The basic [`IterLimit`](@ref) termination condition is provided. Custom termination conditions can be defined by extending the [`TermCond`](@ref) type.
 
-## Active Learning Problem
+## Active Learning
 
 The BOSS.jl package currently only supports optimization problems out-of-the-box. However, BOSS.jl can be easily adapted for active learning by defining a suitable acquisition function (such as information gain or Kullback-Leibler divergence) to use instead of the expected improvement (see [`AcquisitionFunction`](@ref)).
 

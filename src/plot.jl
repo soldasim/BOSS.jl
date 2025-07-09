@@ -14,10 +14,10 @@ If `PlotOptions` is passed to `BossOptions` as `callback`, the state of the opti
 is plotted in each iteration. Only works with one-dimensional `x` domains
 but supports multi-dimensional `y`.
 
-# Arguments
+## Arguments
 - `Plots::Module`: Evaluate `using Plots` and pass the `Plots` module to `PlotsOptions`.
 
-# Keywords
+## Keywords
 - `f_true::Union{Nothing, Function}`: The true objective function to be plotted.
 - `points::Int`: The number of points in each plotted function.
 - `xaxis::Symbol`: Used to change the x axis scale (`:identity`, `:log`).
@@ -120,6 +120,7 @@ function plot_y_slice(opt::PlotCallback, problem::BossProblem, dim::Int)
 
         if problem.params isa UniFittedParams
             # MAP -> best fit
+            
             y_points = (x -> mean(post, [x])).(x_points)
             std_points = (x -> std(post, [x])).(x_points)
             opt.Plots.plot!(p, x_points, y_points; ribbon=std_points, label="model", color=MODEL_COLOR)
@@ -127,16 +128,15 @@ function plot_y_slice(opt::PlotCallback, problem::BossProblem, dim::Int)
         
         else # problem.params isa MultiFittedParams
             # BI -> samples & mean
-            posts = model_posterior(problem)
-
-            for i in eachindex(predicts)
-                y_points = (x -> mean(posts[i], [x])).(x_points)
-                # std_points = (x -> std(posts[i], [x])).(x_points)
+            
+            for i in eachindex(post)
+                y_points = (x -> mean(post[i], [x])).(x_points)
+                # std_points = (x -> std(post[i], [x])).(x_points)
                 label = (i == 1) ? "model samples" : nothing
                 opt.Plots.plot!(p, x_points, y_points; label, color=MODEL_SAMPLE_COLOR, style=:dash, alpha=SAMPLES_ALPHA)
             end
 
-            y_points = (x -> average_mean(posts, [x])).(x_points)
+            y_points = (x -> average_mean(post, [x])).(x_points)
             opt.Plots.plot!(p, x_points, y_points; label="averaged model", color=MODEL_COLOR)
             ylims = update_ylims(ylims, y_points)
         end
@@ -190,8 +190,9 @@ function plot_acquisition(opt::PlotCallback, problem::BossProblem, acq, acq_opt)
 end
 
 function update_ylims(ylims, y_points)
-    ymin, ymax = minimum(y_points), maximum(y_points)
-    min(ymin, ylims[1]), max(ymax, ylims[2])
+    ymin = min(ylims[1], minimum(y_points))
+    ymax = max(ylims[2], maximum(y_points))
+    return ymin, ymax
 end
 
 ```

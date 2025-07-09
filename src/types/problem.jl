@@ -4,31 +4,35 @@
 
 Defines the whole optimization problem for the BOSS algorithm.
 
-# Problem Definition
+## Problem Definition
 
-    There is some (noisy) blackbox function `y = f(x) = f_true(x) + ϵ` where `ϵ ~ Normal`.
+There is some (noisy) blackbox function `y = f(x) = f_true(x) + ϵ` where `ϵ ~ Normal`.
 
-    We have some surrogate model `y = model(x) ≈ f_true(x)`
-    describing our knowledge (or lack of it) about the blackbox function.
+We wish to find `x ∈ domain` such that `fitness(f(x))` is maximized
+while satisfying the constraints `f(x) <= y_max`.
 
-    We wish to find `x ∈ domain` such that `fitness(f(x))` is maximized
-    while satisfying the constraints `f(x) <= y_max`.
+## Keywords
 
-# Keywords
-- `f::Union{Function, Missing}`: The objective blackbox function.
-- `domain::Domain`: The [`Domain`](@ref) of the input `x`.
+The following keywords correspond to all fields of the `BossProblem` type.
+
+The keywords marked by "(*)" are required. Note that at least a single initial data point
+must be provided to initialize the `BossProblem`.
+
+- (*) `f::Union{Function, Missing}`: The objective blackbox function.
+- (*) `domain::Domain`: The [`Domain`](@ref) of the input `x`.
 - `y_max::AbstractVector{<:Real}`: The constraints on the output `y`.
-- `acquisition::AcquisitionFunction`: The acquisition function used to select
-    the next evaluation point in each iteration. Usually contains the `fitness` function.
-- `model::SurrogateModel`: The [`SurrogateModel`](@ref).
-- `params::Union{FittedParams, Nothing}`: The model parameters. Defaults to `nothing`.
-- `data::ExperimentData`: The data obtained by evaluating the objective function.
+- (*) `acquisition::AcquisitionFunction`: The acquisition function used to select
+        the next evaluation point in each iteration. Usually contains the `fitness` function.
+- (*) `model::SurrogateModel`: The [`SurrogateModel`](@ref).
+- `params::Union{FittedParams, Nothing}`: The fitted model parameters. Defaults to `nothing`.
+- (*) `data::ExperimentData`: The data obtained by evaluating the objective function.
 - `consistent::Bool`: True iff the `model_params` have been fitted using the current `data`.
         Is set to `consistent = false` after updating the dataset,
         and to `consistent = true` after re-fitting the parameters.
         Defaults to `constistent = false`.
 
-# See Also
+## See Also
+
 [`bo!`](@ref)
 """
 @kwdef mutable struct BossProblem{
@@ -119,8 +123,10 @@ get_fitness(p::BossProblem) = get_fitness(p.acquisition)
 
 """
     get_params(::BossProblem) -> ::Union{::ModelParams, AbstractVector{<:ModelParams}}
+    get_params(::UniFittedParams) -> ::ModelParams
+    get_params(::MultiFittedParams) -> ::AbstractVector{<:ModelParams}
 
-Return the fitted `ModelParams` (or a vector of `ModelParams` samples).
+Return the fitted `ModelParams` or a vector of `ModelParams` samples.
 """
 get_params(p::BossProblem) = get_params(p.params)
 

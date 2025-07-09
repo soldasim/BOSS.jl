@@ -32,11 +32,9 @@ end
 is_params_call(expr) = (expr.head == :macrocall) && (expr.args[1] == Symbol("@params"))
 
 """
-# Examples
-
-`@success out == 1`
-
-`@success in[1] + in[2] == out`
+    @success predicate
+    @success out == 1
+    @success in[1] + in[2] == out
 """
 macro success()
     return Expr(:call, :Success) |> esc
@@ -52,9 +50,8 @@ end
 is_success_call(expr) = (expr.head == :macrocall) && (expr.args[1] == Symbol("@success"))
 
 """
-# Examples
-
-`@failure BoundsError`
+    @failure ErrorException
+    @failure BoundsError
 """
 macro failure()
     return Expr(:call, :Failure) |> esc

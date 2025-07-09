@@ -153,7 +153,7 @@ Or we can use Bayesian inference and sample the parameters from their posterior 
 using Turing
 
 bi_fitter() = TuringBI(;
-    sampler = PG(20),
+    sampler = NUTS(1000, 0.65),
     warmup = 100,
     samples_in_chain = 10,
     chain_count = 8,
@@ -210,16 +210,27 @@ options() = BossOptions(;
 )
 ```
 
+## Initial Data
+
+We have to provide at least a single initial data point.
+
+```julia
+function init_data()
+    X = [10.;;]
+    Y = hcat(blackbox.(eachcol(X))...)
+    return ExperimentData(X, Y)
+end
+```
+
 ## Run BOSS
 
 Once we define the problem and all hyperparameters, we can run the BO procedure by calling the `bo!` function.
 
 ```julia
-bo!(problem();
+prob = bo!(problem();
     model_fitter = map_fitter(), # or `bi_fitter()`
     acq_maximizer = acq_maximizer(),
-    acquisition = ExpectedImprovement(),
     term_cond = IterLimit(10),
     options = options(),
-)
+);
 ```

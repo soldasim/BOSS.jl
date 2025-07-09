@@ -13,8 +13,13 @@ const AbstractBounds = Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 
 Describes the optimization domain.
 
-# Keywords
-- `bounds::AbstractBounds`: The basic box-constraints on `x`. This field is mandatory.
+## Keywords
+
+The following keywords correspond to all fields of the `Domain` type.
+
+The keywords marked by "(*)" are required.
+
+- (*) `bounds::AbstractBounds`: The basic box-constraints on `x`. This field is mandatory.
 - `discrete::AbstractVector{Bool}`: Can be used to designate some dimensions
         of the domain as discrete.
 - `cons::Union{Nothing, Function}`: Used to define arbitrary nonlinear constraints on `x`.

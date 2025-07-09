@@ -2,7 +2,7 @@
 """
 Creates a dummy problem for the given combinatorial test.
 
-# Params
+## Params
 - `in::Function`: Maps input variable names to their values.
 """
 function create_problem(val)

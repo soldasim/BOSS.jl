@@ -12,7 +12,7 @@ Selects the candidates sequentially by iterating the following steps:
 - 3) If `batch_size` candidates have been selected, return them.
     Otherwise, goto step 1).
 
-# Keywords
+## Keywords
 - `am::AcquisitionMaximizer`: The inner acquisition maximizer.
 - `batch_size::Int`: The number of candidates to be selected.
 """

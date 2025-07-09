@@ -1,5 +1,6 @@
 include("domain.jl")
 include("data.jl")
+include("fitness.jl")
 include("acquisition.jl")
 include("surrogate_model.jl")
 include("parameters.jl")

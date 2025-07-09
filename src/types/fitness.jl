@@ -8,7 +8,7 @@ measuring the quality of an output `y` of the objective function.
 Fitness is used by (most) `AcquisitionFunction`s to determine promising points for future evaluations.
 
 All fitness functions *should* implement:
-- (::CustomFitness)(y::AbstractVector{<:Real}) -> fitness::Real
+- `(::CustomFitness)(y::AbstractVector{<:Real}) -> fitness::Real`
 
 See also: [`LinFitness`](@ref), [`NonlinFitness`](@ref), [`AcquisitionFunction`](@ref)
 """
@@ -26,7 +26,7 @@ functions whereas this may not be possible with a nonlinear fitness function.
 
 See also: [`NonlinFitness`](@ref)
 
-# Example
+## Example
 A fitness function `f(y) = y[1] + a * y[2] + b * y[3]` can be defined as:
 ```julia-repl
 julia> LinFitness([1., a, b])
@@ -50,7 +50,7 @@ If your fitness function is linear, use `LinFitness` which may provide better pe
 
 See also: [`LinFitness`](@ref)
 
-# Example
+## Example
 ```julia-repl
 julia> NonlinFitness(y -> cos(y[1]) + sin(y[2]))
 ```

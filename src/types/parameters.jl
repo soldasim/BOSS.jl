@@ -19,7 +19,7 @@ All subtypes of `MultiFittedParams` implement:
 - `get_params(::FittedParams) -> ::Vector{<:ModelParams}`
 - `slice(::FittedParams, idx::Int) -> ::FittedParams`
 
-# See Also
+## See Also
 
 [`MAPParams`](@ref), [`BIParams`](@ref), [`RandomParams`](@ref).
 """
@@ -49,12 +49,6 @@ abstract type MultiFittedParams{
     M<:SurrogateModel
 } <: FittedParams{M} end
 
-"""
-    get_params(::UniFittedParams) -> ::ModelParams
-    get_params(::MultiFittedParams) -> ::AbstractVector{<:ModelParams}
-
-Return the fitted `ModelParams` or a vector of `ModelParams` samples.
-"""
 function get_params end
 get_params(params::ModelParams) = params
 
@@ -63,7 +57,7 @@ get_params(params::ModelParams) = params
 
 Fixed `ModelParams` values for a given `SurrogateModel`.
 
-# Keywords
+## Keywords
 - `params::ModelParams{M}`: The parameter values.
 """
 @kwdef struct FixedParams{
@@ -81,7 +75,7 @@ slice(p::FixedParams, idx::Int) = FixedParams(slice(p.params, idx))
 
 A single random `ModelParams` sample from the prior.
 
-# Keywords
+## Keywords
 - `params::ModelParams{M}`: The random model parameters.
 """
 @kwdef struct RandomParams{
@@ -99,7 +93,7 @@ slice(p::RandomParams, idx::Int) = RandomParams(slice(p.params, idx))
 
 `ModelParams` estimated via MAP estimation.
 
-# Keywords
+## Keywords
 - `params::ModelParams{M}`: The fitted model parameters.
 - `loglike::Float64`: The log likelihood of the fitted parameters.
 """
@@ -121,7 +115,7 @@ Contains `ModelParams` samples obtained via (approximate) Bayesian inference.
 
 The individual `ModelParams` samples can be obtained by iterating over the `BIParams` object.
 
-# Keywords
+## Keywords
 - `samples::Vector{P}`: A vector of the individual model parameter samples.
 """
 @kwdef struct BIParams{

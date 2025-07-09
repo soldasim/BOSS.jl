@@ -8,7 +8,7 @@ The parametric model is used as the mean of the Gaussian Process
 and the evaluation noise is modeled by the Gaussian Process.
 All parameters of the models are estimated simultaneously.
 
-# Keywords
+## Keywords
 - `parametric::Parametric`: The parametric model used as the GP mean function.
 - `nonparametric::Nonparametric{Nothing}`: The outer GP model without mean.
 
@@ -43,7 +43,7 @@ end
 
 The parameters of the [`Semiparametric`]@ref model.
 
-# Parameters
+## Parameters
 - `θ::AbstractVector{<:Real}`: The parameters of the parametric model.
 - `λ::AbstractMatrix{<:Real}`: The length scales of the GP.
 - `α::AbstractVector{<:Real}`: The amplitudes of the GP.

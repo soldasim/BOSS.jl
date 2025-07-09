@@ -11,42 +11,28 @@ To define a custom surrogate model, define a new subtype `struct CustomModel <: 
 as well as the other structures and methods described below.
 
 The inputs in square brackets `[...]` are optional and can be used to provide additional data.
-It is prefferable to define the methods without the optional inputs.
+It is prefferable to define the methods without the optional inputs if possible.
 
 See the docstrings of the individual functions for more information.
 
 
-### Utility Methods
-
-Models *may* implement:
-- `make_discrete(model::SurrogateModel, discrete::AbstractVector{Bool}) -> discrete_model::SurrogateModel`
-- `sliceable(::SurrogateModel) = true` (defaults to `false`)
-
-If `sliceable(::SurrogateModel) == true`, then the model *should* additionally implement:
-- `slice(model::SurrogateModel, slice::Int) -> model_slice::SurrogateModel`
-- `slice(params::ModelParams, slice::Int) -> params_slice::ModelParams`
-- `join_slices(slices::AbstractVector{ModelParams}) -> params::ModelParams`
-
-Defining the `SurrogateModel` as sliceable allows for significantly more efficient parameter estimation,
-but is generally not possible for all models.
-
-Generally, `SurrogateModel`s implementing a custom `ModelPosteriorSlice` will usually be sliceable,
-but the API does not require it.
-
-
 ### Model Posterior Methods
 
-Each model *should* define *at least one* of the following types:
-- `struct CustomPosterior <: ModelPosterior{CustomModel} ... end`
-- `struct CustomPosteriorSlice <: ModelPosteriorSlice{CustomModel} ... end`
-
-and the corresponding constructor(s):
+Each model *should* define *at least one* of the following posterior constructors:
 - `model_posterior(::SurrogateModel, ::ModelParams, ::ExperimentData) -> ::ModelPosterior`
 - `model_posterior_slice(::SurrogateModel, ::ModelParams, ::ExperimentData, slice::Int) -> ::ModelPosteriorSlice`
 
-Defining both is also possible, and can be used to provide a more efficient implementation of the posterior.
+and will usually implement the corresponding posterior type(s):
+- `struct CustomPosterior <: ModelPosterior{CustomModel} ... end`
+- `struct CustomPosteriorSlice <: ModelPosteriorSlice{CustomModel} ... end`
 
-Additionally, implement the API described in the docstring(s) of the `ModelPosterior` or/and `ModelPosteriorSlice` type(s).
+However, the model may reuse a posterior type defined for a different model.
+
+Defining both `ModelPosterior` and `ModelPosteriorSlice` is also possible,
+and can be used to provide a more efficient implementation of the posterior.
+
+Additionally, the API described in the docstring(s) of the `ModelPosterior` or/and `ModelPosteriorSlice` type(s)
+must be implemented for new posterior types.
 
 
 ### Model Parameters Methods
@@ -67,7 +53,25 @@ Additionally, the following methods are provided and *need not be implemented*:
 - `params_sampler(::SurrogateModel, ::ExperimentData) -> ([::AbstractRNG] -> ::ModelParams)`
 
 
-# See Also
+### Utility Methods
+
+Models *may* implement:
+- `make_discrete(model::SurrogateModel, discrete::AbstractVector{Bool}) -> discrete_model::SurrogateModel`
+- `sliceable(::SurrogateModel) = true` (defaults to `false`)
+
+If `sliceable(::SurrogateModel) == true`, then the model *should* additionally implement:
+- `slice(model::SurrogateModel, slice::Int) -> model_slice::SurrogateModel`
+- `slice(params::ModelParams, slice::Int) -> params_slice::ModelParams`
+- `join_slices(slices::AbstractVector{ModelParams}) -> params::ModelParams`
+
+Defining the `SurrogateModel` as sliceable allows for significantly more efficient parameter estimation,
+but is generally not possible for all models.
+
+`SurrogateModel`s implementing `model_posterior_slice` will usually be sliceable,
+whereas models implementing `model_posterior` will not, but the API does not require this.
+
+
+## See Also
 
 [`LinearModel`](@ref), [`NonlinearModel`](@ref),
 [`GaussianProcess`](@ref),
@@ -207,9 +211,9 @@ function join_slices end
 # Default implementations of posterior methods are in `/src/posterior.jl`.
 
 """
-    model_posterior(::BossProblem) -> ::ModelPosterior
-    model_posterior(::BossProblem) -> ::AbstractVector{<:ModelPosterior}
-    model_posterior(::SurrogateModel, ::ModelParams, [::ExperimentData]) -> ::ModelPosterior
+    model_posterior(::BossProblem) -> ::Union{<:ModelPosterior, <:AbstractVector{<:ModelPosterior}}
+    model_posterior(::SurrogateModel, ::ModelParams, ::ExperimentData) -> ::ModelPosterior
+    model_posterior(::SurrogateModel, ::AbstractVector{<:ModelParams}, ::ExperimentData) -> ::AbstractVector{<:ModelPosterior}
 
 Return an instance of `ModelPosterior` allowing to evaluate the posterior predictive distribution,
 or a vector of `ModelPosterior`s in case of multiple sampled model parameters.
@@ -219,9 +223,9 @@ See [`ModelPosterior`](@ref) for the list of available methods.
 function model_posterior end
 
 """
-    model_posterior_slice(::BossProblem, slice::Int) -> ::ModelPosteriorSlice
-    model_posterior_slice(::BossProblem, slice::Int) -> ::AbstractVector{<:ModelPosteriorSlice}
-    model_posterior_slice(::SurrogateModel, ::ModelParams, [::ExperimentData], slice::Int) -> ::ModelPosteriorSlice
+    model_posterior_slice(::BossProblem, slice::Int) -> ::Union{<:ModelPosteriorSlice, <:AbstractVector{<:ModelPosteriorSlice}}
+    model_posterior_slice(::SurrogateModel, ::ModelParams, ::ExperimentData, slice::Int) -> ::ModelPosteriorSlice
+    model_posterior_slice(::SurrogateModel, ::AbstractVector{<:ModelParams}, ::ExperimentData, slice::Int) -> ::AbstractVector{<:ModelPosteriorSlice}
 
 Return an instance of `ModelPosteriorSlice` allowing to evaluate the posterior predictive distribution,
 or a vector of `ModelPosteriorSlice`s in case of multiple sampled model parameters.
