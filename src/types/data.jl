@@ -8,7 +8,7 @@ At least one initial datapoint has to be provided (purely for implementation rea
 One can for example use LatinHypercubeSampling.jl to obtain a small intial grid,
 or provide a single random initial datapoint.
 
-# Keywords
+## Keywords
 - `X::AbstractMatrix{<:Real}`: Contains the objective function inputs as columns.
 - `Y::AbstractMatrix{<:Real}`: Contains the objective function outputs as columns.
 """

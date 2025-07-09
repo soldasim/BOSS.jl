@@ -17,10 +17,12 @@ Rather than using the actual evaluations `(xᵢ,yᵢ)` from the dataset,
 the best-so-far achieved fitness is calculated as the maximum fitness
 among the means `ŷᵢ` of the posterior predictive distribution of the model
 evaluated at `xᵢ`. This is a simple way to handle evaluation noise which may not
-be suitable for problems with substantial noise. In case of Bayesian Inference,
-an averaged posterior of the model posterior samples is used for the prediction of `ŷᵢ`.
+be suitable for problems with substantial noise.
+    
+In case Bayesian Inference of model parameters is used, the expectation of the expected improvement
+over the model parameter samples is calculated.
 
-# Keywords
+## Keywords
 - `fitness::Fitness`: The fitness function mapping the output `y` to the real-valued score.
 - `ϵ_samples::Int`: Controls how many samples are used to approximate EI.
         The `ϵ_samples` keyword is *ignored* unless `MAP` model fitter and `NonlinFitness` are used!

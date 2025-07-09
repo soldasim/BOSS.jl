@@ -5,7 +5,7 @@
 Optimizes the acquisition function by first sampling candidates from the user-provided prior,
 and then running multiple optimization runs initiated from the samples with the highest acquisition values.
 
-# Keywords
+## Keywords
 - `x_prior::MultivariateDistribution`: The prior over the input domain used to sample candidates.
 - `samples::Int`: The number of samples to be drawn and evaluated.
 - `algorithm::Any`: Defines the optimization algorithm.

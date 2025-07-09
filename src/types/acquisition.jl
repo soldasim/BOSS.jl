@@ -4,7 +4,7 @@
 
 Specifies the acquisition function describing the "quality" of a potential next evaluation point.
 
-# Defining Custom Acquisition Function
+## Defining custom acquisition function
 
 To define a custom acquisition function, define a new subtype of `AcquisitionFunction`.
 - `struct CustomAcq <: AcquisitionFunction ... end`
@@ -15,10 +15,11 @@ All acquisition functions *should* implement:
 Acquisition functions *may* implement:
 - `get_fitness(::CustomAcq) -> (y -> ::Real)`: Usually will return a callable instance of `Fitness`.
 
-This method should return a function `acq(x::AbstractVector{<:Real}) = val::Real`,
-which is maximized to select the next evaluation function of blackbox function in each iteration.
+See the docs of the individual functions for more information.
 
-# See Also
+## See Also
+
+[`construct_acquisition`](@ref),
 [`ExpectedImprovement`](@ref)
 """
 abstract type AcquisitionFunction end
@@ -27,6 +28,9 @@ abstract type AcquisitionFunction end
     construct_acquisition(::AcquisitionFunction, ::BossProblem, ::BossOptions) -> (x -> ::Real)
 
 Construct the given `AcquisitionFunction` for the given `BossProblem`.
+
+The returned function `acq(x::AbstractVector{<:Real}) = val::Real`
+is maximized to select the next evaluation function of blackbox function in each iteration.
 
 This method must be implemented for all subtypes of `AcquisitionFunction`.
 """

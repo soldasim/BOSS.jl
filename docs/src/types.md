@@ -23,10 +23,11 @@ The [`Domain`](@ref) structure is used to define the input domain ``x \in \text{
 ```math
 \begin{aligned}
 & lb < x < ub \\
-& d_i \implies (x_i \in \mathbb{Z}) \\
-& \text{cons}(x) > 0 \;.
+& (d_i = \text{true}) \implies (x_i \in \mathbb{Z}) \\
+& \text{cons}(x) > 0 \;,
 \end{aligned}
 ```
+where the vectors ``lb,ub`` are defined by the `bounds` field, the vector ``d`` is defined by the `discrete` field, and arbitrary non-box constraints are defined by the `cons` field of the `Domain` structure.
 
 ```@docs
 Domain
@@ -81,7 +82,7 @@ The [`LinFitness`](@ref) can be used to define a simple fitness function dependi
 ```math
 \text{fit}(y) = \alpha^T y
 ```
-Using [`LinFitness`](@ref) instead of [`NonlinFitness`](@ref) may allow for simpler/faster computation of some acquisition functions (if they are defined that way).
+Using [`LinFitness`](@ref) instead of [`NonlinFitness`](@ref) may allow for simpler/faster computation of some acquisition functions.
 
 ```@docs
 LinFitness
@@ -102,12 +103,6 @@ The surrogate model is defined using subtypes of [`SurrogateModel`](@ref) and pa
 
 ```@docs
 SurrogateModel
-```
-
-Each subtype of [`SurrogateModel`](@ref) has its own subtype of [`ModelParams`](@ref) defined, which stores all its (hyper)parameters.
-
-```@docs
-ModelParams
 ```
 
 The [`LinearModel`](@ref) and [`NonlinearModel`](@ref) structures are used to define parametric models.
@@ -148,15 +143,24 @@ ModelPosterior
 ModelPosteriorSlice
 ```
 
+The model posterior can be evaluated by using the methods `mean`, `std`, `var`, `cov`, `mean_and_std`, `mean_and_var`, and `mean_and_cov` defined for the [`ModelPosterior`](@ref) and [`ModelPosteriorSlice`](@ref) types.
+
+
 ## Model Parameters
 
-The estimated model parameters are stored as subtypes of [`FittedParams`](@ref) in the `params` field of the [`BossProblem`](@ref).
+Each subtype of [`SurrogateModel`](@ref) has its own subtype of [`ModelParams`](@ref) defined, which stores all its (hyper)parameters.
+
+```@docs
+ModelParams
+```
+
+The estimated model parameters are stored as subtypes of [`FittedParams`](@ref) in the `params` field of the [`BossProblem`](@ref), and contain additional information about the way the parameters have been obtained.
 
 ```@docs
 FittedParams
 ```
 
-Different [`ModelFitter`](@ref)s create different subtypes of [`FittedParams`](@ref). For example, MAP model fitters result in the [`MAPParams`](@ref) containing the MAP [`ModelParams`](@ref), and variational model fitters results in the [`BIParams`](@ref) containing multiple posterior [`ModelParams`](@ref) samples.
+Different [`ModelFitter`](@ref)s create different subtypes of [`FittedParams`](@ref). For example, MAP model fitters result in the [`MAPParams`](@ref) containing the MAP [`ModelParams`](@ref), and variational parameter samplers results in the [`BIParams`](@ref) containing multiple posterior [`ModelParams`](@ref) samples.
 
 ```@docs
 MAPParams
@@ -167,7 +171,7 @@ FixedParams
 
 ## Experiment Data
 
-The data from all past objective function evaluations are stored in the `ExperimentData` structure. It is also used to provide the intial training data to [`BossProblem`](@ref).
+The data from all past objective function evaluations are stored in the `ExperimentData` structure. It is also used to provide the intial data to [`BossProblem`](@ref).
 
 ```@docs
 ExperimentData
@@ -276,16 +280,16 @@ The `TermCond` type is used to define the termination condition of the BO proced
 TermCond
 ```
 
-The `NoLimit` can be used to let the algorithm run indefinitely.
-
-```@docs
-NoLimit
-```
-
 The `IterLimit` terminates the procedure after a predefined number of iterations.
 
 ```@docs
 IterLimit
+```
+
+The `NoLimit` can be used to let the algorithm run indefinitely.
+
+```@docs
+NoLimit
 ```
 
 Custom termination conditions can be defined by subtyping the [`TermCond`](@ref) type.

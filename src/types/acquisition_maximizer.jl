@@ -4,7 +4,7 @@
 
 Specifies the library/algorithm used for acquisition function optimization.
 
-# Defining Custom Acquisition Maximizer
+## Defining Custom Acquisition Maximizer
 
 To define a custom acquisition maximizer, define a new subtype of `AcquisitionMaximizer`.
 - `struct CustomAlg <: AcquisitionMaximizer ... end`

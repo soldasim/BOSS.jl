@@ -29,7 +29,7 @@ to define discrete dimensions instead.
 
 See also: `BossProblem`(@ref)
 
-# Examples:
+## Examples:
 ```julia-repl
 julia> BOSS.DiscreteKernel(BOSS.Matern32Kernel())
 BOSS.DiscreteKernel{Missing}(Matern 3/2 Kernel (metric = Distances.Euclidean(0.0)), missing)

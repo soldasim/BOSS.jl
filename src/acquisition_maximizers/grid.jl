@@ -9,7 +9,7 @@ Not suitable for problems with high dimensional domain.
 
 Can be used with constraints on `x`.
 
-# Keywords
+## Keywords
 - `problem::BossProblem`: Provide your defined optimization problem.
 - `steps::Vector{Float64}`: Defines the size of the grid gaps in each `x` dimension.
 - `parallel::Bool`: If `parallel=true`, the optimization is parallelized. Defaults to `true`.

@@ -6,7 +6,7 @@
 Combines `SamplingMAP` and `OptimizationMAP` to first sample many parameter samples from the prior,
 and subsequently start multiple optimization runs initialized from the best samples.
 
-# Keywords
+## Keywords
 - `samples::Int`: The number of drawn samples.
 - `algorithm::Any`: Defines the optimization algorithm.
 - `multistart::Int`: The number of optimization restarts.

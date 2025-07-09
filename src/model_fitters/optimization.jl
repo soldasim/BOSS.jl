@@ -7,7 +7,7 @@ Finds the MAP estimate of the model parameters and hyperparameters using the Opt
 To use this model fitter, first add one of the Optimization.jl packages (e.g. OptimizationPRIMA)
 to load some optimization algorithms which are passed to the `OptimizationMAP` constructor.
 
-# Keywords
+## Keywords
 - `algorithm::Any`: Defines the optimization algorithm.
 - `multistart::Union{Int, AbstractVector{<:ModelParams}}`: The number of optimization restarts,
         or a vector of `ModelParams` containing initial (hyper)parameter values for the optimization runs.

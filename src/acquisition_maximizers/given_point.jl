@@ -4,7 +4,7 @@
 
 A dummy acquisition maximizer that always returns predefined point `x`.
 
-# See Also
+## See Also
 
 [`GivenSequenceAM`](@ref),
 """
@@ -19,7 +19,7 @@ end
 A dummy acquisition maximizer that returns the predefined sequence of points in the given order.
 The maximizer throws an error if it runs out of points in the sequence.
 
-# See Also
+## See Also
 
 [`GivenPointAM`](@ref),
 """

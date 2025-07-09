@@ -4,7 +4,7 @@
 
 Stores miscellaneous settings of the BOSS algorithm.
 
-# Keywords
+## Keywords
 - `info::Bool`: Setting `info=false` silences the BOSS algorithm.
 - `debug::Bool`: Set `debug=true` to print stactraces of caught optimization errors.
 - `parallel_evals::Symbol`: Possible values: `:serial`, `:parallel`, `:distributed`. Defaults to `:parallel`.

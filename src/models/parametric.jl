@@ -59,7 +59,7 @@ where
 ```
 and ``n, m, p ∈ R``.
 
-# Keywords
+## Keywords
 - `lift::Function`: Defines the `lift` function `(::Vector{<:Real}) -> (::Vector{Vector{<:Real}})`
         according to the definition above.
 - `theta_priors::ThetaPriors`: The prior distributions for
@@ -91,7 +91,7 @@ If your model is linear, you can use `LinearModel` which will provide better per
 
 Define the model as `y = predict(x, θ)` where `θ` are the model parameters.
 
-# Keywords
+## Keywords
 - `predict::Function`: The `predict` function according to the definition above.
 - `theta_priors::ThetaPriors`: The prior distributions for the model parameters.
         function during optimization. Defaults to `nothing` meaning all parameters are real-valued.
@@ -118,7 +118,7 @@ end
 
 The parameters of the [`Parametric`](@ref) model.
 
-# Parameters
+## Parameters
 - `θ::AbstractVector{<:Real}`: The parameters of the [`Parametric`](@ref) model.
 - `σ::AbstractVector{<:Real}`: The noise standard deviations.
 """
@@ -156,7 +156,7 @@ param_shapes(params::ParametricParams) = (size(params.θ), size(params.σ))
 """
     ParametricPosterior
 
-# Fields
+## Fields
 - `f::Function`: The predictive mean function.
 - `noise_std::N`: The (constant) noise standard deviations of the model.
 """

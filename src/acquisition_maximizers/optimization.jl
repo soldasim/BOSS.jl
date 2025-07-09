@@ -6,7 +6,7 @@ Maximizes the acquisition function using the Optimization.jl library.
 
 Can handle constraints on `x` if according optimization algorithm is selected.
 
-# Keywords
+## Keywords
 - `algorithm::Any`: Defines the optimization algorithm.
 - `multistart::Union{Int, AbstractMatrix{<:Real}}`: The number of optimization restarts,
         or a matrix of optimization intial points as columns.

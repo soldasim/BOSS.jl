@@ -17,7 +17,7 @@ const MAX_NEG_VAR = 1e-8
 
 A Gaussian Process surrogate model. Each output dimension is modeled by a separate independent process.
 
-# Keywords
+## Keywords
 - `mean::Union{Nothing, AbstractVector{<:Real}, Function}`: Used as the mean function for the GP.
         Defaults to `nothing` equivalent to `x -> zeros(y_dim)`.
 - `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern32Kernel()`.
@@ -54,7 +54,7 @@ const Nonparametric = GaussianProcess
 
 The parameters of the [`GaussianProcess`](@ref) model.
 
-# Parameters
+## Parameters
 - `λ::AbstractMatrix{<:Real}`: The length scales of the GP.
 - `α::AbstractVector{<:Real}`: The amplitudes of the GP.
 - `σ::AbstractVector{<:Real}`: The noise standard deviations.
@@ -121,7 +121,7 @@ end
 """
     GaussianProcessPosterior
 
-# Fields
+## Fields
 - `post_gp::AbstractGPs.PosteriorGP`: The posterior GP constructed via the AbstractGPs.jl library.
 """
 @kwdef struct GaussianProcessPosterior{

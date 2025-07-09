@@ -5,18 +5,18 @@
 Run the Bayesian optimization procedure to solve the given optimization problem
 or give a recommendation for the next evaluation point if `problem.f == missing`.
 
-# Arguments
+## Arguments
 
 - `problem::BossProblem`: Defines the optimization problem.
 
-# Keywords
+## Keywords
 
 - `model_fitter::ModelFitter`: Defines the algorithm used to estimate model parameters.
 - `acq_maximizer::AcquisitionMaximizer`: Defines the algorithm used to maximize the acquisition function.
 - `term_cond::TermCond`: Defines the termination condition.
 - `options::BossOptions`: Defines miscellaneous settings.
 
-# References
+## References
 
 [`BossProblem`](@ref),
 [`ModelFitter`](@ref),
@@ -24,7 +24,7 @@ or give a recommendation for the next evaluation point if `problem.f == missing`
 [`TermCond`](@ref),
 [`BossOptions`](@ref)
 
-# Examples
+## Examples
 See 'https://soldasim.github.io/BOSS.jl/stable/example/' for example usage.
 """
 function bo!(problem::BossProblem;
@@ -74,7 +74,7 @@ end
 
 Estimate the model parameters & hyperparameters using the given `model_fitter` algorithm.
 
-# Keywords
+## Keywords
 
 - `options::BossOptions`: Defines miscellaneous settings.
 """
@@ -89,7 +89,7 @@ end
 
 Maximize the given `acquisition` function via the given `acq_maximizer` algorithm to find the optimal next evaluation point(s).
 
-# Keywords
+## Keywords
 
 - `options::BossOptions`: Defines miscellaneous settings.
 """
@@ -111,7 +111,7 @@ end
 
 Evaluate the objective function and update the data.
 
-# Keywords
+## Keywords
 
 - `options::BossOptions`: Defines miscellaneous settings.
 """
