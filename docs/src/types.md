@@ -178,10 +178,29 @@ FixedParams
 
 ## Experiment Data
 
-The data from all past objective function evaluations are stored in the `ExperimentData` structure. It is also used to provide the intial data to [`BossProblem`](@ref).
+The data from all past objective function evaluations are stored in subtypes of the `ExperimentData` abstract type. They are also used to provide the intial data to [`BossProblem`](@ref).
 
 ```@docs
 ExperimentData
+```
+
+The data can be augmented by using the `augment_dataset` function, or replaced by the `update_dataset` function.
+
+```@docs
+BOSS.augment_dataset
+BOSS.update_dataset
+```
+
+The simples subtype of [`ExperimentData`](@ref) is the `SimpleData` structure, which simply stored the evaluated inputs and the observed outputs.
+
+```@docs
+SimpleData
+```
+
+More advanced [`ExperimentData`](@ref) subtypes include the following;
+
+```@docs
+NormalizedData
 ```
 
 ## Model Fitter
