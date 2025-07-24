@@ -1,45 +1,48 @@
 
 """
-    ExperimentData(X, Y)
+    ExperimentData
 
-Stores all the data collected during the optimization.
+An abstract type for different types storing (and possibly preprocessing) the experiment data.
 
-At least one initial datapoint has to be provided (purely for implementation reasons).
-One can for example use LatinHypercubeSampling.jl to obtain a small intial grid,
-or provide a single random initial datapoint.
+## Interface
 
-## Keywords
-- `X::AbstractMatrix{<:Real}`: Contains the objective function inputs as columns.
-- `Y::AbstractMatrix{<:Real}`: Contains the objective function outputs as columns.
+All subtypes of `ExperimentData` should contain the following fields:
+- `X::AbstractMatrix{<:Real}`: The input data matrix.
+- `Y::AbstractMatrix{<:Real}`: The (possibly pre-processed) output data matrix.
+
+All subtypes of `ExperimentData` *should* implement the following methods:
+- `augment_dataset(::ExperimentData, X, Y) -> ::ExperimentData`: Returns a new `ExperimentData` instance
+        containing the current dataset *augmented by* the provided data `X`, `Y`.
+- `update_dataset(::ExperimentData, X, Y) -> ::ExperimentData`: Returns a new `ExperimentData` instance
+        containing *only* the new provided data `X`, `Y`.
+- `slice(::ExperimentData, idx::Int) -> ::ExperimentData`: Returns a new `ExperimentData` instance
+        containing only the output dimension specified by the `idx` index.
 """
-@kwdef struct ExperimentData{
-    T<:AbstractMatrix{<:Real},
-}
-    X::T
-    Y::T
+abstract type ExperimentData end
 
-    function ExperimentData(X::T, Y::T) where {T}
-        @assert size(X, 2) == size(Y, 2)
-        return new{T}(X, Y)
-    end
-end
-
-x_dim(d::ExperimentData) = size(d.X, 1)
-y_dim(d::ExperimentData) = size(d.Y, 1)
+x_dim(data::ExperimentData) = size(data.X, 1)
+y_dim(data::ExperimentData) = size(data.Y, 1)
 
 Base.length(data::ExperimentData) = size(data.X, 2)
 Base.isempty(data::ExperimentData) = isempty(data.X)
 
-function augment_dataset(data::ExperimentData, X::AbstractArray{<:Real}, Y::AbstractArray{<:Real})
-    return ExperimentData(
-        hcat(data.X, X),
-        hcat(data.Y, Y),
-    )
-end
+"""
+    augment_dataset(::ExperimentData, X, Y) -> ::ExperimentData
 
-function slice(data::ExperimentData, idx::Int)
-    return ExperimentData(
-        data.X,
-        data.Y[idx:idx,:],
-    )
-end
+Return a new `ExperimentData` instance containing the old dataset *augmented by* the provided data `X`, `Y`.
+
+See also: `update_dataset`
+"""
+function augment_dataset end
+
+"""
+    update_dataset(::ExperimentData, X, Y) -> ::ExperimentData
+
+Return a new `ExperimentData` instance containing *only* the new provided data `X`, `Y`.
+
+See also: `augment_dataset`
+"""
+function update_dataset end
+
+# docstring in `src/types/problem.jl`
+# function slice end

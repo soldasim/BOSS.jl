@@ -67,25 +67,6 @@ end
     @test all((starts[:,i] != starts[:,i-1] for i in 2:size(starts)[2]))
 end
 
-@testset "exclude_exterior_points(domain, X, Y)" begin
-    domain = Domain(;
-        bounds = ([0., 0.], [10., 10.]),
-        discrete = [true, false],
-        cons = x -> [x[2] - 5.],  # x[2] >= 5.
-    )
-    options = BossOptions(; info=false)
-
-    @param_test (in...) -> BOSS.exclude_exterior_points(in...; options) begin
-        @params deepcopy(domain), [5.;5.;; 5.;5.;; 8.;8.;;], [5.;5.;; 5.;5.;; 8.;8.;;]
-        @success out == (in[2], in[3])
-
-        @params deepcopy(domain), [2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]
-        @params deepcopy(domain), [5.2;5.2;; 5.;5.;; 8.;8.;;], [5.2;5.2;; 5.;5.;; 8.;8.;;]
-        @params deepcopy(domain), [11.;11.;; 5.;5.;; 8.;8.;;], [11.;11.;; 5.;5.;; 8.;8.;;]
-        @success out == ([5.;5.;; 8.;8.;;], [5.;5.;; 8.;8.;;])
-    end
-end
-
 @testset "result(problem)" begin
     problem(X, Y) = BossProblem(;
         f = x -> x,

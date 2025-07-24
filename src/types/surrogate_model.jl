@@ -189,14 +189,8 @@ Making a `SurrogateModel` subtype sliceable allows for a more efficient MAP esti
 """
 sliceable(::SurrogateModel) = false
 
-"""
-    slice(::SurrogateModel, ::Int) -> ::SurrogateModel
-    slice(::ModelParams, ::Int) -> ::ModelParams
-
-Return a new instance of the given `SurrogateModel` or `ModelParams` containing
-a single-dimensional of the given object corresponding to the specified output dimension.
-"""
-function slice end
+# docstring in `src/types/problem.jl`
+# function slice end
 
 """
     join_slices(::AbstractVector{<:ModelParams}) -> ::ModelParams

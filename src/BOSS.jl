@@ -37,7 +37,7 @@ export FittedParams, UniFittedParams, MultiFittedParams
 export FixedParams, RandomParams, MAPParams, BIParams
 
 # Experiment Data
-export ExperimentData
+export ExperimentData, SimpleData, NormalizedData
 
 # Model Fitters
 export ModelFitter

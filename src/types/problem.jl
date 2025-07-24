@@ -72,6 +72,10 @@ function _init_problem(problem::BossProblem)
         problem.y_max = [isinf(c) ? Infinity() : c for c in problem.y_max]
     end
 
+    if any(.!isinf.(problem.y_max)) && (problem.data isa NormalizedData)
+        @warn "Defining output constraints `y_max` while using `NormalizedData` seems strange. Make sure you know what you're doing."
+    end
+
     return problem
 end
 
@@ -137,6 +141,20 @@ Return a `BossProblem` for the given `slice` output dimension.
 
 The returned `BossProblem` has a single output dimension,
 `missing` objective function, and `missing` acquisition function.
+
+---
+
+    slice(::SurrogateModel, ::Int) -> ::SurrogateModel
+    slice(::ModelParams, ::Int) -> ::ModelParams
+
+Return a new instance of the given `SurrogateModel` or `ModelParams` containing
+a single-dimensional of the given object corresponding to the specified output dimension.
+
+---
+
+    slice(::ExperimentData, idx::Int) -> ::ExperimentData
+
+Return a new `ExperimentData` instance containing only the output dimension specified by the `idx` index.
 """
 function slice(problem::BossProblem, idx::Int)    
     return BossProblem(
