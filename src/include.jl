@@ -5,6 +5,7 @@ include("types/include.jl")
 include("utils/include.jl")
 include("acquisition.jl")
 include("posterior.jl")
+include("params_prior.jl")
 include("bo.jl")
 include("plot.jl")
 
