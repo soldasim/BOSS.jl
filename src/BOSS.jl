@@ -78,7 +78,6 @@ using InteractiveUtils
 using Distributed
 using Bijectors
 using InverseFunctions
-using SpecialFunctions # for models/nonstationary_gp/beta_workaround.jl
 
 include("include.jl")
 
