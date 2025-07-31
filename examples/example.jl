@@ -115,7 +115,10 @@ boss_options() = BossOptions(;
 An example usage of the BOSS algorithm with a MAP algorithm.
 """
 function main(problem=opt_problem(3), iters=20;
-    parallel = true,
+    # Parallelization is turned off by default due to https://github.com/libprima/PRIMA.jl/issues/25.
+    # If you are on a non-Linux machine, feel free to turn the parallelization on.
+    # If you want to run the code in parallel on a Linux machine, use different optimization library than PRIMA.jl.
+    parallel = false,
 )
     ### Model Fitter:
     # Maximum likelihood estimation

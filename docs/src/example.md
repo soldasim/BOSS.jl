@@ -142,7 +142,7 @@ using OptimizationPRIMA
 map_fitter() = OptimizationMAP(;
     algorithm = NEWUOA(),
     multistart = 20,
-    parallel = true,
+    parallel = false,
     rhoend = 1e-4,
 )
 ```
@@ -174,7 +174,7 @@ We can use the [`OptimizationAM`](@ref) maximizer together with any algorithm fr
 acq_maximizer() = OptimizationAM(;
     algorithm = BOBYQA(),
     multistart = 20,
-    parallel = true,
+    parallel = false,
     rhoend = 1e-4,
 )
 ```
