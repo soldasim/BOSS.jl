@@ -55,9 +55,9 @@ end
 # amplitude_priors() = fill(Dirac(1.), 2)
 # noise_std_priors() = fill(Dirac(0.1), 2)
 # - - B) Priors - - - -
-lengthscale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0.)]), 2)
-amplitude_priors() = fill(truncated(Normal(0., 10.); lower=0.), 2)
-noise_std_priors() = fill(truncated(Normal(0., 1.); lower=0.), 2)
+lengthscale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0., upper=20.)]), 2)
+amplitude_priors() = fill(truncated(Normal(0., 10.); lower=0., upper=100.), 2)
+noise_std_priors() = fill(truncated(Normal(0., 1.); lower=0.1, upper=10.), 2)
 
 # Generate some initial data.
 function gen_data(count, bounds)
