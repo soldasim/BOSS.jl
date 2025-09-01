@@ -1,7 +1,7 @@
 name = "BOSS"
 uuid = "15052f3f-a82a-4ca3-bbc4-f478a3bd1ae2"
 authors = ["Šimon Soldát"]
-version = "0.5.0"
+version = "0.5.1"
 
 [deps]
 AbstractGPs = "99985d1d-32ba-4be9-9821-2ec096f28918"

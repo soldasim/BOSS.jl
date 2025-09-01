@@ -240,7 +240,7 @@ version = "0.4.7"
 deps = ["AbstractGPs", "Bijectors", "Distributed", "Distributions", "InteractiveUtils", "InverseFunctions", "LatinHypercubeSampling", "LinearAlgebra", "Optimization", "Random"]
 path = ".."
 uuid = "15052f3f-a82a-4ca3-bbc4-f478a3bd1ae2"
-version = "0.5.0"
+version = "0.5.1"
 weakdeps = ["Turing"]
 
     [deps.BOSS.extensions]
