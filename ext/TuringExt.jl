@@ -38,7 +38,7 @@ end
 function _estimate_parameters(turing::TuringBI, problem::BossProblem, options::BossOptions; return_all::Bool=false)
     params = BOSS.params_sampler(problem.model, problem.data)()
     
-    tm = turing_model(problem.model, params, problem.data)
+    tm = turing_model(problem.model, params, problem.data; options)
     
     # if all parameters have Dirac priors
     if isnothing(tm)
@@ -51,7 +51,23 @@ function _estimate_parameters(turing::TuringBI, problem::BossProblem, options::B
     return BOSS.BIParams(samples)
 end
 
-function turing_model(model::SurrogateModel, params::ModelParams, data::ExperimentData)
+# function _estimate_parameters(turing::TuringBI, problem::BossProblem, options::BossOptions; return_all::Bool=false)
+#     @info "--- REJECTION SAMPLING ---"
+#     # TODO
+#     # sample from prior
+#     sampler = BOSS.params_sampler(problem.model, problem.data)
+#     samples = [sampler() for _ in 1:10_000]
+
+#     # resample according to the likelihood
+#     data_loglike = BOSS.safe_data_loglike(problem.model, problem.data; options)
+#     lls = data_loglike.(samples)
+#     likes = exp.(lls)
+#     samples_ = sample(samples, Distributions.StatsBase.ProbabilityWeights(likes), 120)
+
+#     return BOSS.BIParams(samples_)
+# end
+
+function turing_model(model::SurrogateModel, params::ModelParams, data::ExperimentData; options::BossOptions)
     vec_, devec_ = BOSS.vectorizer(model, data)
     params_prior_ = BOSS.ModelParamsPrior(model, data)
 
@@ -59,7 +75,7 @@ function turing_model(model::SurrogateModel, params::ModelParams, data::Experime
         return nothing
     end
 
-    data_loglike = BOSS.data_loglike(model, data)
+    data_loglike = BOSS.safe_data_loglike(model, data; options)
     data_loglike_(ps) = data_loglike(devec_(params, ps))
 
     return turing_model(params_prior_, data_loglike_)

@@ -50,6 +50,8 @@ Each model *should* implement the following methods used for parameter estimatio
 
 Additionally, the following methods are provided and *need not be implemented*:
 - `model_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
+- `safe_model_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
+- `safe_data_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
 - `params_sampler(::SurrogateModel, ::ExperimentData) -> ([::AbstractRNG] -> ::ModelParams)`
 
 
@@ -298,8 +300,6 @@ function mean_and_cov end
 
 Return a function mapping `ModelParams` to their log-likelihood according to the current data.
 """
-function model_loglike end
-
 function model_loglike(model::SurrogateModel, data::ExperimentData)
     ll_data = data_loglike(model, data)
     ll_params = params_loglike(model, data)
@@ -310,12 +310,28 @@ function model_loglike(model::SurrogateModel, data::ExperimentData)
 end
 
 """
+    safe_model_loglike(::SurrogateModel, ::ExperimentData; options::BossOptions) -> (::ModelParams -> ::Real)
+
+Get a safe version of the model log-likelihood function, which returns `-Inf`
+in case an error occurs while evaluating the log-likelihood of the model parameters.
+"""
+function safe_model_loglike end
+
+"""
     data_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)
 
 Construct the data log-likelihood function mapping `ModelParams`
 to the log-likelihood of the current `ExperimentData`.
 """
 function data_loglike end
+
+"""
+    safe_data_loglike(::SurrogateModel, ::ExperimentData; options::BossOptions) -> (::ModelParams -> ::Real)
+
+Get a safe version of the data log-likelihood function, which returns `-Inf`
+in case an error occurs while evaluating the data log-likelihood.
+"""
+function safe_data_loglike end
 
 """
     params_loglike(::SurrogateModel, [::ExperimentData]) -> (::ModelParams -> ::Real)
