@@ -1,5 +1,7 @@
 include("utils.jl")
-include("optim_utils.jl")
 include("bijectors.jl")
 include("distributions.jl")
 include("inf.jl")
+include("sampling.jl")
+include("optim.jl")
+include("optim_multistart.jl")

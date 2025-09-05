@@ -97,7 +97,7 @@ function _estimate_parameters(opt::OptimizationMAP, problem::BossProblem, option
     devectorize_(ps) = devec_(params, inv_bij_(ps))
 
     # Prepare the log-likelihood function.
-    loglike_ = model_loglike(model, data)
+    loglike_ = safe_model_loglike(model, data; options)
     loglike_vec_ = ps -> loglike_(devectorize_(ps))
 
     # Skip optimization if there are no free parameters.

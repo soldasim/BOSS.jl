@@ -55,7 +55,7 @@ end
 function maximize_acquisition(opt::OptimizationAM, problem::BossProblem, options::BossOptions)
     domain = problem.domain
     
-    acq = construct_acquisition(problem, options)
+    acq = construct_safe_acquisition(problem, options)
     cons_func = isnothing(domain.cons) ? nothing : (res, x, p) -> (res .= domain.cons(x))
 
     starts = get_starts(opt.multistart, domain)

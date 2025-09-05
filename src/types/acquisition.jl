@@ -15,6 +15,9 @@ All acquisition functions *should* implement:
 Acquisition functions *may* implement:
 - `get_fitness(::CustomAcq) -> (y -> ::Real)`: Usually will return a callable instance of `Fitness`.
 
+Additionally, the following methods are provided and *need not be implemented*:
+- `construct_safe_acquisition(::CustomAcq, ::BossProblem, ::BossOptions) -> (x -> ::Real)`
+
 See the docs of the individual functions for more information.
 
 ## See Also
@@ -35,6 +38,15 @@ is maximized to select the next evaluation function of blackbox function in each
 This method must be implemented for all subtypes of `AcquisitionFunction`.
 """
 function construct_acquisition end
+
+"""
+    construct_safe_acquisition(::AcquisitionFunction, ::BossProblem, ::BossOptions) -> (x -> ::Real)
+
+Construct the "safe" version of the given `AcquisitionFunction` for the given `BossProblem`.
+
+The safe version returns `-Inf` instead of throwing an error.
+"""
+function construct_safe_acquisition end
 
 """
     get_fitness(::AcquisitionFunction) -> (y -> ::Real)

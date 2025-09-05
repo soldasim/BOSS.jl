@@ -4,6 +4,7 @@ include("types/include.jl")
 # Code
 include("utils/include.jl")
 include("acquisition.jl")
+include("surrogate_model.jl")
 include("posterior.jl")
 include("params_prior.jl")
 include("bo.jl")

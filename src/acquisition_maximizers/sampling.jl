@@ -20,7 +20,7 @@ end
 function maximize_acquisition(opt::SamplingAM, problem::BossProblem, options::BossOptions;
     return_all::Bool = false,    
 )
-    acq = construct_acquisition(problem, options)
+    acq = construct_safe_acquisition(problem, options)
     xs, vals = sample(Val(opt.parallel), acq, problem.domain, opt.x_prior, opt.samples; opt.max_attempts)
     
     count = size(xs)[2]

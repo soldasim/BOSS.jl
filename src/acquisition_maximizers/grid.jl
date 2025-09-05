@@ -43,7 +43,7 @@ function dim_range(lb, ub, step, discrete)
 end
 
 function maximize_acquisition(opt::GridAM, problem::BossProblem, options::BossOptions)
-    acq = construct_acquisition(problem, options)
+    acq = construct_safe_acquisition(problem, options)
     points_ = opt.shuffle ? (opt.points |> deepcopy |> shuffle) : opt.points
     x, val = optimize(Val(opt.parallel), opt, acq, points_)
     return x, val

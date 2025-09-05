@@ -16,7 +16,7 @@ end
 
 function estimate_parameters(opt::SamplingMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)
     sampler = params_sampler(problem.model, problem.data)
-    loglike_ = model_loglike(problem.model, problem.data)
+    loglike_ = safe_model_loglike(problem.model, problem.data; options)
 
     params, loglike = sample(Val(return_all), Val(opt.parallel), opt, sampler, loglike_)
     
