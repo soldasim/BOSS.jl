@@ -151,4 +151,11 @@ function main(problem=opt_problem(3), iters=20;
 
     # Run BOSS:
     bo!(problem; model_fitter, acq_maximizer, term_cond, options)
+
+    # get best solution
+    best_x, best_y = result(problem)
+    println()
+    @info "Best solution found: $(best_x) : $(best_y)"
+    
+    return problem
 end

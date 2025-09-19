@@ -227,10 +227,18 @@ end
 Once we define the problem and all hyperparameters, we can run the BO procedure by calling the `bo!` function.
 
 ```julia
-prob = bo!(problem();
+prob = problem()
+
+bo!(prob;
     model_fitter = map_fitter(), # or `bi_fitter()`
     acq_maximizer = acq_maximizer(),
     term_cond = IterLimit(10),
     options = options(),
 );
+```
+
+Once the optimization run concludes, we can obtain the best result using the `result` function.
+
+```julia
+best_x, best_y = result(prob)
 ```
