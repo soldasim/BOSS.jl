@@ -59,7 +59,7 @@ export GivenPointAM, GivenSequenceAM
 
 # Miscellaneous
 export BossOptions
-export TermCond, IterLimit, NoLimit
+export TermCond, IterLimit, DataLimit, NoLimit
 export BossCallback, NoCallback
 
 # Other
