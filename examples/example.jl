@@ -146,7 +146,8 @@ function main(problem=opt_problem(3), iters=20;
         rhoend = 1e-4,
     )
 
-    term_cond = IterLimit(iters)
+    # term_cond = IterLimit(iters)
+    term_cond = DataLimit(iters) # counts the initial data points as well
     options = boss_options()
 
     # Run BOSS:
