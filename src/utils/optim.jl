@@ -24,11 +24,10 @@ function (f::SafeFunction)(args...; kwargs...)
     catch e
         if f.info
             @warn "Function `$(func_name(f.f))` errored. Returning default value `$(f.val)`."
-            if f.debug
-                showerror(stderr, e, catch_backtrace())
-            else
-                Base.showerror(stderr, e)
-            end
+            Base.showerror(stderr, e)
+        end
+        if f.debug
+            rethrow(e)
         end
     end
     return ret
