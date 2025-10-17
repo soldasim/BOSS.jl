@@ -51,7 +51,7 @@ function _optim_serial(optimize, multistart, starts, options, args, vals, errors
             vals[i] = v
 
         catch e
-            options.info && warn_optim_err(e, options.debug)
+            warn_optim_err(e, options.info, options.debug)
             errors.value += 1
             args[i] = Float64[]
             vals[i] = -Inf
@@ -59,7 +59,6 @@ function _optim_serial(optimize, multistart, starts, options, args, vals, errors
     end
 end
 function _optim_parallel(optimize, multistart, starts, options, args, vals, errors)
-    io_lock = Threads.SpinLock()
     Threads.@threads for i in 1:multistart
         try
             a, v = optimize(starts[:,i])
@@ -67,14 +66,7 @@ function _optim_parallel(optimize, multistart, starts, options, args, vals, erro
             vals[i] = v
 
         catch e
-            if options.info
-                lock(io_lock)
-                try
-                    warn_optim_err(e, options.debug)
-                finally
-                    unlock(io_lock)
-                end
-            end
+            warn_optim_err(e, options.info, options.debug)
             Threads.atomic_add!(errors, 1)
             args[i] = Float64[]
             vals[i] = -Inf
@@ -82,7 +74,6 @@ function _optim_parallel(optimize, multistart, starts, options, args, vals, erro
     end
 end
 function _optim_parallel_static(optimize, multistart, starts, options, args, vals, errors)
-    io_lock = Threads.SpinLock()
     Threads.@threads :static for i in 1:multistart
         try
             a, v = optimize(starts[:,i])
@@ -90,14 +81,7 @@ function _optim_parallel_static(optimize, multistart, starts, options, args, val
             vals[i] = v
 
         catch e
-            if options.info
-                lock(io_lock)
-                try
-                    warn_optim_err(e, options.debug)
-                finally
-                    unlock(io_lock)
-                end
-            end
+            warn_optim_err(e, options.info, options.debug)
             Threads.atomic_add!(errors, 1)
             args[i] = Float64[]
             vals[i] = -Inf
@@ -105,11 +89,12 @@ function _optim_parallel_static(optimize, multistart, starts, options, args, val
     end
 end
 
-function warn_optim_err(e, debug::Bool)
-    @warn "Optimization error:"
-    if debug
-        showerror(stderr, e, catch_backtrace()); println(stderr)
-    else
+function warn_optim_err(e, info::Bool, debug::Bool)
+    if info
+        @warn "Optimization error:"
         showerror(stderr, e); println(stderr)
+    end
+    if debug
+        rethrow(e)
     end
 end
