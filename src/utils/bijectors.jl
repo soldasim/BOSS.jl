@@ -39,33 +39,39 @@ end
     simplify(b::Bijector) -> ::Bijector
     simplify(b::Stacked) -> ::Stacked
 
-Simplify the given bijector by joining identical bijectors in `Stacked` bijectors.
+Simplify the given bijector if it is `Stacked`.
 """
 function simplify(b)
     return b
 end
 function simplify(b::Stacked)
     b = linearize(b)
-    # @assert all(b.ranges_in .== b.ranges_out) # already checked in `linearize`
+    return b
 
-    last_b = nothing
-    bs = eltype(b.bs)[]
-    ranges = eltype(b.ranges_in)[]
+    ### The following code merges consecutive identical bijectors.
+    ### It has been distabled for now as it causes errors with bijectors
+    ### of a given input length, which occur due to multivariate priors.
+    ### Only works with scalar bijectors, because they accept any input length.
 
-    for idx in eachindex(b.bs)
-        b_ = b.bs[idx]
-        r_ = b.ranges_in[idx]
+    # # @assert all(b.ranges_in .== b.ranges_out) # already checked in `linearize`
+    # last_b = nothing
+    # bs = eltype(b.bs)[]
+    # ranges = eltype(b.ranges_in)[]
 
-        if b_ == last_b
-            ranges[end] = ranges[end].start:r_.stop
-        else
-            push!(bs, b_)
-            push!(ranges, r_)
-            last_b = b_
-        end
-    end
+    # for idx in eachindex(b.bs)
+    #     b_ = b.bs[idx]
+    #     r_ = b.ranges_in[idx]
 
-    return Stacked(bs, ranges)
+    #     if b_ == last_b
+    #         ranges[end] = ranges[end].start:r_.stop
+    #     else
+    #         push!(bs, b_)
+    #         push!(ranges, r_)
+    #         last_b = b_
+    #     end
+    # end
+
+    # return Stacked(bs, ranges)
 end
 
 """

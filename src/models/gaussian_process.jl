@@ -228,6 +228,10 @@ function finite_gp(
     @assert amplitude >= 0
     @assert noise_std >= 0
 
+    # assert correct number of lengthscales
+    # (`length(lengthscales) == 1` wouldn't throw error even if `size(Xt, 1) != 1`)
+    @assert length(lengthscales) == size(X, 1)
+
     # for numerical stability
     # lengthscales = max.(lengthscales, min_param_val)
     # amplitude = max(amplitude, min_param_val)
@@ -325,7 +329,9 @@ end
 
 function bijector(model::GaussianProcess)
     priors = param_priors(model)
-    return default_bijector(priors)
+    b = default_bijector(priors)
+    b = simplify(b)
+    return b
 end
 
 function param_priors(model::GaussianProcess)

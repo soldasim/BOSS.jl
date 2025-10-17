@@ -287,9 +287,11 @@ function vectorizer(model::Parametric{<:NoiseStdPriors})
     return vectorize, devectorize
 end
 
-function bijector(model::Parametric{<:NoiseStdPriors})
+function bijector(model::Parametric)
     priors = param_priors(model)
-    return default_bijector(priors)
+    b = default_bijector(priors)
+    b = simplify(b)
+    return b
 end
 
 function param_priors(model::Parametric{<:NoiseStdPriors})

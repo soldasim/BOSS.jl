@@ -347,7 +347,7 @@ function params_loglike end
 params_loglike(model::SurrogateModel, data::ExperimentData) = params_loglike(model)
 
 """
-    params_sampler(::SurrogateModel, ::ExperimentData) -> ([::AbstractRNG] -> ::ModelParams)
+    params_sampler(::SurrogateModel, [::ExperimentData]) -> ([::AbstractRNG] -> ::ModelParams)
 
 Return a function (or a callable structure) which samples `ModelParams` from their *prior* distributions.
 (I.e. the sampling is *not* conditioned on the data.)
@@ -358,12 +358,10 @@ defined by the `params_loglike` function.
 This is a user-facing function. Implement `_params_sampler` instead
 when defining a custom `SurrogateModel`.
 """
-function params_sampler(model::SurrogateModel, data::ExperimentData)
-    sampler = _params_sampler(model, data)
-    
+function params_sampler(args...)
+    sampler = _params_sampler(args...)
     sample() = sampler(Random.default_rng())
     sample(rng::AbstractRNG) = sampler(rng)
-
     return sample
 end
 
