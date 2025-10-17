@@ -145,7 +145,9 @@ end
 
 function bijector(model::Semiparametric)
     priors = param_priors(model)
-    return default_bijector(priors)
+    b = default_bijector(priors)
+    b = simplify(b)
+    return b
 end
 
 function param_priors(model::Semiparametric)

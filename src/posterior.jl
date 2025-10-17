@@ -37,7 +37,6 @@ end
 
 function model_posterior(model::SurrogateModel, params::ModelParams, data::ExperimentData)
     slices = [model_posterior_slice(model, params, data, i) for i in 1:y_dim(data)]
-    M = eltype(slices)
     return DefaultModelPosterior(slices)
 end
 
