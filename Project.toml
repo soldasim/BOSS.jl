@@ -1,7 +1,7 @@
 name = "BOSS"
 uuid = "15052f3f-a82a-4ca3-bbc4-f478a3bd1ae2"
-authors = ["Šimon Soldát"]
 version = "0.5.2"
+authors = ["Šimon Soldát"]
 
 [deps]
 AbstractGPs = "99985d1d-32ba-4be9-9821-2ec096f28918"
@@ -32,5 +32,5 @@ LatinHypercubeSampling = "1.9"
 LinearAlgebra = "1.10"
 Optimization = "3.27, 4, 5"
 Random = "1.10"
-Turing = "0.33.1, 0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.40"
+Turing = "0.33.1, 0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.40, 0.42"
 julia = "1.10"
