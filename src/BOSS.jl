@@ -32,6 +32,7 @@ export Nonparametric, GaussianProcess, GaussianProcessParams, GaussianProcessPos
 export Semiparametric, SemiparametricParams
 export NonstationaryGP, NonstationaryGPParams, ParametrizedGP, ParametrizedGPParams
 export BlackboxModel, BlackboxParams, BlackboxPosterior
+export TransformedModel, TransformedParams, TransformedPosterior, InputTransform, OutputTransform, JointOutputTransform, SlicedOutputTransform
 
 # Parameters
 export FittedParams, UniFittedParams, MultiFittedParams
