@@ -44,14 +44,14 @@ function mean(post::DefaultModelPosterior, x::AbstractVector{<:Real})
     return mean.(post.slices, Ref(x)) # ::AbstractVector{<:Real}
 end
 function mean(post::DefaultModelPosterior, X::AbstractMatrix{<:Real})
-    return hcat(mean.(post.slices, Ref(X))...) # ::AbstractMatrix{<:Real}
+    return vcat([mean(s, X)' for s in post.slices]...) # ::AbstractMatrix{<:Real}
 end
 
 function var(post::DefaultModelPosterior, x::AbstractVector{<:Real})
     return var.(post.slices, Ref(x)) # ::AbstractVector{<:Real}
 end
 function var(post::DefaultModelPosterior, X::AbstractMatrix{<:Real})
-    return hcat(var.(post.slices, Ref(X))...) # ::AbstractMatrix{<:Real}
+    return vcat([var(s, X)' for s in post.slices]...) # ::AbstractMatrix{<:Real}
 end
 
 function cov(post::DefaultModelPosterior, X::AbstractMatrix{<:Real})
@@ -66,14 +66,14 @@ function mean_and_var(post::DefaultModelPosterior, x::AbstractVector{<:Real})
 end
 function mean_and_var(post::DefaultModelPosterior, X::AbstractMatrix{<:Real})
     μs_and_σs = mean_and_var.(post.slices, Ref(X))
-    μs = hcat(first.(μs_and_σs)...)
-    σs = hcat(second.(μs_and_σs)...)
+    μs = vcat([first(x)' for x in μs_and_σs]...)
+    σs = vcat([second(x)' for x in μs_and_σs]...)
     return μs, σs # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}
 end
 
 function mean_and_cov(post::DefaultModelPosterior, X::AbstractMatrix{<:Real})
     μs_and_Σs = mean_and_cov.(post.slices, Ref(X))
-    μs = hcat(first.(μs_and_Σs)...)
+    μs = vcat([first(x)' for x in μs_and_Σs]...)
     Σs = cat(second.(μs_and_Σs)...; dims=3)
     return μs, Σs # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}}
 end
@@ -107,7 +107,7 @@ function mean(post::DefaultModelPosteriorSlice, x::AbstractVector{<:Real})
 end
 function mean(post::DefaultModelPosteriorSlice, X::AbstractMatrix{<:Real})
     μs = mean(post.post, X)
-    return μs[:,post.idx] # ::AbstractVector{<:Real}
+    return μs[post.idx, :] # ::AbstractVector{<:Real}
 end
 
 function var(post::DefaultModelPosteriorSlice, x::AbstractVector{<:Real})
@@ -116,7 +116,7 @@ function var(post::DefaultModelPosteriorSlice, x::AbstractVector{<:Real})
 end
 function var(post::DefaultModelPosteriorSlice, X::AbstractMatrix{<:Real})
     σs = var(post.post, X)
-    return σs[:,post.idx] # ::AbstractVector{<:Real}
+    return σs[post.idx, :] # ::AbstractVector{<:Real}
 end
 
 function cov(post::DefaultModelPosteriorSlice, X::AbstractMatrix{<:Real})
@@ -130,12 +130,12 @@ function mean_and_var(post::DefaultModelPosteriorSlice, x::AbstractVector{<:Real
 end
 function mean_and_var(post::DefaultModelPosteriorSlice, X::AbstractMatrix{<:Real})
     μs, σs = mean_and_var(post.post, X)
-    return μs[:,post.idx], σs[:,post.idx] # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
+    return μs[post.idx, :], σs[post.idx, :] # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 end
 
 function mean_and_cov(post::DefaultModelPosteriorSlice, X::AbstractMatrix{<:Real})
     μs, Σs = mean_and_cov(post.post, X)
-    return μs[:,post.idx], Σs[:,:,post.idx] # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
+    return μs[post.idx, :], Σs[:,:,post.idx] # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
 end
 
 

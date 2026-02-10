@@ -3,6 +3,7 @@ include("data.jl")
 include("fitness.jl")
 include("acquisition.jl")
 include("surrogate_model.jl")
+include("model_posterior.jl")
 include("parameters.jl")
 include("problem.jl")
 
