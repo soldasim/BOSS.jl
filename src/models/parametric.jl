@@ -211,7 +211,7 @@ function mean(post::ParametricPosterior, x::AbstractVector{<:Real})
     return μ # ::AbstractVector{<:Real}
 end
 function mean(post::ParametricPosterior, X::AbstractMatrix{<:Real})
-    μs = hcat(post.f.(eachcol(X))...)'
+    μs = hcat(post.f.(eachcol(X))...)
     return μs # ::AbstractMatrix{<:Real}
 end
 
@@ -220,7 +220,7 @@ function std(post::ParametricPosterior, x::AbstractVector{<:Real})
     return σ2 # ::AbstractVector{<:Real}
 end
 function std(post::ParametricPosterior, X::AbstractMatrix{<:Real})
-    σ2s = repeat(post.noise_std, 1, size(X, 2))'
+    σ2s = repeat(post.noise_std, 1, size(X, 2))
     return σ2s # ::AbstractMatrix{<:Real}
 end
 
@@ -229,7 +229,7 @@ function var(post::ParametricPosterior, x::AbstractVector{<:Real})
     return σ2 # ::AbstractVector{<:Real}
 end
 function var(post::ParametricPosterior, X::AbstractMatrix{<:Real})
-    σ2s = repeat(post.noise_std .^ 2, 1, size(X, 2))'
+    σ2s = repeat(post.noise_std .^ 2, 1, size(X, 2))
     return σ2s # ::AbstractMatrix{<:Real}
 end
 

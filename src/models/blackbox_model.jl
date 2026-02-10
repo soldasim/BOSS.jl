@@ -9,7 +9,7 @@ The model is pre-trained and does not require fitting to data.
 The `predict` function should implement the following methods:
 ```julia
 predict(x::AbstractVector{<:Real}, data::ExperimentData) -> (μ::AbstractVector{<:Real}, σ::AbstractVector{<:Real})
-predict(X::AbstractMatrix{<:Real}, data::ExperimentData) -> (μ::AbstractMatrix{<:Real}, σ::AbstractMatrix{<:Real})
+predict(X::AbstractMatrix{<:Real}, data::ExperimentData) -> (μs::AbstractMatrix{<:Real}, σs::AbstractMatrix{<:Real})
 ```
 where `μ` is the predicted mean and `σ` is the predicted standard deviation for each output dimension.
 
@@ -76,7 +76,7 @@ end
 function mean(post::BlackboxPosterior, X::AbstractMatrix{<:Real})
     X = hcat([discrete_round(post.discrete, x) for x in eachcol(X)]...)
     μs, σs = post.predict(X, post.data)
-    return μs' # ::AbstractMatrix{<:Real}
+    return μs # ::AbstractMatrix{<:Real}
 end
 
 function var(post::BlackboxPosterior, x::AbstractVector{<:Real})
@@ -88,7 +88,7 @@ end
 function var(post::BlackboxPosterior, X::AbstractMatrix{<:Real})
     X = hcat([discrete_round(post.discrete, x) for x in eachcol(X)]...)
     μs, σs = post.predict(X, post.data)
-    return (σs .^ 2)' # ::AbstractMatrix{<:Real}
+    return σs .^ 2 # ::AbstractMatrix{<:Real}
 end
 
 function mean_and_var(post::BlackboxPosterior, x::AbstractVector{<:Real})
@@ -100,7 +100,7 @@ end
 function mean_and_var(post::BlackboxPosterior, X::AbstractMatrix{<:Real})
     X = hcat([discrete_round(post.discrete, x) for x in eachcol(X)]...)
     μs, σs = post.predict(X, post.data)
-    return μs', (σs .^ 2)' # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}
+    return μs, σs .^ 2 # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}
 end
 
 

@@ -279,8 +279,8 @@ end
 function _transform_output_forward(transform::JointOutputTransform, μs_::AbstractMatrix{<:Real}, σs_::AbstractMatrix{<:Real})
     μs_out = similar(μs_)
     σs_out = similar(σs_)
-    for k in axes(μs_, 1)
-        μs_out[k, :], σs_out[k, :] = transform.forward(μs_[k, :], σs_[k, :])
+    for k in axes(μs_, 2)  # iterate over columns (points)
+        μs_out[:, k], σs_out[:, k] = transform.forward(μs_[:, k], σs_[:, k])
     end
     return μs_out, σs_out
 end
@@ -288,9 +288,9 @@ function _transform_output_forward(transform::SlicedOutputTransform, μs_::Abstr
     μs = similar(μs_)
     σs = similar(σs_)
     n_dims = length(transform.forward)
-    for i in 1:n_dims
-        for k in axes(μs_, 1)
-            μs[k, i], σs[k, i] = transform.forward[i](μs_[k, i], σs_[k, i])
+    for i in 1:n_dims  # iterate over output dimensions (rows)
+        for k in axes(μs_, 2)  # iterate over points (columns)
+            μs[i, k], σs[i, k] = transform.forward[i](μs_[i, k], σs_[i, k])
         end
     end
     return μs, σs
@@ -359,11 +359,14 @@ function mean_and_cov(post::TransformedPosterior{IN, SlicedOutputTransform}, X::
     μs_, Σs_ = mean_and_cov(post.base_posterior, X_)
     
     # For sliced transforms, the covariance is diagonal (each dimension independent)
+    # μs_ has rows=output_dims, columns=points
+    # Σs_[:,:,k] is covariance matrix for point k
     μs = similar(μs_)
-    for k in axes(Σs_, 3)
+    n_points = size(μs_, 2)
+    for k in 1:n_points  # iterate over points
         σs_ = sqrt.(diag(Σs_[:, :, k]))
         μs[:, k], σs = _transform_output_forward(post.output_transform, μs_[:, k], σs_)
-        for i in axes(Σs_, 1)
+        for i in axes(Σs_, 1)  # iterate over output dimensions
             Σs_[i, i, k] = σs[i]^2
         end
     end
