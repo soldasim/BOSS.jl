@@ -36,7 +36,7 @@ export TransformedModel, TransformedParams, TransformedPosterior, InputTransform
 
 # Parameters
 export FittedParams, UniFittedParams, MultiFittedParams
-export FixedParams, RandomParams, MAPParams, BIParams
+export FixedParams, RandomParams, MAPParams, BIParams, SampledParams
 
 # Experiment Data
 export ExperimentData, SimpleData, NormalizedData

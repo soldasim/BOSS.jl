@@ -172,6 +172,7 @@ Different [`ModelFitter`](@ref)s create different subtypes of [`FittedParams`](@
 ```@docs
 MAPParams
 BIParams
+SampledParams
 RandomParams
 FixedParams
 ```

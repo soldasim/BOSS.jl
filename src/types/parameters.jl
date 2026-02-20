@@ -89,6 +89,24 @@ get_params(p::RandomParams) = p.params
 slice(p::RandomParams, idx::Int) = RandomParams(slice(p.params, idx))
 
 """
+    SampledParams{M<:SurrogateModel}
+
+A single random `ModelParams` sample from the parameter posterior w.r.t. data.
+
+## Keywords
+- `params::ModelParams{M}`: The posterior parameter sample.
+"""
+@kwdef struct SampledParams{
+    M<:SurrogateModel,
+} <: UniFittedParams{M}
+    params::ModelParams{M}
+end
+
+get_params(p::SampledParams) = p.params
+
+slice(p::SampledParams, idx::Int) = SampledParams(slice(p.params, idx))
+
+"""
     MAPParams{M<:SurrogateModel}
 
 `ModelParams` estimated via MAP estimation.
