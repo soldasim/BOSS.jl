@@ -24,7 +24,7 @@ end
 function GridAM(;
     problem::BossProblem,
     steps,
-    parallel = true,
+    parallel = false,
     shuffle = true,
 )
     domain = problem.domain

@@ -11,7 +11,7 @@ and selecting the best sample in sense of MAP.
 """
 @kwdef struct SamplingMAP <: ModelFitter{MAPParams}
     samples::Int
-    parallel::Bool = true
+    parallel::Bool = false
 end
 
 function estimate_parameters(opt::SamplingMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)

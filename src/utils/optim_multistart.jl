@@ -10,7 +10,7 @@ Throws an error if all optimization runs fail.
 function optimize_multistart(
     optimize::Function,  # arg, val = optimize(start)
     starts::AbstractMatrix{<:Real};
-    parallel::Bool = true,
+    parallel::Bool = false,
     static_schedule::Bool = false, # makes the tasks sticky (non-migrating)
     return_all::Bool = false,
     options::BossOptions = BossOptions(),
