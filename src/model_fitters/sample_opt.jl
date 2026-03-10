@@ -22,7 +22,7 @@ function SampleOptMAP(;
     samples = 2000,
     algorithm,
     multistart = 200,
-    parallel = true,
+    parallel = false,
     autodiff = AutoForwardDiff(),
     kwargs...
 )

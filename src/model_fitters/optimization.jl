@@ -32,7 +32,7 @@ end
 function OptimizationMAP(;
     algorithm,
     multistart = 200,
-    parallel = true,
+    parallel = false,
     static_schedule = false,
     autodiff = AutoForwardDiff(),
     kwargs...

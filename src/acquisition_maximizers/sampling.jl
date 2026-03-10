@@ -13,7 +13,7 @@ and returning the sample with the highest acquisition value.
 @kwdef struct SamplingAM <: AcquisitionMaximizer
     x_prior::MultivariateDistribution
     samples::Int
-    parallel::Bool = true
+    parallel::Bool = false
     max_attempts::Int = 200
 end
 

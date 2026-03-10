@@ -142,7 +142,7 @@ using OptimizationPRIMA
 map_fitter() = OptimizationMAP(;
     algorithm = NEWUOA(),
     multistart = 20,
-    parallel = false,
+    parallel = false, # set to true for parallel optimization runs
     rhoend = 1e-4,
 )
 ```
@@ -158,7 +158,7 @@ bi_fitter() = TuringBI(;
     samples_in_chain = 10,
     chain_count = 8,
     leap_size = 5,
-    parallel = true,
+    parallel = false, # set to true for parallelized sampling
 )
 ```
 
@@ -174,7 +174,7 @@ We can use the [`OptimizationAM`](@ref) maximizer together with any algorithm fr
 acq_maximizer() = OptimizationAM(;
     algorithm = BOBYQA(),
     multistart = 20,
-    parallel = false,
+    parallel = false, # set to true for parallel optimization runs
     rhoend = 1e-4,
 )
 ```

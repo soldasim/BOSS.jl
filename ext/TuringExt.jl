@@ -13,7 +13,7 @@ Implementation of the abstract `BOSS.TuringBI`. See the docs `? BOSS.TuringBI`.
     samples_in_chain::Int = 20
     chain_count::Int = 4
     leap_size::Int = 5
-    parallel::Bool = true
+    parallel::Bool = false
 end
 
 BOSS.TuringBI(args...; kwargs...) = TuringBI(args...; kwargs...)

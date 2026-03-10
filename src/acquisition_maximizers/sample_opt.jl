@@ -28,7 +28,7 @@ function SampleOptAM(;
     max_attempts,
     algorithm,
     multistart = 200,
-    parallel = true,
+    parallel = false,
     autodiff = AutoForwardDiff(),
     kwargs...
 )
