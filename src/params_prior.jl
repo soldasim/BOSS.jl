@@ -44,3 +44,7 @@ function Distributions._logpdf(d::ModelParamsPrior, x::AbstractVector{<:Real})
 end
 
 Bijectors.bijector(d::ModelParamsPrior) = d.bijector
+
+Bijectors.VectorBijectors.linked_vec_length(d::ModelParamsPrior) = length(d)
+Bijectors.VectorBijectors.to_linked_vec(d::ModelParamsPrior) = d.bijector
+Bijectors.VectorBijectors.from_linked_vec(d::ModelParamsPrior) = Bijectors.inverse(d.bijector)
