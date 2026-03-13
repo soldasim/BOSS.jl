@@ -182,13 +182,17 @@ function update_parameters!(problem::BossProblem, params::FittedParams{M2}) wher
 end
 
 """
-    augment_dataset!(::BossProblem, x::AbstractVector{<:Real}, y::AbstractVector{<:Real})
-    augment_dataset!(::BossProblem, X::AbstractMatrix{<:Real}, Y::AbstractMatrix{<:Real})
+    augment_dataset!(::BossProblem, x::AbstractVector{<:Real}, y, others...)
+    augment_dataset!(::BossProblem, x::AbstractVector{<:Real}, outputs::Any)
 
-Add one (as vectors) or more (as matrices) datapoints to the dataset.
+Add a new data point to the dataset.
+The optional `others` arguments are passed to the data-specific `augment_dataset` method.
 """
-function augment_dataset!(problem::BossProblem, X::AbstractArray{<:Real}, Y::AbstractArray{<:Real})
-    problem.data = augment_dataset(problem.data, X, Y)
+function augment_dataset!(problem::BossProblem, x::AbstractVector{<:Real}, y, others...)
+    return augment_dataset!(problem, x, (y, others...))
+end
+function augment_dataset!(problem::BossProblem, x::AbstractVector{<:Real}, outputs::Any)
+    problem.data = augment_dataset(problem.data, x, outputs)
     problem.consistent = false
     return problem.data
 end

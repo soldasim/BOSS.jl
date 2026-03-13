@@ -21,17 +21,10 @@ Stores all the data collected during the optimization. Performs no additional pr
     end
 end
 
-function augment_dataset(data::SimpleData, X::AbstractArray{<:Real}, Y::AbstractArray{<:Real})
+function augment_dataset(data::SimpleData, x::AbstractVector{<:Real}, y::AbstractVector{<:Real})
     return SimpleData(
-        hcat(data.X, X),
-        hcat(data.Y, Y),
-    )
-end
-
-function update_dataset(data::SimpleData, X::AbstractArray{<:Real}, Y::AbstractArray{<:Real})
-    return SimpleData(
-        X,
-        Y,
+        hcat(data.X, x),
+        hcat(data.Y, y),
     )
 end
 

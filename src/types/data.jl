@@ -11,12 +11,8 @@ All subtypes of `ExperimentData` should contain the following fields:
 - `Y::AbstractMatrix{<:Real}`: The (possibly pre-processed) output data matrix.
 
 All subtypes of `ExperimentData` *should* implement the following methods:
-- `augment_dataset(::ExperimentData, X, Y) -> ::ExperimentData`: Returns a new `ExperimentData` instance
-        containing the current dataset *augmented by* the provided data `X`, `Y`.
-- `update_dataset(::ExperimentData, X, Y) -> ::ExperimentData`: Returns a new `ExperimentData` instance
-        containing *only* the new provided data `X`, `Y`.
-- `slice(::ExperimentData, idx::Int) -> ::ExperimentData`: Returns a new `ExperimentData` instance
-        containing only the output dimension specified by the `idx` index.
+- `augment_dataset(::ExperimentData, x, out) -> ::ExperimentData`
+- `slice(::ExperimentData, idx::Int) -> ::ExperimentData`
 """
 abstract type ExperimentData end
 
@@ -27,22 +23,12 @@ Base.length(data::ExperimentData) = size(data.X, 2)
 Base.isempty(data::ExperimentData) = isempty(data.X)
 
 """
-    augment_dataset(::ExperimentData, X, Y) -> ::ExperimentData
+    augment_dataset(::ExperimentData, x, out) -> ::ExperimentData
 
-Return a new `ExperimentData` instance containing the old dataset *augmented by* the provided data `X`, `Y`.
-
-See also: `update_dataset`
+Return a new `ExperimentData` instance containing the current dataset
+augmented by the provided data new data point `x` and outputs `out`.
 """
 function augment_dataset end
-
-"""
-    update_dataset(::ExperimentData, X, Y) -> ::ExperimentData
-
-Return a new `ExperimentData` instance containing *only* the new provided data `X`, `Y`.
-
-See also: `augment_dataset`
-"""
-function update_dataset end
 
 # docstring in `src/types/problem.jl`
 # function slice end
