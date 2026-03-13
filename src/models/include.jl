@@ -4,6 +4,7 @@ include("utils/kernels.jl")
 
 include("parametric.jl")
 include("gaussian_process.jl")
+include("gradient_gp.jl")
 include("semiparametric.jl")
 include("nonstationary_gp/include.jl")
 include("blackbox_model.jl")

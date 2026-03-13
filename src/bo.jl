@@ -116,28 +116,28 @@ Evaluate the objective function and update the data.
 """
 function eval_objective!(problem::BossProblem, x::AbstractVector{<:Real}; options::BossOptions=BossOptions())
     options.info && @info "Evaluating objective function ..."
-    y = problem.f(x)
-    augment_dataset!(problem, x, y)
-    options.info && @info "New data point: $x : $y"
-    return y
+    res = problem.f(x)
+    augment_dataset!(problem, x, res)
+    options.info && @info "New data point: " * _new_data_info(x, res)
 end
 function eval_objective!(problem::BossProblem, X::AbstractMatrix{<:Real}; options::BossOptions=BossOptions())
     options.info && @info "Evaluating objective function ..."
-    Y = eval_points(Val(options.parallel_evals), problem.f, X)
-    augment_dataset!(problem, X, Y)
-    options.info && @info "New data:" * prod(["\n\t$x : $y" for (x, y) in zip(eachcol(X), eachcol(Y))])
-    return Y
+    results = eval_points(Val(options.parallel_evals), problem.f, X)
+    for (x, res) in zip(eachcol(X), results)
+        augment_dataset!(problem, x, res)
+    end
+    options.info && @info "New data:" * prod(["\n\t" * _new_data_info(x, res) for (x, res) in zip(eachcol(X), results)])
 end
 
-function eval_points(::Val{:serial}, f::Function, X::AbstractMatrix{<:Real})
-    Y = mapreduce(f, hcat, eachcol(X))
+function eval_points(::Val{false}, f::Function, X::AbstractMatrix{<:Real})
+    return f.(eachcol(X))
 end
-function eval_points(::Val{:parallel}, f::Function, X::AbstractMatrix{<:Real})
+function eval_points(::Val{true}, f::Function, X::AbstractMatrix{<:Real})
     tasks = [Threads.@spawn f(x) for x in eachcol(X)]
-    Y = reduce(hcat, fetch.(tasks))
+    return fetch.(tasks)
 end
-function eval_points(::Val{:distributed}, f::Function, X::AbstractMatrix{<:Real})
-    Y = @distributed hcat for x in eachcol(X)
-        f(x)
-    end
+
+function _new_data_info(x::AbstractVector{<:Real}, res)
+    y = res isa Tuple ? res[1] : res
+    return "$x : $y"
 end

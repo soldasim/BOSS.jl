@@ -29,6 +29,7 @@ export ExpectedImprovement
 export SurrogateModel, ModelParams, AbstractModelPosterior, ModelPosterior, ModelPosteriorSlice
 export Parametric, LinearModel, NonlinearModel, ParametricParams, ParametricPosterior
 export Nonparametric, GaussianProcess, GaussianProcessParams, GaussianProcessPosterior
+export GradientGaussianProcess, GradientGaussianProcessParams, GradientGPPosteriorSlice
 export Semiparametric, SemiparametricParams
 export NonstationaryGP, NonstationaryGPParams, ParametrizedGP, ParametrizedGPParams
 export BlackboxModel, BlackboxParams, BlackboxPosterior
@@ -39,7 +40,7 @@ export FittedParams, UniFittedParams, MultiFittedParams
 export FixedParams, RandomParams, MAPParams, BIParams, SampledParams
 
 # Experiment Data
-export ExperimentData, SimpleData, NormalizedData
+export ExperimentData, SimpleData, NormalizedData, GradientData
 
 # Model Fitters
 export ModelFitter
@@ -77,9 +78,9 @@ using AbstractGPs
 using LatinHypercubeSampling
 using Optimization
 using InteractiveUtils
-using Distributed
 using Bijectors
 using InverseFunctions
+using ForwardDiff
 
 include("include.jl")
 

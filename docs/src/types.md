@@ -185,11 +185,10 @@ The data from all past objective function evaluations are stored in subtypes of 
 ExperimentData
 ```
 
-The data can be augmented by using the `augment_dataset` function, or replaced by the `update_dataset` function.
+The data can be augmented by using the `augment_dataset` function.
 
 ```@docs
 BOSS.augment_dataset
-BOSS.update_dataset
 ```
 
 The simples subtype of [`ExperimentData`](@ref) is the `SimpleData` structure, which simply stored the evaluated inputs and the observed outputs.

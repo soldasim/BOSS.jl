@@ -11,9 +11,9 @@ include("bo.jl")
 include("plot.jl")
 
 # Modules
+include("data/include.jl")
 include("acquisitions/include.jl")
 include("models/include.jl")
-include("data/include.jl")
 include("term_conds/include.jl")
 
 # Algorithms

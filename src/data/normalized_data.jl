@@ -80,18 +80,11 @@ function scale_matrix!(M::AbstractMatrix{<:Real}, lb::AbstractVector{<:Real}, ub
     return M
 end
 
-function augment_dataset(data::NormalizedData, X::AbstractArray{<:Real}, Y::AbstractArray{<:Real})
-    X_ = hcat(data.X, X)
-    Y_ = hcat(data.Y_orig, Y)
+function augment_dataset(data::NormalizedData, x::AbstractVector{<:Real}, y::AbstractVector{<:Real})
+    X_ = hcat(data.X, x)
+    Y_ = hcat(data.Y_orig, y)
 
     return NormalizedData(X_, Y_;
-        data.y_lb,
-        data.y_ub,
-    )
-end
-
-function update_dataset(data::NormalizedData, X::AbstractArray{<:Real}, Y::AbstractArray{<:Real})
-    return NormalizedData(X, Y;
         data.y_lb,
         data.y_ub,
     )
