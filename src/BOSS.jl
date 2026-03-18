@@ -44,6 +44,7 @@ export ExperimentData, SimpleData, NormalizedData, GradientData
 
 # Model Fitters
 export ModelFitter
+export LazyFitter
 export RandomFitter
 export SamplingMAP
 export OptimizationMAP
