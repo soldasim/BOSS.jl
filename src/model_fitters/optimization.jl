@@ -11,6 +11,8 @@ to load some optimization algorithms which are passed to the `OptimizationMAP` c
 - `algorithm::Any`: Defines the optimization algorithm.
 - `multistart::Union{Int, AbstractVector{<:ModelParams}}`: The number of optimization restarts,
         or a vector of `ModelParams` containing initial (hyper)parameter values for the optimization runs.
+- `warm_start::Bool`: If `warm_start=true`, the first optimization run starts from the previously fitted
+        parameters. Defaults to `false`.
 - `parallel::Bool`: If `parallel=true` then the individual restarts are run in parallel.
 - `static_schedule::Bool`: If `static_schedule=true` then the `:static` schedule is used for parallelization.
         This is makes the parallel tasks sticky (non-migrating), but can decrease performance.
@@ -24,6 +26,7 @@ struct OptimizationMAP{
 } <: ModelFitter{MAPParams}
     algorithm::A
     multistart::S
+    warm_start::Bool
     parallel::Bool
     static_schedule::Bool
     autodiff::SciMLBase.AbstractADType
@@ -32,19 +35,21 @@ end
 function OptimizationMAP(;
     algorithm,
     multistart = 200,
+    warm_start = false,
     parallel = false,
     static_schedule = false,
     autodiff = AutoForwardDiff(),
     kwargs...
 )
     isnothing(autodiff) && (autodiff = SciMLBase.NoAD())
-    return OptimizationMAP(algorithm, multistart, parallel, static_schedule, autodiff, kwargs)
+    return OptimizationMAP(algorithm, multistart, warm_start, parallel, static_schedule, autodiff, kwargs)
 end
 
 function set_starts(opt::OptimizationMAP, starts::AbstractVector{<:ModelParams})
     return OptimizationMAP(;
         opt.algorithm,
         multistart = starts,
+        opt.warm_start,
         opt.parallel,
         opt.static_schedule,
         opt.autodiff,
@@ -56,6 +61,7 @@ function slice(opt::OptimizationMAP, idx::Int)
     return OptimizationMAP(;
         opt.algorithm,
         multistart = starts_slice(opt.multistart, idx),
+        opt.warm_start,
         opt.parallel,
         opt.static_schedule,
         opt.autodiff,
@@ -107,7 +113,7 @@ function _estimate_parameters(opt::OptimizationMAP, problem::BossProblem, option
     end
 
     # Generate optimization starts.
-    starts = get_starts(opt.multistart, sampler, vectorize_)
+    starts = get_starts(opt.multistart, sampler, vectorize_, opt.warm_start, problem)
 
     # Optimize.
     ps, loglike = optimize(opt, loglike_vec_, starts, options; return_all)
@@ -122,10 +128,18 @@ function _estimate_parameters(opt::OptimizationMAP, problem::BossProblem, option
     end
 end
 
-function get_starts(multistart::Int, sample_func, vectorize_)
-    return reduce(hcat, [vectorize_(sample_func()) for _ in 1:multistart])
+function get_starts(multistart::Int, sample_func, vectorize_, warm_start::Bool=false, problem::Union{BossProblem, Nothing}=nothing)
+    if warm_start && !isnothing(problem) && !isnothing(problem.params)
+        # Start with previously fitted parameters, then add more random starts
+        warm_start_point = vectorize_(get_params(problem.params))
+        additional_starts = [vectorize_(sample_func()) for _ in 1:(multistart-1)]
+        starts = [warm_start_point, additional_starts...]
+    else
+        starts = [vectorize_(sample_func()) for _ in 1:multistart]
+    end
+    return reduce(hcat, starts)
 end
-function get_starts(multistart::AbstractVector{<:ModelParams}, sample_func, vectorize_)
+function get_starts(multistart::AbstractVector{<:ModelParams}, sample_func, vectorize_, warm_start::Bool=false, problem::Union{BossProblem, Nothing}=nothing)
     return reduce(hcat, vectorize_.(multistart))
 end
 
