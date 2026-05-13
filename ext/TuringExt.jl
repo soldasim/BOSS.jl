@@ -90,18 +90,20 @@ function sample_chains(turing::TuringBI, turing_model)
     if turing.parallel
         chains = Turing.sample(turing_model, turing.sampler, MCMCThreads(), samples_in_chain, turing.chain_count; progress=false)
     else
-        chains = mapreduce(_ -> Turing.sample(turing_model, turing.sampler, samples_in_chain; progress=false), chainscat, 1:turing.chain_count)
+        chains = mapreduce(_ -> Turing.sample(turing_model, turing.sampler, samples_in_chain; progress=false), Turing.AbstractMCMC.chainscat, 1:turing.chain_count)
     end
-    chains = chains[turing.warmup+turing.leap_size:turing.leap_size:end]
-    return chains
+    # VNChain (Turing ≥0.45) stores each parameter as a Matrix{T}(n_iters, n_chains).
+    # `ps ~ ModelParamsPrior` is always multivariate, so entries are Vector{Float64}.
+    ps_key = only(k for k in keys(chains._data) if k isa Turing.FlexiChains.Parameter)
+    ps_matrix = chains._data[ps_key]  # (n_iters, n_chains)
+    n = size(ps_matrix, 1)
+    idx = (turing.warmup + turing.leap_size):turing.leap_size:n
+    return [ps_matrix[i, j] for j in axes(ps_matrix, 2) for i in idx]
 end
 
-function devec_chains(chains, model::SurrogateModel, params::ModelParams, data::ExperimentData)
-    chains_matrix = chains[chains.name_map.parameters].value.data
-    samples = hcat((chains_matrix[:,:,i]' for i in axes(chains_matrix, 3))...)
-
+function devec_chains(ps_samples::AbstractVector, model::SurrogateModel, params::ModelParams, data::ExperimentData)
     vec_, devec_ = BOSS.vectorizer(model, data)
-    return devec_.(Ref(params), eachcol(samples))
+    return devec_.(Ref(params), ps_samples)
 end
 
 function reduce_slice_results(results::AbstractVector{<:BOSS.BIParams})
