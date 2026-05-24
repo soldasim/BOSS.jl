@@ -23,7 +23,7 @@ TuringExt = "Turing"
 
 [compat]
 AbstractGPs = "0.5.21"
-Bijectors = "0.15.18"
+Bijectors = "0.15.18, 0.16"
 Distributions = "0.25.109"
 ForwardDiff = "1.3.2"
 InteractiveUtils = "1.10"
