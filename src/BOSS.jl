@@ -65,8 +65,7 @@ export GivenPointAM, GivenSequenceAM
 export BossOptions
 export TermCond, IterLimit, DataLimit, NoLimit
 export BossCallback, NoCallback, CombinedCallback
-
-# Other
+export ParamsCallback
 export PlotCallback
 
 # Imports

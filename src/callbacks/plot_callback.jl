@@ -71,13 +71,13 @@ function plot_problem(opt::PlotCallback, problem::BossProblem, acq, acq_opt)
         push!(subplots, plot_y_slice(opt, problem, dim))
     end
     push!(subplots, plot_acquisition(opt, problem, acq, acq_opt))
-    
+
     opt.Plots.plot!(first(subplots); title=opt.title)
     opt.Plots.plot!(last(subplots); xlabel="x")
-    
+
     # # Cleaner option, but subplots are not aligned on the x axis.
     # p = opt.Plots.plot(subplots...; layout=(length(subplots), 1), legend=:outerright, minorgrid=true)
-    
+
     # Hacky option. Subplots are aligned on x axis by sharing one legend.
     for sp in subplots
         opt.Plots.plot!(sp; legend=false, minorgrid=true)
@@ -120,15 +120,15 @@ function plot_y_slice(opt::PlotCallback, problem::BossProblem, dim::Int)
 
         if problem.params isa UniFittedParams
             # MAP -> best fit
-            
+
             y_points = (x -> mean(post, [x])).(x_points)
             std_points = (x -> std(post, [x])).(x_points)
             opt.Plots.plot!(p, x_points, y_points; ribbon=std_points, label="model", color=MODEL_COLOR)
             ylims = update_ylims(ylims, y_points)
-        
+
         else # problem.params isa MultiFittedParams
             # BI -> samples & mean
-            
+
             for i in eachindex(post)
                 y_points = (x -> mean(post[i], [x])).(x_points)
                 # std_points = (x -> std(post[i], [x])).(x_points)

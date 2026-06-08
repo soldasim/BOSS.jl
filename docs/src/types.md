@@ -335,6 +335,20 @@ BossCallback
 NoCallback
 ```
 
+The `CombinedCallback` can be used to combine multiple callbacks into one.
+
+```@docs
+CombinedCallback
+```
+
+The `ParamsCallback` records the fitted model parameters after each iteration.
+The stored [`FittedParams`](@ref) history can be used for post-hoc analysis,
+e.g. to inspect how the GP hyperparameters evolved over the course of the optimization.
+
+```@docs
+ParamsCallback
+```
+
 The provided `PlotCallback` plots the state of the BO procedure in every iteration. It currently only supports one-dimensional input spaces.
 
 ```@docs
