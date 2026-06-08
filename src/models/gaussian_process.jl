@@ -20,7 +20,7 @@ A Gaussian Process surrogate model. Each output dimension is modeled by a separa
 ## Keywords
 - `mean::Union{Nothing, AbstractVector{<:Real}, Function}`: Used as the mean function for the GP.
         Defaults to `nothing` equivalent to `x -> zeros(y_dim)`.
-- `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern32Kernel()`.
+- `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern52Kernel()`.
 - `lengthscale_priors::LengthscalePriors`: The prior distributions
         for the length scales of the GP. The `lengthscale_priors` should be a vector
         of `y_dim` `x_dim`-variate distributions where `x_dim` and `y_dim` are
