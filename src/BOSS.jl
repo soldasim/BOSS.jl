@@ -30,6 +30,9 @@ export SurrogateModel, ModelParams, AbstractModelPosterior, ModelPosterior, Mode
 export Parametric, LinearModel, NonlinearModel, ParametricParams, ParametricPosterior
 export Nonparametric, GaussianProcess, GaussianProcessParams, GaussianProcessPosterior
 export GradientGaussianProcess, GradientGaussianProcessParams, GradientGPPosteriorSlice
+export WarpedGaussianProcess, WarpedGaussianProcessParams, WarpedGaussianProcessPosterior
+export OutputWarping, AffineWarping, YeoJohnsonWarping, SinhArcsinhWarping, ComposedWarping
+export warp_forward, warp_inverse, warp_logderiv, warp_param_priors, warp_param_count
 export Semiparametric, SemiparametricParams
 export NonstationaryGP, NonstationaryGPParams, ParametrizedGP, ParametrizedGPParams
 export BlackboxModel, BlackboxParams, BlackboxPosterior
@@ -71,7 +74,7 @@ export PlotCallback
 # Imports
 using Random
 using Distributions
-import Distributions: mean, std, var, cov
+import Distributions: mean, std, var, cov, median
 import Distributions: mean_and_var, mean_and_std, mean_and_cov
 using LinearAlgebra
 using AbstractGPs
