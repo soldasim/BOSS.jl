@@ -29,8 +29,8 @@ function SampleOptMAP(;
     isnothing(autodiff) && (autodiff = SciMLBase.NoAD())
     @assert samples >= multistart
     return SampleOptMAP(
-        SamplingMAP(samples, parallel),
-        OptimizationMAP(algorithm, multistart, parallel, autodiff, kwargs),
+        SamplingMAP(; samples, parallel, safe=false),
+        OptimizationMAP(; algorithm, multistart, parallel, autodiff, safe=true, kwargs...),
     )
 end
 

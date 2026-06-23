@@ -8,10 +8,12 @@ and selecting the best sample in sense of MAP.
 ## Keywords
 - `samples::Int`: The number of drawn samples.
 - `parallel::Bool`: The sampling is performed in parallel if `parallel=true`.
+- `safe::Bool`: Set to `false` to disable errors due to inability to find feasible parameters.
 """
 @kwdef struct SamplingMAP <: ModelFitter{MAPParams}
     samples::Int
     parallel::Bool = false
+    safe::Bool = true
 end
 
 function estimate_parameters(opt::SamplingMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)
@@ -21,10 +23,13 @@ function estimate_parameters(opt::SamplingMAP, problem::BossProblem, options::Bo
     params, loglike = sample(Val(return_all), Val(opt.parallel), opt, sampler, loglike_)
     
     if return_all
-        return MAPParams.(params, loglike)
+        map_params = MAPParams.(params, loglike)
     else
-        return MAPParams(params, loglike)
+        map_params = MAPParams(params, loglike)
     end
+
+    opt.safe && (map_params = _check_map_params(map_params; options.info))
+    return map_params
 end
 
 function sample(return_all::Val{false}, parallel::Val{false}, opt::SamplingMAP, sample_func, loglike)

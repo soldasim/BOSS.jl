@@ -18,6 +18,7 @@ to load some optimization algorithms which are passed to the `OptimizationMAP` c
         This is makes the parallel tasks sticky (non-migrating), but can decrease performance.
 - `autodiff::Union{SciMLBase.AbstractADType, Nothing}:`: The automatic differentiation module
     passed to `Optimization.OptimizationFunction`. 
+- `safe::Bool`: Set to `false` to disable errors due to inability to find feasible parameters.
 - `kwargs::Base.Pairs{Symbol, <:Any}`: Other kwargs are passed to the optimization algorithm.
 """
 struct OptimizationMAP{
@@ -30,6 +31,7 @@ struct OptimizationMAP{
     parallel::Bool
     static_schedule::Bool
     autodiff::SciMLBase.AbstractADType
+    safe::Bool
     kwargs::Base.Pairs{Symbol, <:Any}
 end
 function OptimizationMAP(;
@@ -39,10 +41,11 @@ function OptimizationMAP(;
     parallel = false,
     static_schedule = false,
     autodiff = AutoForwardDiff(),
+    safe = true,
     kwargs...
 )
     isnothing(autodiff) && (autodiff = SciMLBase.NoAD())
-    return OptimizationMAP(algorithm, multistart, warm_start, parallel, static_schedule, autodiff, kwargs)
+    return OptimizationMAP(algorithm, multistart, warm_start, parallel, static_schedule, autodiff, safe, kwargs)
 end
 
 function set_starts(opt::OptimizationMAP, starts::AbstractVector{<:ModelParams})
@@ -53,6 +56,7 @@ function set_starts(opt::OptimizationMAP, starts::AbstractVector{<:ModelParams})
         opt.parallel,
         opt.static_schedule,
         opt.autodiff,
+        opt.safe,
         opt.kwargs...
     )
 end
@@ -65,6 +69,7 @@ function slice(opt::OptimizationMAP, idx::Int)
         opt.parallel,
         opt.static_schedule,
         opt.autodiff,
+        opt.safe,
         opt.kwargs...
     )
 end
@@ -80,12 +85,15 @@ function estimate_parameters(opt::OptimizationMAP, problem::BossProblem, options
         problem_slices = slice.(Ref(problem), 1:y_dim_)
         
         results = _estimate_parameters.(opt_slices, problem_slices, Ref(options); return_all)
-        return reduce_slice_results(results)
+        map_params = reduce_slice_results(results)
     
     else
         # In case of non-sliceable model, optimize all parameters simultaneously.
-        return _estimate_parameters(opt, problem, options; return_all)
+        map_params = _estimate_parameters(opt, problem, options; return_all)
     end
+
+    opt.safe && (map_params = _check_map_params(map_params; options.info))
+    return map_params
 end
 
 function _estimate_parameters(opt::OptimizationMAP, problem::BossProblem, options::BossOptions; return_all::Bool=false)
@@ -102,23 +110,23 @@ function _estimate_parameters(opt::OptimizationMAP, problem::BossProblem, option
     vectorize_(params) = bij_(vec_(params))
     devectorize_(ps) = devec_(params, inv_bij_(ps))
 
-    # Prepare the log-likelihood function.
+    # Prepare the log-likelihood function
     loglike_ = safe_model_loglike(model, data; options)
     loglike_vec_ = ps -> loglike_(devectorize_(ps))
 
-    # Skip optimization if there are no free parameters.
+    # Skip optimization if there are no free parameters
     ps = vectorize_(params)
     if length(ps) == 0
         return MAPParams(params, loglike_(params))
     end
 
-    # Generate optimization starts.
+    # Generate optimization starts
     starts = get_starts(opt.multistart, sampler, vectorize_, opt.warm_start, problem)
 
-    # Optimize.
+    # Optimize
     ps, loglike = optimize(opt, loglike_vec_, starts, options; return_all)
-    
-    # Reconstruct the result(s).
+
+    # Reconstruct the result(s)
     if return_all
         params = devectorize_.(ps)
         return MAPParams.(params, loglike)

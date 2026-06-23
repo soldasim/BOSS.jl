@@ -14,6 +14,7 @@ Implementation of the abstract `BOSS.TuringBI`. See the docs `? BOSS.TuringBI`.
     chain_count::Int = 4
     leap_size::Int = 5
     parallel::Bool = false
+    safe::Bool = true
 end
 
 BOSS.TuringBI(args...; kwargs...) = TuringBI(args...; kwargs...)
@@ -27,45 +28,37 @@ function BOSS.estimate_parameters(turing::TuringBI, problem::BossProblem, option
         problem_slices = BOSS.slice.(Ref(problem), 1:y_dim_)
         
         results = _estimate_parameters.(Ref(turing), problem_slices, Ref(options); return_all)
-        return reduce_slice_results(results)
+        bi_params = reduce_slice_results(results)
     
     else
         # In case of non-sliceable model, optimize all parameters simultaneously.
-        return _estimate_parameters(turing, problem, options; return_all)
+        bi_params = _estimate_parameters(turing, problem, options; return_all)
     end
+
+    turing.safe && (bi_params = BOSS._check_bi_params(bi_params; options.info))
+    return bi_params
 end
 
 function _estimate_parameters(turing::TuringBI, problem::BossProblem, options::BossOptions; return_all::Bool=false)
     params = BOSS.params_sampler(problem.model, problem.data)()
+    ll = BOSS.safe_model_loglike(problem.model, problem.data; options)
     
     tm = turing_model(problem.model, params, problem.data; options)
     
     # if all parameters have Dirac priors
     if isnothing(tm)
-        return BOSS.BIParams([deepcopy(params) for _ in 1:total_samples(turing)])
+        return BOSS.BIParams(
+            fill(params, total_samples(turing)),
+            fill(ll(params), total_samples(turing)),
+        )
     end
     
     chains = sample_chains(turing, tm)
     samples = devec_chains(chains, problem.model, params, problem.data)
+    loglikes = ll.(samples)
 
-    return BOSS.BIParams(samples)
+    return BOSS.BIParams(samples, loglikes)
 end
-
-# function _estimate_parameters(turing::TuringBI, problem::BossProblem, options::BossOptions; return_all::Bool=false)
-#     @info "--- REJECTION SAMPLING ---"
-#     # TODO
-#     # sample from prior
-#     sampler = BOSS.params_sampler(problem.model, problem.data)
-#     samples = [sampler() for _ in 1:10_000]
-
-#     # resample according to the likelihood
-#     data_loglike = BOSS.safe_data_loglike(problem.model, problem.data; options)
-#     lls = data_loglike.(samples)
-#     likes = exp.(lls)
-#     samples_ = sample(samples, Distributions.StatsBase.ProbabilityWeights(likes), 120)
-
-#     return BOSS.BIParams(samples_)
-# end
 
 function turing_model(model::SurrogateModel, params::ModelParams, data::ExperimentData; options::BossOptions)
     vec_, devec_ = BOSS.vectorizer(model, data)
@@ -111,7 +104,8 @@ function reduce_slice_results(results::AbstractVector{<:BOSS.BIParams})
     sample_count = length(first(results))
 
     samples = [BOSS.join_slices(getindex.(results, Ref(i))) for i in 1:sample_count]
-    return BOSS.BIParams(samples)
+    loglikes = sum(getproperty.(results, Ref(:loglikes)))
+    return BOSS.BIParams(samples, loglikes)
 end
 
 # workaround for Turing erroring with `Bijector`s without defined `with_logabsdet_jacobian` method
