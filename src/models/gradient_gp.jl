@@ -202,8 +202,8 @@ function _build_augmented_kernel(k_fn, X::AbstractMatrix, σ::Real, σ_∂::Real
 
     # Add noise to diagonal: σ² for function obs, σ_∂² for gradient obs
     noise_diag = vcat(
-        fill((σ+ε)^2, n),          # Function observation noise
-        fill((σ_∂+ε)^2, n * d),    # Gradient observation noise
+        fill(σ^2 + ε, n),          # Function observation noise
+        fill(σ_∂^2 + ε, n * d),    # Gradient observation noise
     )
     K[diagind(K)] .+= noise_diag
 

@@ -238,7 +238,7 @@ function finite_gp(
     # noise_std = max(noise_std, min_param_val)
     lengthscales = lengthscales .+ min_param_val
     amplitude = amplitude + min_param_val
-    noise_std = noise_std + min_param_val
+    noise_std = sqrt(noise_std^2 + min_param_val)  # floor on variance, not std
 
     kernel = (amplitude^2) * with_lengthscale(kernel, lengthscales)
     return _finite_gp(X, mean, kernel, noise_std)
@@ -266,15 +266,7 @@ function data_loglike(
     end
 end
 
-function gp_data_loglike_slice(
-    X::AbstractMatrix{<:Real},
-    y::AbstractVector{<:Real},
-    mean,
-    kernel::Kernel,
-    lengthscales::AbstractVector{<:Real},
-    amplitude::Real,
-    noise_std::Real,
-)
+function gp_data_loglike_slice(X, y, mean, kernel, lengthscales, amplitude, noise_std)
     gp = finite_gp(X, mean, kernel, lengthscales, amplitude, noise_std)
     return logpdf(gp, y)
 end

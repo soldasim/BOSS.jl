@@ -8,10 +8,10 @@ using Distributions
 Implementation of the abstract `BOSS.TuringBI`. See the docs `? BOSS.TuringBI`.
 """
 @kwdef struct TuringBI{S} <: BOSS.TuringBI
-    sampler::S = PG(20)
-    warmup::Int = 400
-    samples_in_chain::Int = 20
-    chain_count::Int = 4
+    sampler::S = NUTS(20, 0.65)
+    warmup::Int = 200
+    samples_in_chain::Int = 10
+    chain_count::Int = 12
     leap_size::Int = 5
     parallel::Bool = false
     safe::Bool = true
