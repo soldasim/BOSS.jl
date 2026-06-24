@@ -389,8 +389,8 @@ function data_loglike(model::TransformedModel, data::ExperimentData)
     end
 end
 
-function params_loglike(model::TransformedModel)
-    ll_base = params_loglike(model.base_model)
+function params_logprior(model::TransformedModel)
+    ll_base = params_logprior(model.base_model)
     
     function ll_params(params::TransformedParams)
         return ll_base(params.base_params)

@@ -42,15 +42,15 @@ Each model *should* define a new type:
 
 Each model *should* implement the following methods used for parameter estimation:
 - `data_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
-- `params_loglike(::SurrogateModel, [::ExperimentData]) -> (::ModelParams -> ::Real)`
+- `params_logprior(::SurrogateModel, [::ExperimentData]) -> (::ModelParams -> ::Real)`
 - `_params_sampler(::SurrogateModel, [::ExperimentData]) -> (::AbstractRNG -> ::ModelParams)`
 - `vectorizer(::SurrogateModel, [::ExperimentData]) -> (vectorize, devectorize)`
     where `vectorize(::ModelParams) -> ::AbstractVector{<:Real}` and `devectorize(::ModelParams, ::AbstractVector{<:Real}) -> ::ModelParams`
 - `bijector(::SurrogateModel, [::ExperimentData]) -> ::Bijectors.Transform`
 
 Additionally, the following methods are provided and *need not be implemented*:
-- `model_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
-- `safe_model_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
+- `model_logpost(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
+- `safe_model_logpost(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
 - `safe_data_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
 - `params_sampler(::SurrogateModel, ::ExperimentData) -> ([::AbstractRNG] -> ::ModelParams)`
 
@@ -128,26 +128,26 @@ function join_slices end
 ### Parameter Methods ###
 
 """
-    model_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)
+    model_logpost(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)
 
-Return a function mapping `ModelParams` to their log-likelihood according to the current data.
+Return a function mapping `ModelParams` to their log-posterior according to the current data.
 """
-function model_loglike(model::SurrogateModel, data::ExperimentData)
+function model_logpost(model::SurrogateModel, data::ExperimentData)
     ll_data = data_loglike(model, data)
-    ll_params = params_loglike(model, data)
+    ll_params = params_logprior(model, data)
 
-    function loglike(params::ModelParams)
+    function logpost(params::ModelParams)
         return ll_data(params) + ll_params(params)
     end
 end
 
 """
-    safe_model_loglike(::SurrogateModel, ::ExperimentData; options::BossOptions) -> (::ModelParams -> ::Real)
+    safe_model_logpost(::SurrogateModel, ::ExperimentData; options::BossOptions) -> (::ModelParams -> ::Real)
 
-Get a safe version of the model log-likelihood function, which returns `-Inf`
-in case an error occurs while evaluating the log-likelihood of the model parameters.
+Get a safe version of the model log-posterior function, which returns `-Inf`
+in case an error occurs while evaluating the log-posterior of the model parameters.
 """
-function safe_model_loglike end
+function safe_model_logpost end
 
 """
     data_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)
@@ -166,17 +166,17 @@ in case an error occurs while evaluating the data log-likelihood.
 function safe_data_loglike end
 
 """
-    params_loglike(::SurrogateModel, [::ExperimentData]) -> (::ModelParams -> ::Real)
+    params_logprior(::SurrogateModel, [::ExperimentData]) -> (::ModelParams -> ::Real)
 
-Construct the model parameters log-likelihood function mapping `ModelParams`
-to their log-likelihood.
+Construct the model parameters log-prior function mapping `ModelParams`
+to their log-prior.
 
 The parameters returned by the (@ref)[`params_sampler`] should be sampled
-exactly according to this log-likelihood.
+exactly according to this log-prior.
 """
-function params_loglike end
+function params_logprior end
 
-params_loglike(model::SurrogateModel, data::ExperimentData) = params_loglike(model)
+params_logprior(model::SurrogateModel, data::ExperimentData) = params_logprior(model)
 
 """
     params_sampler(::SurrogateModel, [::ExperimentData]) -> ([::AbstractRNG] -> ::ModelParams)
@@ -184,8 +184,8 @@ params_loglike(model::SurrogateModel, data::ExperimentData) = params_loglike(mod
 Return a function (or a callable structure) which samples `ModelParams` from their *prior* distributions.
 (I.e. the sampling is *not* conditioned on the data.)
 
-The parameters are sampled exactly according to the log-likelihood
-defined by the `params_loglike` function.
+The parameters are sampled exactly according to the log-prior
+defined by the `params_logprior` function.
 
 This is a user-facing function. Implement `_params_sampler` instead
 when defining a custom `SurrogateModel`.
@@ -203,8 +203,8 @@ end
 Return a function (or a callable structure) which samples `ModelParams` from their *prior* distributions.
 (I.e. the sampling is *not* conditioned on the data.)
 
-The parameters should be sampled exactly according to the log-likelihood
-defined by the `params_loglike` function.
+The parameters should be sampled exactly according to the log-prior
+defined by the `params_logprior` function.
 
 This is an internal function used as a part of the `SurrogateModel` API.
 Use `params_sampler` to sample model parameters instead.

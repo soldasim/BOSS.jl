@@ -247,33 +247,33 @@ function data_loglike_slice(
     return logpdf(gp, data.Y[slice,:])
 end
 
-function params_loglike(model::NonstationaryGP, data::ExperimentData)
-    loglike_λ = _params_loglike(model.lengthscale_model, data)
-    loglike_α = _params_loglike(model.amplitude_model, data)
-    loglike_σ = _params_loglike(model.noise_std_model, data)
+function params_logprior(model::NonstationaryGP, data::ExperimentData)
+    logpost_λ = _params_logprior(model.lengthscale_model, data)
+    logpost_α = _params_logprior(model.amplitude_model, data)
+    logpost_σ = _params_logprior(model.noise_std_model, data)
 
     function ll_params(params::NonstationaryGPParams)
-        ll_λ = loglike_λ(params.λ)
-        ll_α = loglike_α(params.α)
-        ll_σ = loglike_σ(params.σ)
+        ll_λ = logpost_λ(params.λ)
+        ll_α = logpost_α(params.α)
+        ll_σ = logpost_σ(params.σ)
         return ll_λ + ll_α + ll_σ
     end
 end
 
-function _params_loglike(m::AbstractArray{<:ParametrizedGP}, data::ExperimentData)
-    loglikes = params_loglike.(m, Ref(data)) # -> parameterized_gp.jl
+function _params_logprior(m::AbstractArray{<:ParametrizedGP}, data::ExperimentData)
+    logposts = params_logprior.(m, Ref(data)) # -> parameterized_gp.jl
 
-    function loglike(params::AbstractArray{<:ParametrizedGPParams})
-        return sum(apply.(loglikes, params))
+    function logpost(params::AbstractArray{<:ParametrizedGPParams})
+        return sum(apply.(logposts, params))
     end
 end
-function _params_loglike(m::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
-    function loglike(params::AbstractVector{<:Real})
+function _params_logprior(m::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
+    function logpost(params::AbstractVector{<:Real})
         return sum(logpdf.(m, params))
     end
 end
-function _params_loglike(m::AbstractVector{<:MultivariateDistribution}, data::ExperimentData)
-    function loglike(params::AbstractMatrix{<:Real})
+function _params_logprior(m::AbstractVector{<:MultivariateDistribution}, data::ExperimentData)
+    function logpost(params::AbstractMatrix{<:Real})
         return sum(logpdf.(m, eachcol(params)))
     end
 end

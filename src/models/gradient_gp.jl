@@ -406,9 +406,9 @@ function data_loglike(model::GradientGaussianProcess, data::GradientData)
 end
 
 
-### Hyperparameter prior log-likelihood ###
+### Hyperparameter log-prior ###
 
-function params_loglike(model::GradientGaussianProcess)
+function params_logprior(model::GradientGaussianProcess)
     function ll(params::GradientGaussianProcessParams)
         ll_λ  = sum(logpdf.(model.lengthscale_priors, eachcol(params.λ)))
         ll_α  = sum(logpdf.(model.amplitude_priors, params.α))

@@ -1,8 +1,8 @@
 
 function _check_map_params(params::MAPParams; info::Bool)
-    @assert !ismissing(params.loglike)
+    @assert !ismissing(params.logpost)
     
-    if isinf(params.loglike)
+    if isinf(params.logpost)
         error("""Failed to find feasible model hyperparameters!
         This is a sign of numerical issues. Try to allow for higher data noise
         or reduce duplicities in the dataset to improve the regularity of the kernel matrix.""")
@@ -11,10 +11,10 @@ function _check_map_params(params::MAPParams; info::Bool)
     end
 end
 function _check_map_params(params::AbstractVector{<:MAPParams}; info::Bool)
-    loglikes = getproperty.(params, Ref(:loglike))
-    @assert !any(ismissing.(loglikes))
+    logposts = getproperty.(params, Ref(:logpost))
+    @assert !any(ismissing.(logposts))
 
-    if isinf(maximum(loglikes))
+    if isinf(maximum(logposts))
         error("""Failed to find feasible model hyperparameters!
         This is a sign of numerical issues. Try to allow for higher data noise
         or reduce duplicities in the dataset to improve the regularity of the kernel matrix.""")
@@ -24,8 +24,8 @@ function _check_map_params(params::AbstractVector{<:MAPParams}; info::Bool)
 end
 
 function _check_bi_params(params::BIParams; info::Bool)  
-    @assert !any(ismissing.(params.loglikes))
-    infeasible = isinf.(params.loglikes)
+    @assert !any(ismissing.(params.logposts))
+    infeasible = isinf.(params.logposts)
 
     if all(infeasible)
         error("""Failed to sample any feasible model hyperparameters!
@@ -40,7 +40,7 @@ function _check_bi_params(params::BIParams; info::Bool)
         feasible = .! infeasible
         return BIParams(
             params.samples[feasible],
-            params.loglikes[feasible],
+            params.logposts[feasible],
         )
     
     else

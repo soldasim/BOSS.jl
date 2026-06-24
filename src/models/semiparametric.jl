@@ -91,7 +91,7 @@ function data_loglike(model::Semiparametric, data::ExperimentData)
     end
 end
 
-function params_loglike(model::Semiparametric)
+function params_logprior(model::Semiparametric)
     function ll_params(params::SemiparametricParams)
         ll_theta = sum(logpdf.(model.parametric.theta_priors, params.θ); init=0.)
         ll_λ = sum(logpdf.(model.nonparametric.lengthscale_priors, eachcol(params.λ)))

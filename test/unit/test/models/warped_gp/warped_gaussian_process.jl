@@ -151,8 +151,8 @@ end
     @test ll_log > ll_id
 end
 
-@testset "params_loglike(model, params)" begin
-    @param_test BOSS.params_loglike begin
+@testset "params_logprior(model, params)" begin
+    @param_test BOSS.params_logprior begin
         @params WarpedGaussianProcess(;
             lengthscale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
             amplitude_priors = fill(LogNormal(), 2),

@@ -41,7 +41,7 @@ end
 
 function _estimate_parameters(turing::TuringBI, problem::BossProblem, options::BossOptions; return_all::Bool=false)
     params = BOSS.params_sampler(problem.model, problem.data)()
-    ll = BOSS.safe_model_loglike(problem.model, problem.data; options)
+    ll = BOSS.safe_model_logpost(problem.model, problem.data; options)
     
     tm = turing_model(problem.model, params, problem.data; options)
     
@@ -55,9 +55,9 @@ function _estimate_parameters(turing::TuringBI, problem::BossProblem, options::B
     
     chains = sample_chains(turing, tm)
     samples = devec_chains(chains, problem.model, params, problem.data)
-    loglikes = ll.(samples)
+    logposts = ll.(samples)
 
-    return BOSS.BIParams(samples, loglikes)
+    return BOSS.BIParams(samples, logposts)
 end
 
 function turing_model(model::SurrogateModel, params::ModelParams, data::ExperimentData; options::BossOptions)
@@ -104,8 +104,8 @@ function reduce_slice_results(results::AbstractVector{<:BOSS.BIParams})
     sample_count = length(first(results))
 
     samples = [BOSS.join_slices(getindex.(results, Ref(i))) for i in 1:sample_count]
-    loglikes = sum(getproperty.(results, Ref(:loglikes)))
-    return BOSS.BIParams(samples, loglikes)
+    logposts = sum(getproperty.(results, Ref(:logposts)))
+    return BOSS.BIParams(samples, logposts)
 end
 
 # workaround for Turing erroring with `Bijector`s without defined `with_logabsdet_jacobian` method

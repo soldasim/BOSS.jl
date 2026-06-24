@@ -110,29 +110,29 @@ function _estimate_parameters(opt::OptimizationMAP, problem::BossProblem, option
     vectorize_(params) = bij_(vec_(params))
     devectorize_(ps) = devec_(params, inv_bij_(ps))
 
-    # Prepare the log-likelihood function
-    loglike_ = safe_model_loglike(model, data; options)
-    loglike_vec_ = ps -> loglike_(devectorize_(ps))
+    # Prepare the log-posterior function
+    logpost_ = safe_model_logpost(model, data; options)
+    logpost_vec_ = ps -> logpost_(devectorize_(ps))
 
     # Skip optimization if there are no free parameters
     ps = vectorize_(params)
     if length(ps) == 0
-        return MAPParams(params, loglike_(params))
+        return MAPParams(params, logpost_(params))
     end
 
     # Generate optimization starts
     starts = get_starts(opt.multistart, sampler, vectorize_, opt.warm_start, problem)
 
     # Optimize
-    ps, loglike = optimize(opt, loglike_vec_, starts, options; return_all)
+    ps, logpost = optimize(opt, logpost_vec_, starts, options; return_all)
 
     # Reconstruct the result(s)
     if return_all
         params = devectorize_.(ps)
-        return MAPParams.(params, loglike)
+        return MAPParams.(params, logpost)
     else
         params = devectorize_(ps)
-        return MAPParams(params, loglike)
+        return MAPParams(params, logpost)
     end
 end
 
@@ -174,13 +174,13 @@ end
 # `return_all=false` version
 function reduce_slice_results(results::AbstractVector{<:MAPParams})
     params = join_slices(getfield.(results, Ref(:params)))
-    loglike = sum(getfield.(results, Ref(:loglike)))
-    return MAPParams(params, loglike)
+    logpost = sum(getfield.(results, Ref(:logpost)))
+    return MAPParams(params, logpost)
 end
 # `return_all=true` version
 function reduce_slice_results(results::AbstractVector{<:AbstractVector{<:MAPParams}})
     result_matrix = hcat(results...)
     params = (row -> join_slices(getfield.(row, Ref(:params)))).(eachrow(result_matrix))
-    loglikes = (row -> sum(getfield.(row, Ref(:loglike)))).(eachrow(result_matrix))
-    return MAPParams.(params, loglikes)
+    logposts = (row -> sum(getfield.(row, Ref(:logpost)))).(eachrow(result_matrix))
+    return MAPParams.(params, logposts)
 end

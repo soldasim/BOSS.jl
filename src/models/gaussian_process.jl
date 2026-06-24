@@ -271,7 +271,7 @@ function gp_data_loglike_slice(X, y, mean, kernel, lengthscales, amplitude, nois
     return logpdf(gp, y)
 end
 
-function params_loglike(model::GaussianProcess)
+function params_logprior(model::GaussianProcess)
     function ll_params(params::GaussianProcessParams)
         ll_λ = sum(logpdf.(model.lengthscale_priors, eachcol(params.λ)))
         ll_α = sum(logpdf.(model.amplitude_priors, params.α))

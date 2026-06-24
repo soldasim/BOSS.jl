@@ -157,7 +157,7 @@ function finite_param_gp(
     ) # -> gaussian_process.jl
 end
 
-function params_loglike(model::ParametrizedGP, data::ExperimentData)
+function params_logprior(model::ParametrizedGP, data::ExperimentData)
     if (model.lengthscale_prior isa Product{<:Any, <:Dirac})
         # all hyperparameters of the `ParametrizedGP` are fixed
         # the kernel matrix can be precomputed
@@ -169,7 +169,7 @@ function params_loglike(model::ParametrizedGP, data::ExperimentData)
         # L = cholesky(Σ).L
 
         # only `y` is being fitted
-        function loglike_y(params::ParametrizedGPParams)
+        function logpost_y(params::ParametrizedGPParams)
             ll_y = logpdf(MvNormal(zero(params.μ), I(length(params.μ))), params.yϵ)
             return ll_y
         end
@@ -177,7 +177,7 @@ function params_loglike(model::ParametrizedGP, data::ExperimentData)
     else
         # some hyperparameters of the `ParametrizedGP` are being fitted
         # the kernel matrix must be re-computed for each evaluation
-        function loglike_full(params::ParametrizedGPParams)
+        function logpost_full(params::ParametrizedGPParams)
             @assert false # L cannot be precomputed wihout fixed hyperparameters
             
             # gp = finite_param_gp(model, params)

@@ -324,17 +324,17 @@ function data_loglike(model::WarpedGaussianProcess, data::ExperimentData)
     end
 end
 
-function params_loglike(model::WarpedGaussianProcess)
+function params_logprior(model::WarpedGaussianProcess)
     function ll_params(params::WarpedGaussianProcessParams)
         ll_λ = sum(logpdf.(model.lengthscale_priors, eachcol(params.λ)))
         ll_α = sum(logpdf.(model.amplitude_priors, params.α))
         ll_σ = sum(logpdf.(model.noise_std_priors, params.σ))
-        ll_w = sum(_warp_loglike.(model.output_warpings, params.warp))
+        ll_w = sum(_warp_logprior.(model.output_warpings, params.warp))
         return ll_λ + ll_α + ll_σ + ll_w
     end
 end
 
-function _warp_loglike(w::OutputWarping, θ)
+function _warp_logprior(w::OutputWarping, θ)
     priors = warp_param_priors(w)
     isempty(priors) && return zero(eltype(θ))
     return sum(logpdf.(priors, θ))
