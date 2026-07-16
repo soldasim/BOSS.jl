@@ -174,7 +174,7 @@ Block structure:
 
 Noise terms: σ² on function block diagonal, σ_∂² on gradient block diagonal.
 """
-function _build_augmented_kernel(k_fn, X::AbstractMatrix, σ::Real, σ_∂::Real)
+function _build_augmented_kernel(k_fn, X::AbstractMatrix, σ::Real, σ_∂::Real; jitter::Real=0.0)
     n = size(X, 2)
     d = size(X, 1)
     N = n * (1 + d)
@@ -184,16 +184,16 @@ function _build_augmented_kernel(k_fn, X::AbstractMatrix, σ::Real, σ_∂::Real
     # Compute kernel matrix blocks
     for i in 1:n, j in 1:n
         k_val, dk_dxi, dk_dxj, d2k = _kernel_and_derivs(k_fn, X[:, i], X[:, j])
-        
+
         # Function-function block: K[i, j] = k(xi, xj)
         K[i, j] = k_val
-        
+
         # Function-gradient blocks
         for l in 1:d
             K[i, n + (l-1)*n + j] = dk_dxj[l]      # ∂k/∂xj_l
             K[n + (l-1)*n + i, j] = dk_dxi[l]      # ∂k/∂xi_l
         end
-        
+
         # Gradient-gradient block
         for l in 1:d, m in 1:d
             K[n + (l-1)*n + i, n + (m-1)*n + j] = d2k[l, m]  # ∂²k/∂xi_l∂xj_m
@@ -201,9 +201,10 @@ function _build_augmented_kernel(k_fn, X::AbstractMatrix, σ::Real, σ_∂::Real
     end
 
     # Add noise to diagonal: σ² for function obs, σ_∂² for gradient obs
+    # `jitter` is additional numerical-stability jitter, see `_posdef_retry` (gaussian_process.jl).
     noise_diag = vcat(
-        fill(σ^2 + ε, n),          # Function observation noise
-        fill(σ_∂^2 + ε, n * d),    # Gradient observation noise
+        fill(σ^2 + ε + jitter, n),          # Function observation noise
+        fill(σ_∂^2 + ε + jitter, n * d),    # Gradient observation noise
     )
     K[diagind(K)] .+= noise_diag
 
@@ -321,9 +322,12 @@ function model_posterior_slice(
 
     # Build augmented system and compute posterior
     ỹ = _build_obs_vector(y, dY)
-    K_aug = _build_augmented_kernel(k_fn, X, σ, σ_∂)
-    C = cholesky(K_aug)
-    α_coeff = C \ ỹ
+    amplitude = params.α[slice]
+    C, α_coeff = BOSS._posdef_retry(amplitude; context="GradientGaussianProcess model_posterior_slice, slice $slice") do jitter
+        K_aug = _build_augmented_kernel(k_fn, X, σ, σ_∂; jitter)
+        C_ = cholesky(K_aug)
+        (C_, C_ \ ỹ)
+    end
 
     return GradientGPPosteriorSlice(k_fn, Matrix(X), α_coeff, C, σ, σ_∂)
 end
@@ -394,13 +398,15 @@ function data_loglike(model::GradientGaussianProcess, data::GradientData)
         end
 
         ỹ = _build_obs_vector(y, dY)
-        K_aug = _build_augmented_kernel(k_fn, data.X, σ, σ_∂)
-        C = cholesky(K_aug)
-        α_coeff = C \ ỹ
+        amplitude = params.α[1]
         N = length(ỹ)
-
-        # Log marginal likelihood: -½(yỹ† K⁻¹ yỹ + log|K| + N log 2π)
-        return -0.5 * (ỹ ⋅ α_coeff + 2 * sum(log.(diag(C.L))) + N * log(2π))
+        return BOSS._posdef_retry(amplitude; context="GradientGaussianProcess data_loglike") do jitter
+            K_aug = _build_augmented_kernel(k_fn, data.X, σ, σ_∂; jitter)
+            C = cholesky(K_aug)
+            α_coeff = C \ ỹ
+            # Log marginal likelihood: -½(yỹ† K⁻¹ yỹ + log|K| + N log 2π)
+            -0.5 * (ỹ ⋅ α_coeff + 2 * sum(log.(diag(C.L))) + N * log(2π))
+        end
     end
     return ll
 end

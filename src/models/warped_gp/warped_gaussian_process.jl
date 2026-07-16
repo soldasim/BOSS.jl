@@ -214,15 +214,14 @@ function model_posterior_slice(
 
     # Warp the observations into latent space and condition the GP there.
     δ = warp_forward.(Ref(w), Ref(θ), data.Y[slice, :])
-    fgp = finite_gp(
-        data.X,
-        mean_getindex(model.mean, slice),
-        model.kernel,
-        params.λ[:, slice],
-        params.α[slice],
-        params.σ[slice],
-    )
-    post_gp = AbstractGPs.posterior(fgp, δ)
+    mean_ = mean_getindex(model.mean, slice)
+    λ = params.λ[:, slice]
+    α = params.α[slice]
+    σ = params.σ[slice]
+    post_gp = _posdef_retry(α; context="WarpedGaussianProcess model_posterior_slice, slice $slice") do jitter
+        fgp = finite_gp(data.X, mean_, model.kernel, λ, α, sqrt(σ^2 + jitter))
+        AbstractGPs.posterior(fgp, δ)
+    end
 
     nodes, weights = _gauss_hermite(model.quad_nodes)
     return WarpedGaussianProcessPosterior(post_gp, w, θ, nodes, weights)
