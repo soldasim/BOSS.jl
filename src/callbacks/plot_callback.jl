@@ -123,7 +123,7 @@ function plot_y_slice(opt::PlotCallback, problem::BossProblem, dim::Int)
 
             y_points = (x -> mean(post, [x])).(x_points)
             std_points = (x -> std(post, [x])).(x_points)
-            opt.Plots.plot!(p, x_points, y_points; ribbon=std_points, label="model", color=MODEL_COLOR)
+            opt.Plots.plot!(p, x_points, y_points; ribbon=2*std_points, label="model", color=MODEL_COLOR)
             ylims = update_ylims(ylims, y_points)
 
         else # problem.params isa MultiFittedParams
