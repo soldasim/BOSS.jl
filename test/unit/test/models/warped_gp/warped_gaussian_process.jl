@@ -209,6 +209,39 @@ end
     @test isapprox(BOSS.median(w_slice, [1., 1.]), mean(w_slice, [1., 1.]); atol=1e-6)
 end
 
+@testset "predictive_kind / predictive_samples" begin
+    warped, _ = _twin_models(1; mean = x -> [1.])
+    X = [2.;; 5.;; 8.;;]
+    Y = [2.;; 5.;; 8.;;]
+    data = ExperimentData(X, Y)
+    w_params = WarpedGaussianProcessParams([1.;;], [1.], [1e-4], [[0.0, 1.0]])
+    post = model_posterior_slice(warped, w_params, data, 1)
+
+    @test predictive_kind(WarpedGaussianProcess) isa SampledPredictive
+    @test predictive_kind(post) isa SampledPredictive
+
+    x = [3.]
+    ys, ws = predictive_samples(post, x)
+    @test ys isa AbstractVector{<:Real}
+    @test ws isa AbstractVector{<:Real}
+    @test length(ys) == length(ws)
+    @test isapprox(sum(ws), 1.; atol=1e-8)
+    m, _ = mean_and_var(post, x)
+    @test isapprox(sum(ws .* ys), m; atol=1e-6)
+
+    Xtest = [1.;; 3.;; 100.;;]
+    Ys, Ws = predictive_samples(post, Xtest)
+    @test size(Ys) == size(Ws)
+    @test all(isapprox.(vec(sum(Ws; dims=1)), 1.; atol=1e-8))
+    mX, _ = mean_and_var(post, Xtest)
+    @test isapprox(vec(sum(Ws .* Ys; dims=1)), mX; atol=1e-6)
+
+    # a slice-native `SampledPredictive` model's *joint* posterior does not synthesize samples
+    # by bundling its independent per-dimension slices (see `DefaultModelPosterior`)
+    joint_post = model_posterior(warped, w_params, data)
+    @test_throws MethodError predictive_samples(joint_post, x)
+end
+
 @testset "model_posterior(model, params, data)" begin
     warped, _ = _twin_models(2; mean = x -> [1., 1.])
     problem = BossProblem(;

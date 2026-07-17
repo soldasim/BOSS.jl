@@ -138,6 +138,37 @@ NonstationaryGP
 NonstationaryGPParams
 ```
 
+The [`WarpedGaussianProcess`](@ref) structure defines a Gaussian process whose output is warped through a nonlinear, monotonic transform, allowing it to model non-Gaussian predictive distributions.
+
+```@docs
+WarpedGaussianProcess
+WarpedGaussianProcessParams
+WarpedGaussianProcessPosterior
+```
+
+The output warping applied by [`WarpedGaussianProcess`](@ref) is defined using subtypes of `OutputWarping`.
+
+```@docs
+OutputWarping
+AffineWarping
+YeoJohnsonWarping
+SinhArcsinhWarping
+ComposedWarping
+```
+
+The [`TransformedModel`](@ref) structure wraps another `SurrogateModel`, applying an input and/or output transform to it.
+
+```@docs
+TransformedModel
+TransformedParams
+TransformedPosterior
+TransformedPosteriorSlice
+InputTransform
+OutputTransform
+JointOutputTransform
+SlicedOutputTransform
+```
+
 Custom surrogate models can be defined by subtyping the [`SurrogateModel`](@ref) type.
 
 ## Model Posterior
@@ -151,6 +182,14 @@ ModelPosteriorSlice
 ```
 
 The model posterior can be evaluated by using the methods `mean`, `std`, `var`, `cov`, `mean_and_std`, `mean_and_var`, and `mean_and_cov` defined for the [`ModelPosterior`](@ref) and [`ModelPosteriorSlice`](@ref) types.
+
+Models whose posterior predictive distribution is not Gaussian can additionally implement [`predictive_samples`](@ref), providing a weighted-sample discretization of the predictive distribution instead of a Gaussian mean/var summary. The [`predictive_kind`](@ref) function is used to query which of these two representations a given [`SurrogateModel`](@ref) provides.
+
+```@docs
+PredictiveKind
+GaussianPredictive
+SampledPredictive
+```
 
 
 ## Model Parameters

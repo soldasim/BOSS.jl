@@ -60,6 +60,7 @@ Additionally, the following methods are provided and *need not be implemented*:
 Models *may* implement:
 - `make_discrete(model::SurrogateModel, discrete::AbstractVector{Bool}) -> discrete_model::SurrogateModel`
 - `sliceable(::SurrogateModel) = true` (defaults to `false`)
+- `predictive_kind(::Type{<:SurrogateModel}) -> ::PredictiveKind` (defaults to `GaussianPredictive()`)
 
 If `sliceable(::SurrogateModel) == true`, then the model *should* additionally implement:
 - `slice(model::SurrogateModel, slice::Int) -> model_slice::SurrogateModel`
@@ -67,11 +68,18 @@ If `sliceable(::SurrogateModel) == true`, then the model *should* additionally i
 - `join_slices(slices::AbstractVector{ModelParams}) -> params::ModelParams`
 
 Defining the `SurrogateModel` as sliceable allows for significantly more efficient parameter estimation,
-but is generally not possible for all models.
-
-`SurrogateModel`s implementing `model_posterior_slice` will usually be sliceable,
+but is generally not possible for all models. `SurrogateModel`s implementing `model_posterior_slice` will usually be sliceable,
 whereas models implementing `model_posterior` will not, but the API does not require this.
 
+If the model's predictive distribution is not Gaussian, define `predictive_kind(::Type{<:SurrogateModel}) = SampledPredictive()`.
+Then the model *should* additionally implement either
+- `predictive_samples(::ModelPosteriorSlice, ::AbstractVector{<:Real}) -> ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}`
+- `predictive_samples(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}`
+or
+- `predictive_samples(::ModelPosterior, ::AbstractVector{<:Real}) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}`
+- `predictive_samples(::ModelPosterior, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractArray{<:Real, 3}, <:AbstractArray{<:Real, 3}}` .
+
+See [`predictive_samples`](@ref) for the full contract.
 
 ## See Also
 

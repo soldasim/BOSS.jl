@@ -41,7 +41,7 @@ so the returned variance is an approximate summary of a skewed distribution.
         dimension. Defaults to `[ComposedWarping(YeoJohnsonWarping(), AffineWarping()), ...]`.
         The trailing [`AffineWarping`](@ref) captures the effective output mean and amplitude,
         so the GP mean and amplitude can be held fixed at 0 and 1.
-- `quad_nodes::Int`: Number of Gauss-Hermite quadrature nodes used for prediction. Defaults to `20`.
+- `quad_nodes::Int`: Number of Gauss-Hermite quadrature nodes used for prediction. Defaults to `21`.
 
 ## See Also
 
@@ -67,7 +67,7 @@ function WarpedGaussianProcess(;
     amplitude_priors = nothing,
     noise_std_priors = nothing,
     output_warpings = nothing,
-    quad_nodes = 20,
+    quad_nodes = 21,
 )
     mean_provided      = !isnothing(mean)
     amplitude_provided = !isnothing(amplitude_priors)
@@ -228,15 +228,26 @@ function model_posterior_slice(
 end
 
 """
+Return the Gauss-Hermite quadrature points `ys` (back-transformed to observation space via the
+analytical inverse warping) and normalized weights `ws` (summing to 1) representing the
+predictive distribution given a latent Gaussian `N(m, σ2)`. Shared by `_back_transform` and
+`predictive_samples`.
+"""
+function _predictive_points(post::WarpedGaussianProcessPosterior, m::Real, σ2::Real)
+    s = sqrt(max(σ2, zero(σ2)))
+    ys = warp_inverse.(Ref(post.warping), Ref(post.warp_params), m .+ (sqrt(2) * s) .* post.nodes)
+    ws = post.weights .* inv(sqrt(π))
+    return ys, ws
+end
+
+"""
 Back-transform a latent Gaussian predictive `N(m, σ2)` to the observation-space mean and
 variance via Gauss-Hermite quadrature over the analytical inverse warping.
 """
 function _back_transform(post::WarpedGaussianProcessPosterior, m::Real, σ2::Real)
-    s = sqrt(max(σ2, zero(σ2)))
-    ys = warp_inverse.(Ref(post.warping), Ref(post.warp_params), m .+ (sqrt(2) * s) .* post.nodes)
-    norm = inv(sqrt(π))
-    Ey = norm * sum(post.weights .* ys)
-    Ey2 = norm * sum(post.weights .* ys .^ 2)
+    ys, ws = _predictive_points(post, m, σ2)
+    Ey = sum(ws .* ys)
+    Ey2 = sum(ws .* ys .^ 2)
     return Ey, max(Ey2 - Ey^2, zero(Ey))
 end
 
@@ -291,6 +302,23 @@ end
 
 function mean_and_cov(post::WarpedGaussianProcessPosterior, X::AbstractMatrix{<:Real})
     return mean(post, X), cov(post, X) # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
+end
+
+
+### Predictive samples ###
+
+predictive_kind(::Type{<:WarpedGaussianProcess}) = SampledPredictive()
+
+function predictive_samples(post::WarpedGaussianProcessPosterior, x::AbstractVector{<:Real})
+    m, σ2 = post.post_gp(hcat(x); obsdim=2) |> mean_and_var .|> first
+    return _predictive_points(post, m, σ2) # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
+end
+function predictive_samples(post::WarpedGaussianProcessPosterior, X::AbstractMatrix{<:Real})
+    ms, σ2s = post.post_gp(X; obsdim=2) |> mean_and_var
+    pts = _predictive_points.(Ref(post), ms, σ2s) # ::AbstractVector{<:Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}}, one per point
+    Ys = hcat(first.(pts)...) # (K, n)
+    Ws = hcat(last.(pts)...)  # (K, n)
+    return Ys, Ws
 end
 
 

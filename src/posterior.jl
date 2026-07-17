@@ -78,6 +78,12 @@ function mean_and_cov(post::DefaultModelPosterior, X::AbstractMatrix{<:Real})
     return μs, Σs # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}}
 end
 
+# No `predictive_samples(post::DefaultModelPosterior, ...)` redirection to `post.slices` is defined
+# here on purpose: bundling independently-modeled per-dimension slices into a joint `(D, K)` tuple
+# would silently assert a dependency structure across dimensions that the model never modeled.
+# Contrast with `DefaultModelPosteriorSlice`'s `predictive_samples` below, which redirects the
+# other way (joint -> one dimension) and is safe. See `predictive_samples`'s docstring (in
+# `types/model_posterior.jl`) for the full reasoning.
 
 ### Default `ModelPosteriorSlice` ###
 
@@ -136,6 +142,18 @@ end
 function mean_and_cov(post::DefaultModelPosteriorSlice, X::AbstractMatrix{<:Real})
     μs, Σs = mean_and_cov(post.post, X)
     return μs[post.idx, :], Σs[:,:,post.idx] # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
+end
+
+# Redirects to the joint `post.post`'s `predictive_samples` and reads off row `post.idx` — the
+# safe direction (marginalizing a genuine joint sample down to one dimension is always valid),
+# unlike `DefaultModelPosterior`'s (deliberately absent) reverse redirection above.
+function predictive_samples(post::DefaultModelPosteriorSlice, x::AbstractVector{<:Real})
+    Ys, Ws = predictive_samples(post.post, x) # Ys: (D, K), Ws: (1, K) -- see `predictive_samples`'s docstring
+    return Ys[post.idx, :], vec(Ws) # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}, both length K
+end
+function predictive_samples(post::DefaultModelPosteriorSlice, X::AbstractMatrix{<:Real})
+    Ys, Ws = predictive_samples(post.post, X) # Ys: (D, K, n), Ws: (1, K, n)
+    return Ys[post.idx, :, :], Ws[1, :, :] # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}, both (K, n)
 end
 
 
