@@ -159,39 +159,27 @@ end
 
 ### Other default posterior methods ###
 
-function mean_and_var(post::ModelPosterior, x::AbstractVector{<:Real})
-    μ = mean(post, x)
-    σ2 = var(post, x)
-    return μ, σ2 # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
-end
-function mean_and_var(post::ModelPosterior, X::AbstractMatrix{<:Real})
-    μs = mean(post, X)
-    σ2s = var(post, X)
-    return μs, σ2s # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}
+function mean_and_var(post::ModelPosterior, X::AbstractVecOrMat{<:Real})
+    μ = mean(post, X)
+    σ2 = var(post, X)
+    return μ, σ2
 end
 
 function mean_and_cov(post::ModelPosterior, X::AbstractMatrix{<:Real})
     μs = mean(post, X)
     Σs = cov(post, X)
-    return μs, Σs # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}}
+    return μs, Σs
 end
 
-function std(post::ModelPosteriorSlice, x::AbstractVector{<:Real})
-    return var(post, x) |> sqrt
-end
-function std(post::AbstractModelPosterior, X::AbstractArray{<:Real})
+function std(post::AbstractModelPosterior, X::AbstractVecOrMat{<:Real})
     return var(post, X) .|> sqrt
 end
 
-function mean_and_std(post::ModelPosteriorSlice, x::AbstractVector{<:Real})
-    μ, σ = mean_and_var(post, x)
-    return μ, sqrt(σ)
-end
-function mean_and_std(post::AbstractModelPosterior, X::AbstractArray{<:Real})
+function mean_and_std(post::AbstractModelPosterior, X::AbstractVecOrMat{<:Real})
     μs, σs = mean_and_var(post, X)
     return μs, sqrt.(σs)
 end
 
-function average_mean(posts::AbstractVector{<:AbstractModelPosterior}, X::AbstractArray{<:Real})
+function average_mean(posts::AbstractVector{<:AbstractModelPosterior}, X::AbstractVecOrMat{<:Real})
     return mean.(posts, Ref(X)) |> mean
 end
