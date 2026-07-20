@@ -118,7 +118,7 @@ end
 
 make_discrete(m::AbstractVector{<:Distribution}, discrete::AbstractVector{<:Bool}) = m
 
-sliceable(::NonstationaryGP) = true
+sliceable(::Type{<:NonstationaryGP}) = true
 
 function slice(model::NonstationaryGP, idx::Int)
     return NonstationaryGP(

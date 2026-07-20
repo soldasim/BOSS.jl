@@ -220,9 +220,8 @@ end
 # function make_discrete(model::TransformedModel, discrete::AbstractVector{Bool}) end
 
 # Model is only sliceable if base model is sliceable AND output transform is SlicedOutputTransform (or nothing)
-sliceable(model::TransformedModel{B, IN, Nothing}) where {B, IN} = sliceable(model.base_model)
-sliceable(model::TransformedModel{B, IN, SlicedOutputTransform}) where {B, IN} = sliceable(model.base_model)
-sliceable(model::TransformedModel{B, IN, JointOutputTransform}) where {B, IN} = false
+sliceable(::Type{<:TransformedModel{B, IN, OUT}}) where {B, IN, OUT<:Union{Nothing, SlicedOutputTransform}} = sliceable(B)
+sliceable(::Type{<:TransformedModel{B, IN, JointOutputTransform}}) where {B, IN} = false
 
 function slice(model::TransformedModel{B, IN, Nothing}, idx::Int) where {B, IN}
     return TransformedModel(

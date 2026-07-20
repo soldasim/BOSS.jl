@@ -40,6 +40,9 @@ function model_posterior(model::SurrogateModel, params::ModelParams, data::Exper
     return DefaultModelPosterior(slices)
 end
 
+# docstring in `src/types/problem.jl`
+slice(post::DefaultModelPosterior, idx::Int) = post.slices[idx]
+
 function mean(post::DefaultModelPosterior, x::AbstractVector{<:Real})
     return mean.(post.slices, Ref(x)) # ::AbstractVector{<:Real}
 end

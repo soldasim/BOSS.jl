@@ -69,7 +69,7 @@ end
 
 ### Sliceable model interface ###
 
-sliceable(::GradientGaussianProcess) = true
+sliceable(::Type{<:GradientGaussianProcess}) = true
 
 function slice(m::GradientGaussianProcess, idx::Int)
     # Inline the mean-slice logic to avoid depending on BOSS internals.

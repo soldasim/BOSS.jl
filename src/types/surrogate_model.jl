@@ -59,10 +59,10 @@ Additionally, the following methods are provided and *need not be implemented*:
 
 Models *may* implement:
 - `make_discrete(model::SurrogateModel, discrete::AbstractVector{Bool}) -> discrete_model::SurrogateModel`
-- `sliceable(::SurrogateModel) = true` (defaults to `false`)
+- `sliceable(::Type{<:SurrogateModel}) = true` (defaults to `false`)
 - `predictive_kind(::Type{<:SurrogateModel}) -> ::PredictiveKind` (defaults to `GaussianPredictive()`)
 
-If `sliceable(::SurrogateModel) == true`, then the model *should* additionally implement:
+If `sliceable(::Type{<:SurrogateModel}) == true`, then the model *should* additionally implement:
 - `slice(model::SurrogateModel, slice::Int) -> model_slice::SurrogateModel`
 - `slice(params::ModelParams, slice::Int) -> params_slice::ModelParams`
 - `join_slices(slices::AbstractVector{ModelParams}) -> params::ModelParams`
@@ -77,7 +77,8 @@ Then the model *should* additionally implement either
 - `predictive_samples(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}`
 or
 - `predictive_samples(::ModelPosterior, ::AbstractVector{<:Real}) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}`
-- `predictive_samples(::ModelPosterior, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractArray{<:Real, 3}, <:AbstractArray{<:Real, 3}}` .
+- `predictive_samples(::ModelPosterior, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractArray{<:Real, 3}, <:AbstractArray{<:Real, 3}}`
+depending on `sliceable(::ModelPosterior)` being true or false.
 
 See [`predictive_samples`](@ref) for the full contract.
 
@@ -114,13 +115,23 @@ with discrete or mixed `Domain`s.
 function make_discrete end
 
 """
+    sliceable(::Type{<:SurrogateModel}) -> ::Bool
     sliceable(::SurrogateModel) -> ::Bool
+    sliceable(::AbstractModelPosterior) -> ::Bool
 
 Returns `true` if the given surrogate model is sliceable along the output dimension.
 
 Making a `SurrogateModel` subtype sliceable allows for a more efficient MAP estimation of its parameters.
+
+Should be implemented **only** on the model's type, i.e. `sliceable(::Type{<:CustomModel}) = true`.
+The instance- and posterior-level methods (defined generically here and in
+[`ModelPosterior`](@ref)/[`ModelPosteriorSlice`](@ref)) forward to this type-level method
+automatically and should not be overridden separately — this keeps the trait's answer for a
+model, its instances, and its posteriors always in sync by construction (mirrors
+[`predictive_kind`](@ref)'s forwarding pattern).
 """
-sliceable(::SurrogateModel) = false
+sliceable(::M) where {M<:SurrogateModel} = sliceable(M)
+sliceable(::Type{<:SurrogateModel}) = false
 
 # docstring in `src/types/problem.jl`
 # function slice end

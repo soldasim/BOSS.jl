@@ -69,18 +69,53 @@ function construct_ei(fitness::Fitness, post::ModelPosterior, constraints::Nothi
     acq(x) = 0.
 end
 function construct_ei(fitness::Fitness, post::ModelPosterior, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Nothing)
-    acq(x) = feas_prob(mean_and_var(post, x)..., constraints)
+    acq(x) = _feas_prob(predictive_kind(post), post, x, constraints)
 end
 function construct_ei(fitness::Fitness, post::ModelPosterior, constraints::Nothing, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
-    acq(x) = expected_improvement(fitness, mean_and_var(post, x)..., ϵ_samples, best_yet)
+    acq(x) = _expected_improvement(predictive_kind(post), fitness, post, x, ϵ_samples, best_yet)
 end
 function construct_ei(fitness::Fitness, post::ModelPosterior, constraints::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
     function acq(x)
-        μ, σ2 = mean_and_var(post, x)
-        ei_ = expected_improvement(fitness, μ, σ2, ϵ_samples, best_yet)
-        fp_ = feas_prob(μ, σ2, constraints)
+        kind = predictive_kind(post)
+        ei_ = _expected_improvement(kind, fitness, post, x, ϵ_samples, best_yet)
+        fp_ = _feas_prob(kind, post, x, constraints)
         return ei_ * fp_
     end
+end
+
+function _expected_improvement(::GaussianPredictive, fitness::Fitness, post::ModelPosterior, x::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
+    return expected_improvement(fitness, mean_and_var(post, x)..., ϵ_samples, best_yet)
+end
+function _expected_improvement(::SampledPredictive, fitness::Fitness, post::ModelPosterior, x::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
+    Ys, Ws = predictive_samples(post, x)
+    return expected_improvement(fitness, Ys, vec(Ws), best_yet)
+end
+function _expected_improvement(::SampledPredictive, fitness::LinFitness, post::DefaultModelPosterior, x::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
+    @assert sliceable(post) "`DefaultModelPosterior` unexpectedly wraps a non-`sliceable` model; cannot assume its output dimensions are independent."
+    return _expected_improvement(GaussianPredictive(), fitness, post, x, ϵ_samples, best_yet)
+end
+function _expected_improvement(::SampledPredictive, fitness::NonlinFitness, post::DefaultModelPosterior, x::AbstractVector{<:Real}, ϵ_samples::AbstractArray{<:Real}, best_yet::Real)
+    @assert sliceable(post) "`DefaultModelPosterior` unexpectedly wraps a non-`sliceable` model; cannot assume its output dimensions are independent."
+    @warn "Computing EI for a `NonlinFitness` under a sliceable `SampledPredictive` model without genuine joint samples; falling back to a Gaussian-moment approximation, which may be inaccurate." maxlog=1
+    return _expected_improvement(GaussianPredictive(), fitness, post, x, ϵ_samples, best_yet)
+end
+
+function _feas_prob(::GaussianPredictive, post::ModelPosterior, x::AbstractVector{<:Real}, constraints::AbstractVector{<:Real})
+    return feas_prob(mean_and_var(post, x)..., constraints)
+end
+function _feas_prob(::SampledPredictive, post::ModelPosterior, x::AbstractVector{<:Real}, constraints::AbstractVector{<:Real})
+    Ys, Ws = predictive_samples(post, x)
+    return feas_prob(Ys, vec(Ws), constraints)
+end
+function _feas_prob(::SampledPredictive, post::DefaultModelPosterior, x::AbstractVector{<:Real}, constraints::AbstractVector{<:Real})
+    @assert sliceable(post) "`DefaultModelPosterior` unexpectedly wraps a non-`sliceable` model; cannot assume its output dimensions are independent."
+    return prod(
+        begin
+            ys, ws = predictive_samples(slice(post, i), x)
+            sum(ws[k] for k in eachindex(ys) if ys[k] < constraints[i]; init=0.)
+        end
+        for i in eachindex(post.slices)
+    )
 end
 
 # Construct averaged acquisition function from multiple sampled posteriors.
@@ -109,9 +144,19 @@ function expected_improvement(fitness::NonlinFitness, mean::AbstractVector{<:Rea
     pred_sample = mean .+ (sqrt.(var) .* ϵ)
     return max(0, fitness(pred_sample) - best_yet)
 end
+function expected_improvement(fitness::Fitness, Ys::AbstractMatrix{<:Real}, ws::AbstractVector{<:Real}, best_yet::Real)
+    return sum(ws[k] * max(0., fitness(view(Ys, :, k)) - best_yet) for k in axes(Ys, 2))
+end
 
-feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::Nothing) = 1.
-feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::AbstractVector{<:Real}) = prod(cdf.(Distributions.Normal.(mean, sqrt.(var)), constraints))
+function feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::Nothing)
+    return 1.
+end
+function feas_prob(mean::AbstractVector{<:Real}, var::AbstractVector{<:Real}, constraints::AbstractVector{<:Real})
+    return prod(cdf.(Distributions.Normal.(mean, sqrt.(var)), constraints))
+end
+function feas_prob(Ys::AbstractMatrix{<:Real}, ws::AbstractVector{<:Real}, constraints::AbstractVector{<:Real})
+    return sum(ws[k] for k in axes(Ys, 2) if all(view(Ys, :, k) .< constraints); init=0.)
+end
 
 ϵ_sample_count(post::ModelPosterior, ϵ_samples::Int) = ϵ_samples
 ϵ_sample_count(post::AbstractVector{<:ModelPosterior}, ϵ_samples::Int) = length(post)

@@ -181,6 +181,9 @@ function mean_and_cov end
 # See `predictive_kind`'s docstring (in `types/surrogate_model.jl`).
 predictive_kind(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = predictive_kind(M)
 
+# See `sliceable`'s docstring (in `types/surrogate_model.jl`).
+sliceable(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = sliceable(M)
+
 """
     predictive_samples(::ModelPosteriorSlice, ::AbstractVector{<:Real}) -> ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
     predictive_samples(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}

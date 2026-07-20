@@ -127,7 +127,7 @@ make_discrete(m::WarpedGaussianProcess, discrete::AbstractVector{Bool}) =
 
 ### Sliceable model interface ###
 
-sliceable(::WarpedGaussianProcess) = true
+sliceable(::Type{<:WarpedGaussianProcess}) = true
 
 function slice(m::WarpedGaussianProcess, idx::Int)
     return WarpedGaussianProcess(

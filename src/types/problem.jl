@@ -155,6 +155,16 @@ a single-dimensional of the given object corresponding to the specified output d
     slice(::ExperimentData, idx::Int) -> ::ExperimentData
 
 Return a new `ExperimentData` instance containing only the output dimension specified by the `idx` index.
+
+---
+
+    slice(::DefaultModelPosterior, idx::Int) -> ::ModelPosteriorSlice
+
+Return the `idx`-th per-dimension `ModelPosteriorSlice` bundled inside a [`DefaultModelPosterior`](@ref)
+(i.e. the posterior of a model that only implements `model_posterior_slice`, not `model_posterior`).
+Only defined for `DefaultModelPosterior`, since it's the only `ModelPosterior` type that actually stores
+independently-computed per-dimension slices to hand back — a genuinely jointly-modeled `ModelPosterior`
+has no valid way to be "sliced" like this.
 """
 function slice(problem::BossProblem, idx::Int)    
     return BossProblem(
