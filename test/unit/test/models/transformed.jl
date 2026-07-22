@@ -164,8 +164,8 @@ BOSS.model_posterior(::_ToyJointSampledModel, ::_ToyJointSampledParams, ::Experi
 const _TOY_YS = [1. 2. 3. 4.; 2. 4. 6. 8.]
 const _TOY_WS = reshape([.1, .4, .4, .1], 1, :)
 
-BOSS.predictive_samples(::_ToyJointSampledPosterior, ::AbstractVector{<:Real}) = (_TOY_YS, _TOY_WS)
-function BOSS.predictive_samples(::_ToyJointSampledPosterior, X::AbstractMatrix{<:Real})
+BOSS.predictive_samples(::_ToyJointSampledPosterior, ::AbstractVector{<:Real}; kwargs...) = (_TOY_YS, _TOY_WS)
+function BOSS.predictive_samples(::_ToyJointSampledPosterior, X::AbstractMatrix{<:Real}; kwargs...)
     n = size(X, 2)
     return cat(fill(_TOY_YS, n)...; dims=3), cat(fill(_TOY_WS, n)...; dims=3)
 end

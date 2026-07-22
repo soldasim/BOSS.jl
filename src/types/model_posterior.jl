@@ -185,14 +185,16 @@ predictive_kind(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = predict
 sliceable(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = sliceable(M)
 
 """
-    predictive_samples(::ModelPosteriorSlice, ::AbstractVector{<:Real}) -> ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
-    predictive_samples(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}
-    predictive_samples(::ModelPosterior, ::AbstractVector{<:Real}) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}
-    predictive_samples(::ModelPosterior, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractArray{<:Real, 3}, <:AbstractArray{<:Real, 3}}
+    predictive_samples(::ModelPosteriorSlice, ::AbstractVector{<:Real}; kwargs...) -> ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
+    predictive_samples(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}; kwargs...) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}
+    predictive_samples(::ModelPosterior, ::AbstractVector{<:Real}; kwargs...) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}
+    predictive_samples(::ModelPosterior, ::AbstractMatrix{<:Real}; kwargs...) -> ::Tuple{<:AbstractArray{<:Real, 3}, <:AbstractArray{<:Real, 3}}
 
 Return a weighted discretization `{(yₖ, wₖ)}` of the (possibly non-Gaussian) posterior predictive
 distribution at the given point(s), with `sum(ws) == 1`. "Samples" may be deterministic quadrature
 nodes, weighted MC/MCMC draws, or any other weighted-point representation.
+
+`kwargs...` are model-specific options forwarded down the redirection chain.
 
 ## Shapes
 

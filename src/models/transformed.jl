@@ -355,9 +355,7 @@ function _transform_output_forward(transform::SlicedOutputTransform, μs_::Abstr
     return μs, σs
 end
 
-# Transforms: pointwise output forward for predictive sample atoms (no std) — used by
-# `predictive_samples` to push each joint atom (a `y_dim`-length vector) through the transform
-# exactly, via the pointwise `forward` method required by `OutputTransform` (see its docstring).
+# Transforms: pointwise output forward
 function _transform_output_forward_samples(transform::JointOutputTransform, y_::AbstractVector{<:Real})
     return transform.forward(y_)
 end
@@ -371,10 +369,7 @@ function _transform_output_forward_samples(transform::OutputTransform, Ys_::Abst
     return cat([_transform_output_forward_samples(transform, Ys_[:, :, j]) for j in axes(Ys_, 3)]...; dims=3)
 end
 
-# Weighted mean/variance computed directly from `predictive_samples` atoms, bypassing the
-# delta-method linearization in `_transform_output_forward`. Used for `TransformedPosteriorSlice`,
-# whose atom shapes match `predictive_samples`' `ModelPosteriorSlice` contract: `ys`/`ws` are
-# length-`K` vectors (single point), `Ys`/`Ws` are `(K, n)` matrices (`n` points).
+# Weighted mean/var/cov copmutations
 function _weighted_mean_and_var(ys::AbstractVector{<:Real}, ws::AbstractVector{<:Real})
     μ = sum(ws .* ys)
     σ2 = sum(ws .* (ys .- μ) .^ 2)
@@ -386,9 +381,6 @@ function _weighted_mean_and_var(Ys::AbstractMatrix{<:Real}, Ws::AbstractMatrix{<
     return μs, σ2s
 end
 
-# Same, for `TransformedPosterior`'s joint atom shapes: `Ys`/`Ws` are `(y_dim, K)`/`(1, K)` (single
-# point), `Ys`/`Ws` are `(y_dim, K, n)`/`(1, K, n)` (`n` points) — see `predictive_samples`'s shape
-# contract. `Ws`'s leading singleton dimension holds the one weight shared across output dimensions.
 function _weighted_mean_and_var_joint(Ys::AbstractMatrix{<:Real}, Ws::AbstractMatrix{<:Real})
     @assert size(Ws, 1) == 1
     ws = vec(Ws)
@@ -427,7 +419,7 @@ function _weighted_mean_and_cov_joint(Ys::AbstractArray{<:Real, 3}, Ws::Abstract
 end
 
 
-## Posterior Methods
+## Joint Posterior Methods
 
 function mean(post::TransformedPosterior{B, IN, Nothing}, X::AbstractVecOrMat{<:Real}) where {B, IN}
     X_ = _transform_input_forward(post.input_transform, X)
@@ -484,10 +476,6 @@ function mean_and_cov(post::TransformedPosterior{B, IN, OUT}, X::AbstractMatrix{
     return _mean_and_cov_kind(predictive_kind(B), post, X)
 end
 
-# Joint atoms allow an exact joint covariance regardless of transform shape (unlike the
-# delta-method linearization below, which has no way to propagate a *joint* Jacobian through
-# `mean_and_var`-only base posteriors), so one method covers both `SlicedOutputTransform` and
-# `JointOutputTransform`.
 function _mean_and_cov_kind(::SampledPredictive, post::TransformedPosterior, X::AbstractMatrix{<:Real})
     Ys, Ws = predictive_samples(post, X)
     return _weighted_mean_and_cov_joint(Ys, Ws)
@@ -515,28 +503,24 @@ function _mean_and_cov_kind(::GaussianPredictive, post::TransformedPosterior{B, 
     error("Cannot compute covariance with joint output transform. Use mean_and_var instead.")
 end
 
-# `OUT === Nothing`: no transform needed, just delegate.
-function predictive_samples(post::TransformedPosterior{B, IN, Nothing}, x::AbstractVecOrMat{<:Real}) where {B, IN}
+function predictive_samples(post::TransformedPosterior{B, IN, Nothing}, x::AbstractVecOrMat{<:Real}; kwargs...) where {B, IN}
     x_ = _transform_input_forward(post.input_transform, x)
-    return predictive_samples(post.base_posterior, x_)
+    return predictive_samples(post.base_posterior, x_; kwargs...)
 end
-# `OUT<:OutputTransform`: push each of `base_model`'s own sample atoms through the transform's
-# pointwise `forward` method exactly; weights are unaffected (a deterministic relabeling of atoms
-# doesn't change their probability mass).
-function predictive_samples(post::TransformedPosterior{B, IN, OUT}, x::AbstractVecOrMat{<:Real}) where {B, IN, OUT<:OutputTransform}
+function predictive_samples(post::TransformedPosterior{B, IN, OUT}, x::AbstractVecOrMat{<:Real}; lower::Real=-Inf, upper::Real=Inf, kwargs...) where {B, IN, OUT<:OutputTransform}
+    (isinf(lower) && isinf(upper)) || error(
+        "`predictive_samples` with finite `lower`/`upper` is not supported for a joint " *
+        "`TransformedPosterior{$B, $IN, $OUT}` -- the bounds would need to be mapped through " *
+        "`output_transform`'s backward direction first, which isn't implemented for this case."
+    )
     x_ = _transform_input_forward(post.input_transform, x)
-    Ys_, Ws = predictive_samples(post.base_posterior, x_)
+    Ys_, Ws = predictive_samples(post.base_posterior, x_; kwargs...)
     Ys = _transform_output_forward_samples(post.output_transform, Ys_)
     return Ys, Ws
 end
 
 
-## Posterior Methods — `TransformedPosteriorSlice`
-#
-# Mirrors the `TransformedPosterior` methods above one-to-one, just operating on a
-# `ModelPosteriorSlice{B}` (scalars/vectors) instead of a `ModelPosterior{B}` (vectors/matrices).
-# Only `Nothing` and `SlicedOutputTransform` appear here, since `JointOutputTransform` is not
-# sliceable (see `sliceable` above) and so never reaches `model_posterior_slice`/`TransformedPosteriorSlice`.
+## Sliced Posterior Methods
 
 function mean(post::TransformedPosteriorSlice{B, IN, Nothing}, X::AbstractVecOrMat{<:Real}) where {B, IN}
     X_ = _transform_input_forward(post.input_transform, X)
@@ -582,9 +566,7 @@ function _mean_and_var_kind(::GaussianPredictive, post::TransformedPosteriorSlic
     x_ = _transform_input_forward(post.input_transform, x)
     μ_, σ2_ = mean_and_var(post.base_posterior_slice, x_) # scalars
     σ_ = sqrt(σ2_)
-    # wrap the scalar mean/std as length-1 vectors to reuse `_transform_output_forward`'s
-    # `SlicedOutputTransform` method (whose `output_transform` here already holds only this one
-    # dimension's `forward`/`backward` pair, sliced out in `model_posterior_slice` above), then unwrap.
+    # wrap the scalar mean/std as length-1 vectors to reuse `_transform_output_forward`, then unwrap.
     μ, σ = _transform_output_forward(post.output_transform, [μ_], [σ_])
     return μ[1], σ[1]^2
 end
@@ -637,17 +619,21 @@ function _mean_and_cov_kind(::GaussianPredictive, post::TransformedPosteriorSlic
     return vec(μs), Σs_ # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
 end
 
-# `OUT === Nothing`: no transform needed, just delegate.
-function predictive_samples(post::TransformedPosteriorSlice{B, IN, Nothing}, x::AbstractVecOrMat{<:Real}) where {B, IN}
+function predictive_samples(post::TransformedPosteriorSlice{B, IN, Nothing}, x::AbstractVecOrMat{<:Real}; kwargs...) where {B, IN}
     x_ = _transform_input_forward(post.input_transform, x)
-    return predictive_samples(post.base_posterior_slice, x_)
+    return predictive_samples(post.base_posterior_slice, x_; kwargs...)
 end
-# `SlicedOutputTransform`: `post.output_transform` here already holds only this one dimension's
-# `forward`/`backward` pair (sliced out in `model_posterior_slice` above), so its pointwise
-# `forward[1]` broadcasts directly over the atoms; weights are unaffected.
-function predictive_samples(post::TransformedPosteriorSlice{B, IN, SlicedOutputTransform}, x::AbstractVecOrMat{<:Real}) where {B, IN}
+function predictive_samples(post::TransformedPosteriorSlice{B, IN, SlicedOutputTransform}, x::AbstractVecOrMat{<:Real}; lower::Real=-Inf, upper::Real=Inf, kwargs...) where {B, IN}
     x_ = _transform_input_forward(post.input_transform, x)
-    ys_, ws = predictive_samples(post.base_posterior_slice, x_)
+    if isinf(lower) && isinf(upper)
+        lower_, upper_ = lower, upper
+    else
+        bwd = post.output_transform.backward[1]
+        lo_ = isinf(lower) ? lower : bwd(lower)
+        hi_ = isinf(upper) ? upper : bwd(upper)
+        lower_, upper_ = min(lo_, hi_), max(lo_, hi_)
+    end
+    ys_, ws = predictive_samples(post.base_posterior_slice, x_; lower=lower_, upper=upper_, kwargs...)
     ys = post.output_transform.forward[1].(ys_)
     return ys, ws
 end

@@ -120,9 +120,17 @@ struct WarpedGaussianProcessParams{
     warp::W
 end
 
-make_discrete(m::WarpedGaussianProcess, discrete::AbstractVector{Bool}) =
-    WarpedGaussianProcess(m.mean, make_discrete(m.kernel, discrete), m.lengthscale_priors,
-        m.amplitude_priors, m.noise_std_priors, m.output_warpings, m.quad_nodes)
+function make_discrete(m::WarpedGaussianProcess, discrete::AbstractVector{Bool})
+    return WarpedGaussianProcess(
+        m.mean,
+        make_discrete(m.kernel, discrete),
+        m.lengthscale_priors,
+        m.amplitude_priors,
+        m.noise_std_priors,
+        m.output_warpings,
+        m.quad_nodes,
+    )
+end
 
 
 ### Sliceable model interface ###
@@ -172,6 +180,23 @@ function _gauss_hermite(n::Int)
     E = eigen(SymTridiagonal(zeros(n), β))
     nodes = E.values
     weights = sqrt(π) .* (E.vectors[1, :] .^ 2)
+    return nodes, weights
+end
+
+
+### Gauss-Legendre quadrature (for truncated predictive quadrature) ###
+
+"""
+Compute the `n`-point Gauss-Legendre quadrature nodes (in `[-1, 1]`) and weights (`Σ wₖ = 2`) via
+the Golub-Welsch algorithm. Used by `_truncated_predictive_points` to build a quadrature for a
+*truncated* latent Gaussian via the probability-integral transform.
+"""
+function _gauss_legendre(n::Int)
+    n == 1 && return ([0.0], [2.0])
+    β = [k / sqrt(4 * k^2 - 1) for k in 1:n-1]
+    E = eigen(SymTridiagonal(zeros(n), β))
+    nodes = E.values
+    weights = 2 .* (E.vectors[1, :] .^ 2)
     return nodes, weights
 end
 
@@ -228,15 +253,72 @@ function model_posterior_slice(
 end
 
 """
-Return the Gauss-Hermite quadrature points `ys` (back-transformed to observation space via the
-analytical inverse warping) and normalized weights `ws` (summing to 1) representing the
-predictive distribution given a latent Gaussian `N(m, σ2)`. Shared by `_back_transform` and
+Return the quadrature points `ys` (back-transformed to observation space via the analytical
+inverse warping) and normalized weights `ws` (summing to 1) representing the predictive
+distribution given a latent Gaussian `N(m, σ2)`. Shared by `_back_transform` and
 `predictive_samples`.
+
+If `lower`/`upper` are finite, the returned atoms are guaranteed to lie in `[lower, upper]` — NOT
+by drawing the usual (untruncated) Gauss-Hermite nodes and rejecting whichever fall outside
+afterward (which can degenerate to zero surviving atoms), but by building a dedicated quadrature
+for the *truncated* latent Gaussian `N(m, σ2)` restricted to `[φ(lower), φ(upper)]`, via
+`_truncated_predictive_points`. Every resulting atom is in-range by construction — no rejection,
+no renormalization of a partial atom set, no risk of an empty atom set.
 """
-function _predictive_points(post::WarpedGaussianProcessPosterior, m::Real, σ2::Real)
+function _predictive_points(post::WarpedGaussianProcessPosterior, m::Real, σ2::Real; lower::Real=-Inf, upper::Real=Inf)
     s = sqrt(max(σ2, zero(σ2)))
+    (isinf(lower) && isinf(upper)) || return _truncated_predictive_points(post, m, s, lower, upper)
     ys = warp_inverse.(Ref(post.warping), Ref(post.warp_params), m .+ (sqrt(2) * s) .* post.nodes)
     ws = post.weights .* inv(sqrt(π))
+    return ys, ws
+end
+
+"""
+Truncated-domain variant of `_predictive_points`: builds an `n`-point quadrature (`n =
+length(post.nodes)`) for the latent Gaussian `N(m, s²)` restricted to `[φ(lower), φ(upper)]`,
+guaranteeing every atom lands in `[lower, upper]` in observation space.
+
+Mechanism (probability-integral transform of the *truncated* CDF): standardize the domain bounds
+in latent space (`a, b`), read off the untruncated standard-normal mass below each (`Φa, Φb`), then
+map `n` fixed Gauss-Legendre nodes on `(0,1)` into the sub-interval `(Φa, Φb)` and invert them
+through the standard normal quantile function. This is exact for the reparametrized integral over
+`(0,1)` (Gauss-Legendre is polynomial-exact there), unlike naively rescaling the untruncated
+Gauss-Hermite nodes into the truncated interval, which would not integrate correctly against the
+truncated-Gaussian measure. No renormalization is needed: the reparametrization already bakes in
+the truncated distribution's normalizing constant `Φb - Φa`.
+"""
+function _truncated_predictive_points(post::WarpedGaussianProcessPosterior, m::Real, s::Real, lower::Real, upper::Real)
+    if s <= 0
+        # Degenerate latent variance: the whole predictive mass sits at a single point `m`, so
+        # standardizing by `s` (division by zero) is meaningless -- just clamp the single atom.
+        y = warp_inverse(post.warping, post.warp_params, m)
+        return [clamp(y, lower, upper)], [1.0]
+    end
+
+    δ_lo = isinf(lower) ? typeof(m)(lower) : warp_forward(post.warping, post.warp_params, lower)
+    δ_hi = isinf(upper) ? typeof(m)(upper) : warp_forward(post.warping, post.warp_params, upper)
+    @assert δ_lo < δ_hi "`lower`/`upper` map to a degenerate (empty or reversed) latent-space range."
+
+    stdnorm = Normal()
+    a = isinf(δ_lo) ? δ_lo : (δ_lo - m) / s
+    b = isinf(δ_hi) ? δ_hi : (δ_hi - m) / s
+    Φa, Φb = cdf(stdnorm, a), cdf(stdnorm, b)
+
+    if Φb - Φa < 1e-300
+        # The model puts (numerically) all mass outside [lower, upper]: fall back to a single atom
+        # at the truncated range's midpoint (in latent space) rather than crashing -- a graceful
+        # degenerate case, not a fatal one. (Only reachable when both bounds are finite: if either
+        # is infinite, Φb - Φa can only underflow this way when BOTH are, which would already have
+        # failed the `δ_lo < δ_hi` assertion above.)
+        δ_mid = (δ_lo + δ_hi) / 2
+        return [warp_inverse(post.warping, post.warp_params, δ_mid)], [1.0]
+    end
+
+    u, wl = _gauss_legendre(length(post.nodes)) # u ∈ (-1,1) strictly, Σwl = 2
+    p = Φa .+ ((u .+ 1) ./ 2) .* (Φb - Φa)      # p ∈ (Φa,Φb) ⊂ (0,1) strictly ⇒ quantile(p) finite
+    δ = m .+ s .* quantile.(stdnorm, p)
+    ys = warp_inverse.(Ref(post.warping), Ref(post.warp_params), δ)
+    ws = wl ./ 2                                 # rescale Σwl=2 to sum to 1
     return ys, ws
 end
 
@@ -309,13 +391,21 @@ end
 
 predictive_kind(::Type{<:WarpedGaussianProcess}) = SampledPredictive()
 
-function predictive_samples(post::WarpedGaussianProcessPosterior, x::AbstractVector{<:Real})
+"""
+    predictive_samples(post::WarpedGaussianProcessPosterior, x; lower=-Inf, upper=Inf, kwargs...)
+
+Accepts optional `lower`/`upper` keywords restricting the returned atoms to the observation-space
+range `[lower, upper]` (see `_predictive_points`). Any other `kwargs...` are accepted and ignored,
+since `predictive_samples` cannot dispatch on keyword arguments and callers further up the
+redirection chain may forward keywords meant for other model types.
+"""
+function predictive_samples(post::WarpedGaussianProcessPosterior, x::AbstractVector{<:Real}; lower::Real=-Inf, upper::Real=Inf, kwargs...)
     m, σ2 = post.post_gp(hcat(x); obsdim=2) |> mean_and_var .|> first
-    return _predictive_points(post, m, σ2) # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
+    return _predictive_points(post, m, σ2; lower, upper) # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 end
-function predictive_samples(post::WarpedGaussianProcessPosterior, X::AbstractMatrix{<:Real})
+function predictive_samples(post::WarpedGaussianProcessPosterior, X::AbstractMatrix{<:Real}; lower::Real=-Inf, upper::Real=Inf, kwargs...)
     ms, σ2s = post.post_gp(X; obsdim=2) |> mean_and_var
-    pts = _predictive_points.(Ref(post), ms, σ2s) # ::AbstractVector{<:Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}}, one per point
+    pts = _predictive_points.(Ref(post), ms, σ2s; lower, upper) # ::AbstractVector{<:Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}}, one per point
     Ys = hcat(first.(pts)...) # (K, n)
     Ws = hcat(last.(pts)...)  # (K, n)
     return Ys, Ws
