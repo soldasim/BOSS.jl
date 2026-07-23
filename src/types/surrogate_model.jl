@@ -61,6 +61,11 @@ Models *may* implement:
 - `make_discrete(model::SurrogateModel, discrete::AbstractVector{Bool}) -> discrete_model::SurrogateModel`
 - `sliceable(::Type{<:SurrogateModel}) = true` (defaults to `false`)
 - `predictive_kind(::Type{<:SurrogateModel}) -> ::PredictiveKind` (defaults to `GaussianPredictive()`)
+- `dimension_independent_given_parameters(::Type{<:SurrogateModel}) = true` (defaults to `false`) —
+    declares that the model's output dimensions are mutually independent under its posterior
+    predictive distribution, given a single fixed set of model parameters (see
+    [`dimension_independent`](@ref) for the derived, parameter-uncertainty-aware combination with
+    [`sliceable`](@ref))
 
 If `sliceable(::Type{<:SurrogateModel}) == true`, then the model *should* additionally implement:
 - `slice(model::SurrogateModel, slice::Int) -> model_slice::SurrogateModel`
@@ -132,6 +137,47 @@ model, its instances, and its posteriors always in sync by construction (mirrors
 """
 sliceable(::M) where {M<:SurrogateModel} = sliceable(M)
 sliceable(::Type{<:SurrogateModel}) = false
+
+"""
+    dimension_independent_given_parameters(::Type{<:SurrogateModel}) -> ::Bool
+    dimension_independent_given_parameters(::SurrogateModel) -> ::Bool
+    dimension_independent_given_parameters(::AbstractModelPosterior) -> ::Bool
+
+Returns `true` if the model's output dimensions `Y_1, ..., Y_D` are mutually independent under its
+posterior predictive distribution **given one fixed set of model parameters** — i.e. what a single
+`ModelPosterior` represents. Distinct from [`sliceable`](@ref) (whether the model *can* be split
+into per-dimension pieces for fitting); see [`dimension_independent`](@ref) for how they combine.
+
+This licenses `E[∏ᵢ fᵢ(Yᵢ)] = ∏ᵢ E[fᵢ(Yᵢ)]` only for a single `ModelPosterior`. It's not enough
+once parameter uncertainty is marginalized over (e.g. Bayesian/BI averaging): a shared, uncertain
+parameter (e.g. a trend fit jointly across dimensions) can leave dimensions conditionally
+independent yet marginally dependent.
+
+Defaults to `false`. Should be implemented **only** on the model's type, mirroring
+[`sliceable`](@ref)'s forwarding pattern — do not override the instance-/posterior-level methods
+separately.
+"""
+dimension_independent_given_parameters(::M) where {M<:SurrogateModel} = dimension_independent_given_parameters(M)
+dimension_independent_given_parameters(::Type{<:SurrogateModel}) = false
+
+"""
+    dimension_independent(::Type{<:SurrogateModel}) -> ::Bool
+    dimension_independent(::SurrogateModel) -> ::Bool
+    dimension_independent(::AbstractModelPosterior) -> ::Bool
+
+Returns `true` if the model's output dimensions are mutually independent **unconditionally** —
+even after marginalizing parameter uncertainty (e.g. Bayesian/BI averaging), not just given one
+fixed parameter draw (see [`dimension_independent_given_parameters`](@ref) for that weaker form).
+
+Computed as `sliceable(M) && dimension_independent_given_parameters(M)`: `sliceable` guarantees no
+parameter is shared across dimensions, so there's no latent uncertainty left to correlate them
+upon marginalization.
+
+A **derived** trait — do not override it directly; implement
+[`dimension_independent_given_parameters`](@ref) and/or [`sliceable`](@ref) instead.
+"""
+dimension_independent(::M) where {M<:SurrogateModel} = dimension_independent(M)
+dimension_independent(M::Type{<:SurrogateModel}) = sliceable(M) && dimension_independent_given_parameters(M)
 
 # docstring in `src/types/problem.jl`
 # function slice end

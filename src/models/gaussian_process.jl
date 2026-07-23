@@ -83,6 +83,7 @@ param_lengths(params::GaussianProcessParams) = (length(params.λ), length(params
 param_shapes(params::GaussianProcessParams) = (size(params.λ), size(params.α), size(params.σ))
 
 sliceable(::Type{<:GaussianProcess}) = true
+dimension_independent_given_parameters(::Type{<:GaussianProcess}) = true
 
 function slice(m::GaussianProcess, idx::Int)
     return GaussianProcess(

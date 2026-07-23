@@ -191,6 +191,14 @@ GaussianPredictive
 SampledPredictive
 ```
 
+A [`SurrogateModel`](@ref) can also declare a few boolean traits describing structural properties useful to code built on top of BOSS.jl (e.g. BOSIP.jl). [`BOSS.sliceable`](@ref) declares whether the model's *parameters* decompose into independent per-output-dimension pieces (enabling more efficient fitting via `slice`/`join_slices`). [`BOSS.dimension_independent_given_parameters`](@ref) declares whether the model's output dimensions `Y_1, ..., Y_D` are mutually independent under the posterior predictive *given one fixed set of parameters* (i.e. what a single [`ModelPosterior`](@ref) represents). [`BOSS.dimension_independent`](@ref) is a derived trait combining the two: it is `true` only when the dimensions remain independent *unconditionally*, i.e. even after also accounting for parameter uncertainty (e.g. Bayesian/BI averaging over multiple parameter samples).
+
+```@docs
+BOSS.sliceable
+BOSS.dimension_independent_given_parameters
+BOSS.dimension_independent
+```
+
 
 ## Model Parameters
 

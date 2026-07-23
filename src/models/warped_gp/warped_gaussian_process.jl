@@ -136,6 +136,7 @@ end
 ### Sliceable model interface ###
 
 sliceable(::Type{<:WarpedGaussianProcess}) = true
+dimension_independent_given_parameters(::Type{<:WarpedGaussianProcess}) = true
 
 function slice(m::WarpedGaussianProcess, idx::Int)
     return WarpedGaussianProcess(

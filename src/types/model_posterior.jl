@@ -184,6 +184,12 @@ predictive_kind(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = predict
 # See `sliceable`'s docstring (in `types/surrogate_model.jl`).
 sliceable(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = sliceable(M)
 
+# See `dimension_independent_given_parameters`'s docstring (in `types/surrogate_model.jl`).
+dimension_independent_given_parameters(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = dimension_independent_given_parameters(M)
+
+# See `dimension_independent`'s docstring (in `types/surrogate_model.jl`).
+dimension_independent(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = dimension_independent(M)
+
 """
     predictive_samples(::ModelPosteriorSlice, ::AbstractVector{<:Real}; kwargs...) -> ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
     predictive_samples(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}; kwargs...) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}

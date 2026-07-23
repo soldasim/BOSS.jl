@@ -223,6 +223,10 @@ end
 sliceable(::Type{<:TransformedModel{B, IN, OUT}}) where {B, IN, OUT<:Union{Nothing, SlicedOutputTransform}} = sliceable(B)
 sliceable(::Type{<:TransformedModel{B, IN, JointOutputTransform}}) where {B, IN} = false
 
+# Model is only dim-independent (given parameters) if base model is sliceable AND output transform is SlicedOutputTransform (or nothing)
+dimension_independent_given_parameters(::Type{<:TransformedModel{B, IN, OUT}}) where {B, IN, OUT<:Union{Nothing, SlicedOutputTransform}} = dimension_independent_given_parameters(B)
+dimension_independent_given_parameters(::Type{<:TransformedModel{B, IN, JointOutputTransform}}) where {B, IN} = false
+
 function slice(model::TransformedModel{B, IN, Nothing}, idx::Int) where {B, IN}
     return TransformedModel(
         base_model = slice(model.base_model, idx),
