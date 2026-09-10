@@ -29,8 +29,8 @@ function SampleOptMAP(;
     isnothing(autodiff) && (autodiff = SciMLBase.NoAD())
     @assert samples >= multistart
     return SampleOptMAP(
-        SamplingMAP(samples, parallel),
-        OptimizationMAP(algorithm, multistart, parallel, autodiff, kwargs),
+        SamplingMAP(; samples, parallel, safe=false),
+        OptimizationMAP(; algorithm, multistart, parallel, autodiff, safe=true, kwargs...),
     )
 end
 
@@ -40,7 +40,7 @@ function estimate_parameters(fitter::SampleOptMAP, problem::BossProblem, options
 
     params = estimate_parameters(sampler, problem, options; return_all=true)
     
-    sample_score = sortperm(getfield.(params, Ref(:loglike)); rev=true)
+    sample_score = sortperm(getfield.(params, Ref(:logpost)); rev=true)
     starts = getfield.(params[sample_score[1:opt.multistart]], Ref(:params))
 
     params = estimate_parameters(set_starts(opt, starts), problem, options; return_all)

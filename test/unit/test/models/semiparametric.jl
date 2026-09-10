@@ -192,7 +192,7 @@ end
     end
 end
 
-@testset "model_loglike(model, data)" begin
+@testset "model_logpost(model, data)" begin
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
     
@@ -212,7 +212,7 @@ end
     )
     data = ExperimentData(X, Y)
 
-    @param_test BOSS.model_loglike begin
+    @param_test BOSS.model_logpost begin
         @params deepcopy(model), deepcopy(data)
         @success (
             out isa Function,
@@ -275,7 +275,7 @@ end
     end
 end
 
-@testset "params_loglike(model)" begin
+@testset "params_logprior(model)" begin
     model = Semiparametric(
         NonlinearModel(;
             predict = (x, θ) -> [
@@ -291,7 +291,7 @@ end
         ),
     )
 
-    @param_test BOSS.params_loglike begin
+    @param_test BOSS.params_logprior begin
         @params model
         @success (
             out(SemiparametricParams([1., 1., 1., 1.], [1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.1])) isa Real,

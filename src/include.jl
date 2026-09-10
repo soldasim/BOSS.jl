@@ -8,13 +8,15 @@ include("surrogate_model.jl")
 include("posterior.jl")
 include("params_prior.jl")
 include("bo.jl")
-include("plot.jl")
 
 # Modules
 include("data/include.jl")
 include("acquisitions/include.jl")
 include("models/include.jl")
 include("term_conds/include.jl")
+
+# Callbacks
+include("callbacks/include.jl")
 
 # Algorithms
 include("model_fitters/include.jl")

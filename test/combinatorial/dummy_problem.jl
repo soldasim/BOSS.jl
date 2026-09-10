@@ -9,7 +9,7 @@ function create_problem(val)
     problem = construct_problem(val)
     model_fitter = construct_model_fitter(Val(val("ModelFitter")), val)
     acq_maximizer = construct_acq_maximizer(Val(val("AcquisitionMaximizer")), val, problem)
-    options = BossOptions(; info=true, debug=true)
+    options = BossOptions(; info=true, debug=false)
     term_cond = IterLimit(val("iter_max"))
 
     if ismissing(problem.f)
@@ -109,11 +109,11 @@ end
 function construct_model_fitter(::Val{:Turing}, val)
     # low sample count to improve test runtime
     return TuringBI(;
-        sampler = PG(20),
-        warmup = 10,#100,
-        samples_in_chain = 2,#10,
-        chain_count = 2,#8,
-        leap_size = 3,#5,
+        sampler = NUTS(20, 0.65),
+        warmup = 10, #200,
+        samples_in_chain = 2, #10,
+        chain_count = 2, #12,
+        leap_size = 3, #5,
         parallel = val("ModelFitter_parallel"),
     )
 end

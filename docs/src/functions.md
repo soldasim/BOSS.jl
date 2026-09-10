@@ -35,6 +35,8 @@ augment_dataset!
 construct_acquisition
 model_posterior
 model_posterior_slice
+predictive_kind
+predictive_samples
 ```
 
 ## Utility Functions

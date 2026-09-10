@@ -118,7 +118,8 @@ end
 
 make_discrete(m::AbstractVector{<:Distribution}, discrete::AbstractVector{<:Bool}) = m
 
-sliceable(::NonstationaryGP) = true
+sliceable(::Type{<:NonstationaryGP}) = true
+dimension_independent_given_parameters(::Type{<:NonstationaryGP}) = true
 
 function slice(model::NonstationaryGP, idx::Int)
     return NonstationaryGP(
@@ -150,33 +151,43 @@ function join_slices(slices::AbstractVector{<:NonstationaryGPParams})
     return NonstationaryGPParams(λ, α, σ)
 end
 
-function model_posterior_slice(model::NonstationaryGP, params::NonstationaryGPParams, data::ExperimentData, slice::Int)    
-    gp = finite_nongp(model, params, data, slice)
-    gp_post = AbstractGPs.posterior(gp, data.Y[slice,:])
-    return GaussianProcessPosterior(gp_post) # -> gaussian_process.jl
+"""
+See [`BOSS._posdef_retry`](@ref) for the retry behavior on a non-positive-definite
+covariance matrix. The jitter scale is the maximum modeled amplitude over `data.X`
+(amplitude may vary spatially under a nonstationary amplitude model).
+"""
+function model_posterior_slice(model::NonstationaryGP, params::NonstationaryGPParams, data::ExperimentData, slice::Int)
+    f_α = _param_posterior_slice(model.amplitude_model, params.α, data, slice)
+    amplitude_scale = maximum(f_α.(eachcol(data.X)))
+
+    gp_post = BOSS._posdef_retry(amplitude_scale; context="NonstationaryGP model_posterior_slice, slice $slice") do jitter
+        gp = finite_nongp(model, params, data, slice; jitter)
+        AbstractGPs.posterior(gp, data.Y[slice,:])
+    end
+    return GaussianProcessPosterior(gp_post) # -> gaussian_process.jl
 end
 
-function finite_nongp(model::NonstationaryGP, params::NonstationaryGPParams, data::ExperimentData, slice::Int)
+function finite_nongp(model::NonstationaryGP, params::NonstationaryGPParams, data::ExperimentData, slice::Int; jitter::Real=0.0)
     f_λ = _param_posterior_slice(model.lengthscale_model, params.λ, data, slice)
     f_α = _param_posterior_slice(model.amplitude_model, params.α, data, slice)
     f_σ = _param_posterior_slice(model.noise_std_model, params.σ, data, slice)
 
     mean_ = mean_getindex(model.mean, slice) # -> gaussian_process.jl
 
-    return finite_nongp(data.X, mean_, f_λ, f_α, f_σ, model.discrete)
+    return finite_nongp(data.X, mean_, f_λ, f_α, f_σ, model.discrete; jitter)
 end
 
 # Can only be evaluated at the points present in the dataset,
 # but is significantly cheaper to compute as it does no require
 # constructing the kernel matrices of the underlying parametric GPs.
-function finite_nongp_lookup(model::NonstationaryGP, params::NonstationaryGPParams, data::ExperimentData, slice::Int)
+function finite_nongp_lookup(model::NonstationaryGP, params::NonstationaryGPParams, data::ExperimentData, slice::Int; jitter::Real=0.0)
     f_λ = _param_posterior_slice_lookup(model.lengthscale_model, params.λ, data, slice)
     f_α = _param_posterior_slice_lookup(model.amplitude_model, params.α, data, slice)
     f_σ = _param_posterior_slice_lookup(model.noise_std_model, params.σ, data, slice)
 
     mean_ = mean_getindex(model.mean, slice) # -> gaussian_process.jl
 
-    return finite_nongp(data.X, mean_, f_λ, f_α, f_σ, model.discrete)
+    return finite_nongp(data.X, mean_, f_λ, f_α, f_σ, model.discrete; jitter)
 end
 
 function finite_nongp(
@@ -185,13 +196,14 @@ function finite_nongp(
     f_λ::Function,
     f_α::Function,
     f_σ::Function,
-    discrete::Union{Nothing, AbstractVector{<:Bool}}
+    discrete::Union{Nothing, AbstractVector{<:Bool}};
+    jitter::Real=0.0,
 )
     kernel = NonstationaryKernel(f_λ, f_α)
     kernel = make_discrete(kernel, discrete)
     noise_std = f_σ.(eachcol(X))
 
-    return _GP(mean, kernel)(X, noise_std .^ 2; obsdim=2)
+    return _GP(mean, kernel)(X, noise_std .^ 2 .+ jitter; obsdim=2)
 end
 
 _GP(mean::Nothing, kernel::Kernel) = GP(kernel)
@@ -237,43 +249,52 @@ function data_loglike(model::NonstationaryGP, data::ExperimentData)
     end
 end
 
+"""
+See [`BOSS._posdef_retry`](@ref) for the retry behavior on a non-positive-definite
+covariance matrix.
+"""
 function data_loglike_slice(
     model::NonstationaryGP,
     params::NonstationaryGPParams,
     data::ExperimentData,
     slice::Int,
 )
-    gp = finite_nongp_lookup(model, params, data, slice)
-    return logpdf(gp, data.Y[slice,:])
+    f_α = _param_posterior_slice_lookup(model.amplitude_model, params.α, data, slice)
+    amplitude_scale = maximum(f_α.(eachcol(data.X)))
+
+    return BOSS._posdef_retry(amplitude_scale; context="NonstationaryGP data_loglike_slice, slice $slice") do jitter
+        gp = finite_nongp_lookup(model, params, data, slice; jitter)
+        logpdf(gp, data.Y[slice,:])
+    end
 end
 
-function params_loglike(model::NonstationaryGP, data::ExperimentData)
-    loglike_λ = _params_loglike(model.lengthscale_model, data)
-    loglike_α = _params_loglike(model.amplitude_model, data)
-    loglike_σ = _params_loglike(model.noise_std_model, data)
+function params_logprior(model::NonstationaryGP, data::ExperimentData)
+    logpost_λ = _params_logprior(model.lengthscale_model, data)
+    logpost_α = _params_logprior(model.amplitude_model, data)
+    logpost_σ = _params_logprior(model.noise_std_model, data)
 
     function ll_params(params::NonstationaryGPParams)
-        ll_λ = loglike_λ(params.λ)
-        ll_α = loglike_α(params.α)
-        ll_σ = loglike_σ(params.σ)
+        ll_λ = logpost_λ(params.λ)
+        ll_α = logpost_α(params.α)
+        ll_σ = logpost_σ(params.σ)
         return ll_λ + ll_α + ll_σ
     end
 end
 
-function _params_loglike(m::AbstractArray{<:ParametrizedGP}, data::ExperimentData)
-    loglikes = params_loglike.(m, Ref(data)) # -> parameterized_gp.jl
+function _params_logprior(m::AbstractArray{<:ParametrizedGP}, data::ExperimentData)
+    logposts = params_logprior.(m, Ref(data)) # -> parameterized_gp.jl
 
-    function loglike(params::AbstractArray{<:ParametrizedGPParams})
-        return sum(apply.(loglikes, params))
+    function logpost(params::AbstractArray{<:ParametrizedGPParams})
+        return sum(apply.(logposts, params))
     end
 end
-function _params_loglike(m::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
-    function loglike(params::AbstractVector{<:Real})
+function _params_logprior(m::AbstractVector{<:UnivariateDistribution}, data::ExperimentData)
+    function logpost(params::AbstractVector{<:Real})
         return sum(logpdf.(m, params))
     end
 end
-function _params_loglike(m::AbstractVector{<:MultivariateDistribution}, data::ExperimentData)
-    function loglike(params::AbstractMatrix{<:Real})
+function _params_logprior(m::AbstractVector{<:MultivariateDistribution}, data::ExperimentData)
+    function logpost(params::AbstractMatrix{<:Real})
         return sum(logpdf.(m, eachcol(params)))
     end
 end

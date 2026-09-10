@@ -20,7 +20,7 @@ A Gaussian Process surrogate model. Each output dimension is modeled by a separa
 ## Keywords
 - `mean::Union{Nothing, AbstractVector{<:Real}, Function}`: Used as the mean function for the GP.
         Defaults to `nothing` equivalent to `x -> zeros(y_dim)`.
-- `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern32Kernel()`.
+- `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern52Kernel()`.
 - `lengthscale_priors::LengthscalePriors`: The prior distributions
         for the length scales of the GP. The `lengthscale_priors` should be a vector
         of `y_dim` `x_dim`-variate distributions where `x_dim` and `y_dim` are
@@ -82,7 +82,8 @@ param_count(params::GaussianProcessParams) = sum(param_lengths(params))
 param_lengths(params::GaussianProcessParams) = (length(params.λ), length(params.α), length(params.σ))
 param_shapes(params::GaussianProcessParams) = (size(params.λ), size(params.α), size(params.σ))
 
-sliceable(::GaussianProcess) = true
+sliceable(::Type{<:GaussianProcess}) = true
+dimension_independent_given_parameters(::Type{<:GaussianProcess}) = true
 
 function slice(m::GaussianProcess, idx::Int)
     return GaussianProcess(
@@ -195,19 +196,21 @@ end
 
 """
 Construct posterior GP for a given `y` dimension via the AbstractGPs.jl library.
+
+See [`_posdef_retry`](@ref) for the retry behavior on a non-positive-definite
+covariance matrix.
 """
-function posterior_gp(model::GaussianProcess, params::GaussianProcessParams, data::ExperimentData, slice::Int)     
-    return AbstractGPs.posterior(
-        finite_gp(
-            data.X,
-            mean_getindex(model.mean, slice),
-            model.kernel,
-            params.λ[:,slice],
-            params.α[slice],
-            params.σ[slice],
-        ),
-        data.Y[slice,:],
-    )
+function posterior_gp(model::GaussianProcess, params::GaussianProcessParams, data::ExperimentData, slice::Int)
+    mean = mean_getindex(model.mean, slice)
+    λ = params.λ[:,slice]
+    α = params.α[slice]
+    σ = params.σ[slice]
+    y = data.Y[slice,:]
+
+    return _posdef_retry(α; context="posterior_gp, slice $slice") do jitter
+        fgp = finite_gp(data.X, mean, model.kernel, λ, α, sqrt(σ^2 + jitter))
+        AbstractGPs.posterior(fgp, y)
+    end
 end
 
 """
@@ -238,7 +241,7 @@ function finite_gp(
     # noise_std = max(noise_std, min_param_val)
     lengthscales = lengthscales .+ min_param_val
     amplitude = amplitude + min_param_val
-    noise_std = noise_std + min_param_val
+    noise_std = sqrt(noise_std^2 + min_param_val)  # floor on variance, not std
 
     kernel = (amplitude^2) * with_lengthscale(kernel, lengthscales)
     return _finite_gp(X, mean, kernel, noise_std)
@@ -266,20 +269,18 @@ function data_loglike(
     end
 end
 
-function gp_data_loglike_slice(
-    X::AbstractMatrix{<:Real},
-    y::AbstractVector{<:Real},
-    mean,
-    kernel::Kernel,
-    lengthscales::AbstractVector{<:Real},
-    amplitude::Real,
-    noise_std::Real,
-)
-    gp = finite_gp(X, mean, kernel, lengthscales, amplitude, noise_std)
-    return logpdf(gp, y)
+"""
+See [`_posdef_retry`](@ref) for the retry behavior on a non-positive-definite
+covariance matrix.
+"""
+function gp_data_loglike_slice(X, y, mean, kernel, lengthscales, amplitude, noise_std)
+    return _posdef_retry(amplitude; context="gp_data_loglike_slice") do jitter
+        gp = finite_gp(X, mean, kernel, lengthscales, amplitude, sqrt(noise_std^2 + jitter))
+        logpdf(gp, y)
+    end
 end
 
-function params_loglike(model::GaussianProcess)
+function params_logprior(model::GaussianProcess)
     function ll_params(params::GaussianProcessParams)
         ll_λ = sum(logpdf.(model.lengthscale_priors, eachcol(params.λ)))
         ll_α = sum(logpdf.(model.amplitude_priors, params.α))

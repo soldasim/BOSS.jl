@@ -138,6 +138,37 @@ NonstationaryGP
 NonstationaryGPParams
 ```
 
+The [`WarpedGaussianProcess`](@ref) structure defines a Gaussian process whose output is warped through a nonlinear, monotonic transform, allowing it to model non-Gaussian predictive distributions.
+
+```@docs
+WarpedGaussianProcess
+WarpedGaussianProcessParams
+WarpedGaussianProcessPosterior
+```
+
+The output warping applied by [`WarpedGaussianProcess`](@ref) is defined using subtypes of `OutputWarping`.
+
+```@docs
+OutputWarping
+AffineWarping
+YeoJohnsonWarping
+SinhArcsinhWarping
+ComposedWarping
+```
+
+The [`TransformedModel`](@ref) structure wraps another `SurrogateModel`, applying an input and/or output transform to it.
+
+```@docs
+TransformedModel
+TransformedParams
+TransformedPosterior
+TransformedPosteriorSlice
+InputTransform
+OutputTransform
+JointOutputTransform
+SlicedOutputTransform
+```
+
 Custom surrogate models can be defined by subtyping the [`SurrogateModel`](@ref) type.
 
 ## Model Posterior
@@ -151,6 +182,22 @@ ModelPosteriorSlice
 ```
 
 The model posterior can be evaluated by using the methods `mean`, `std`, `var`, `cov`, `mean_and_std`, `mean_and_var`, and `mean_and_cov` defined for the [`ModelPosterior`](@ref) and [`ModelPosteriorSlice`](@ref) types.
+
+Models whose posterior predictive distribution is not Gaussian can additionally implement [`predictive_samples`](@ref), providing a weighted-sample discretization of the predictive distribution instead of a Gaussian mean/var summary. The [`predictive_kind`](@ref) function is used to query which of these two representations a given [`SurrogateModel`](@ref) provides.
+
+```@docs
+PredictiveKind
+GaussianPredictive
+SampledPredictive
+```
+
+A [`SurrogateModel`](@ref) can also declare a few boolean traits describing structural properties useful to code built on top of BOSS.jl (e.g. BOSIP.jl). [`BOSS.sliceable`](@ref) declares whether the model's *parameters* decompose into independent per-output-dimension pieces (enabling more efficient fitting via `slice`/`join_slices`). [`BOSS.dimension_independent_given_parameters`](@ref) declares whether the model's output dimensions `Y_1, ..., Y_D` are mutually independent under the posterior predictive *given one fixed set of parameters* (i.e. what a single [`ModelPosterior`](@ref) represents). [`BOSS.dimension_independent`](@ref) is a derived trait combining the two: it is `true` only when the dimensions remain independent *unconditionally*, i.e. even after also accounting for parameter uncertainty (e.g. Bayesian/BI averaging over multiple parameter samples).
+
+```@docs
+BOSS.sliceable
+BOSS.dimension_independent_given_parameters
+BOSS.dimension_independent
+```
 
 
 ## Model Parameters
@@ -333,6 +380,20 @@ The `BossCallback` type can be subtyped to define a custom callback, which is ca
 ```@docs
 BossCallback
 NoCallback
+```
+
+The `CombinedCallback` can be used to combine multiple callbacks into one.
+
+```@docs
+CombinedCallback
+```
+
+The `ParamsCallback` records the fitted model parameters after each iteration.
+The stored [`FittedParams`](@ref) history can be used for post-hoc analysis,
+e.g. to inspect how the GP hyperparameters evolved over the course of the optimization.
+
+```@docs
+ParamsCallback
 ```
 
 The provided `PlotCallback` plots the state of the BO procedure in every iteration. It currently only supports one-dimensional input spaces.

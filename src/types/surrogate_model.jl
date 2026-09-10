@@ -42,15 +42,15 @@ Each model *should* define a new type:
 
 Each model *should* implement the following methods used for parameter estimation:
 - `data_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
-- `params_loglike(::SurrogateModel, [::ExperimentData]) -> (::ModelParams -> ::Real)`
+- `params_logprior(::SurrogateModel, [::ExperimentData]) -> (::ModelParams -> ::Real)`
 - `_params_sampler(::SurrogateModel, [::ExperimentData]) -> (::AbstractRNG -> ::ModelParams)`
 - `vectorizer(::SurrogateModel, [::ExperimentData]) -> (vectorize, devectorize)`
     where `vectorize(::ModelParams) -> ::AbstractVector{<:Real}` and `devectorize(::ModelParams, ::AbstractVector{<:Real}) -> ::ModelParams`
 - `bijector(::SurrogateModel, [::ExperimentData]) -> ::Bijectors.Transform`
 
 Additionally, the following methods are provided and *need not be implemented*:
-- `model_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
-- `safe_model_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
+- `model_logpost(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
+- `safe_model_logpost(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
 - `safe_data_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)`
 - `params_sampler(::SurrogateModel, ::ExperimentData) -> ([::AbstractRNG] -> ::ModelParams)`
 
@@ -59,19 +59,33 @@ Additionally, the following methods are provided and *need not be implemented*:
 
 Models *may* implement:
 - `make_discrete(model::SurrogateModel, discrete::AbstractVector{Bool}) -> discrete_model::SurrogateModel`
-- `sliceable(::SurrogateModel) = true` (defaults to `false`)
+- `sliceable(::Type{<:SurrogateModel}) = true` (defaults to `false`)
+- `predictive_kind(::Type{<:SurrogateModel}) -> ::PredictiveKind` (defaults to `GaussianPredictive()`)
+- `dimension_independent_given_parameters(::Type{<:SurrogateModel}) = true` (defaults to `false`) —
+    declares that the model's output dimensions are mutually independent under its posterior
+    predictive distribution, given a single fixed set of model parameters (see
+    [`dimension_independent`](@ref) for the derived, parameter-uncertainty-aware combination with
+    [`sliceable`](@ref))
 
-If `sliceable(::SurrogateModel) == true`, then the model *should* additionally implement:
+If `sliceable(::Type{<:SurrogateModel}) == true`, then the model *should* additionally implement:
 - `slice(model::SurrogateModel, slice::Int) -> model_slice::SurrogateModel`
 - `slice(params::ModelParams, slice::Int) -> params_slice::ModelParams`
 - `join_slices(slices::AbstractVector{ModelParams}) -> params::ModelParams`
 
 Defining the `SurrogateModel` as sliceable allows for significantly more efficient parameter estimation,
-but is generally not possible for all models.
-
-`SurrogateModel`s implementing `model_posterior_slice` will usually be sliceable,
+but is generally not possible for all models. `SurrogateModel`s implementing `model_posterior_slice` will usually be sliceable,
 whereas models implementing `model_posterior` will not, but the API does not require this.
 
+If the model's predictive distribution is not Gaussian, define `predictive_kind(::Type{<:SurrogateModel}) = SampledPredictive()`.
+Then the model *should* additionally implement either
+- `predictive_samples(::ModelPosteriorSlice, ::AbstractVector{<:Real}) -> ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}`
+- `predictive_samples(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}`
+or
+- `predictive_samples(::ModelPosterior, ::AbstractVector{<:Real}) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}`
+- `predictive_samples(::ModelPosterior, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractArray{<:Real, 3}, <:AbstractArray{<:Real, 3}}`
+depending on `sliceable(::ModelPosterior)` being true or false.
+
+See [`predictive_samples`](@ref) for the full contract.
 
 ## See Also
 
@@ -106,13 +120,64 @@ with discrete or mixed `Domain`s.
 function make_discrete end
 
 """
+    sliceable(::Type{<:SurrogateModel}) -> ::Bool
     sliceable(::SurrogateModel) -> ::Bool
+    sliceable(::AbstractModelPosterior) -> ::Bool
 
 Returns `true` if the given surrogate model is sliceable along the output dimension.
 
 Making a `SurrogateModel` subtype sliceable allows for a more efficient MAP estimation of its parameters.
+
+Should be implemented **only** on the model's type, i.e. `sliceable(::Type{<:CustomModel}) = true`.
+The instance- and posterior-level methods (defined generically here and in
+[`ModelPosterior`](@ref)/[`ModelPosteriorSlice`](@ref)) forward to this type-level method
+automatically and should not be overridden separately — this keeps the trait's answer for a
+model, its instances, and its posteriors always in sync by construction (mirrors
+[`predictive_kind`](@ref)'s forwarding pattern).
 """
-sliceable(::SurrogateModel) = false
+sliceable(::M) where {M<:SurrogateModel} = sliceable(M)
+sliceable(::Type{<:SurrogateModel}) = false
+
+"""
+    dimension_independent_given_parameters(::Type{<:SurrogateModel}) -> ::Bool
+    dimension_independent_given_parameters(::SurrogateModel) -> ::Bool
+    dimension_independent_given_parameters(::AbstractModelPosterior) -> ::Bool
+
+Returns `true` if the model's output dimensions `Y_1, ..., Y_D` are mutually independent under its
+posterior predictive distribution **given one fixed set of model parameters** — i.e. what a single
+`ModelPosterior` represents. Distinct from [`sliceable`](@ref) (whether the model *can* be split
+into per-dimension pieces for fitting); see [`dimension_independent`](@ref) for how they combine.
+
+This licenses `E[∏ᵢ fᵢ(Yᵢ)] = ∏ᵢ E[fᵢ(Yᵢ)]` only for a single `ModelPosterior`. It's not enough
+once parameter uncertainty is marginalized over (e.g. Bayesian/BI averaging): a shared, uncertain
+parameter (e.g. a trend fit jointly across dimensions) can leave dimensions conditionally
+independent yet marginally dependent.
+
+Defaults to `false`. Should be implemented **only** on the model's type, mirroring
+[`sliceable`](@ref)'s forwarding pattern — do not override the instance-/posterior-level methods
+separately.
+"""
+dimension_independent_given_parameters(::M) where {M<:SurrogateModel} = dimension_independent_given_parameters(M)
+dimension_independent_given_parameters(::Type{<:SurrogateModel}) = false
+
+"""
+    dimension_independent(::Type{<:SurrogateModel}) -> ::Bool
+    dimension_independent(::SurrogateModel) -> ::Bool
+    dimension_independent(::AbstractModelPosterior) -> ::Bool
+
+Returns `true` if the model's output dimensions are mutually independent **unconditionally** —
+even after marginalizing parameter uncertainty (e.g. Bayesian/BI averaging), not just given one
+fixed parameter draw (see [`dimension_independent_given_parameters`](@ref) for that weaker form).
+
+Computed as `sliceable(M) && dimension_independent_given_parameters(M)`: `sliceable` guarantees no
+parameter is shared across dimensions, so there's no latent uncertainty left to correlate them
+upon marginalization.
+
+A **derived** trait — do not override it directly; implement
+[`dimension_independent_given_parameters`](@ref) and/or [`sliceable`](@ref) instead.
+"""
+dimension_independent(::M) where {M<:SurrogateModel} = dimension_independent(M)
+dimension_independent(M::Type{<:SurrogateModel}) = sliceable(M) && dimension_independent_given_parameters(M)
 
 # docstring in `src/types/problem.jl`
 # function slice end
@@ -128,26 +193,26 @@ function join_slices end
 ### Parameter Methods ###
 
 """
-    model_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)
+    model_logpost(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)
 
-Return a function mapping `ModelParams` to their log-likelihood according to the current data.
+Return a function mapping `ModelParams` to their log-posterior according to the current data.
 """
-function model_loglike(model::SurrogateModel, data::ExperimentData)
+function model_logpost(model::SurrogateModel, data::ExperimentData)
     ll_data = data_loglike(model, data)
-    ll_params = params_loglike(model, data)
+    ll_params = params_logprior(model, data)
 
-    function loglike(params::ModelParams)
+    function logpost(params::ModelParams)
         return ll_data(params) + ll_params(params)
     end
 end
 
 """
-    safe_model_loglike(::SurrogateModel, ::ExperimentData; options::BossOptions) -> (::ModelParams -> ::Real)
+    safe_model_logpost(::SurrogateModel, ::ExperimentData; options::BossOptions) -> (::ModelParams -> ::Real)
 
-Get a safe version of the model log-likelihood function, which returns `-Inf`
-in case an error occurs while evaluating the log-likelihood of the model parameters.
+Get a safe version of the model log-posterior function, which returns `-Inf`
+in case an error occurs while evaluating the log-posterior of the model parameters.
 """
-function safe_model_loglike end
+function safe_model_logpost end
 
 """
     data_loglike(::SurrogateModel, ::ExperimentData) -> (::ModelParams -> ::Real)
@@ -166,17 +231,17 @@ in case an error occurs while evaluating the data log-likelihood.
 function safe_data_loglike end
 
 """
-    params_loglike(::SurrogateModel, [::ExperimentData]) -> (::ModelParams -> ::Real)
+    params_logprior(::SurrogateModel, [::ExperimentData]) -> (::ModelParams -> ::Real)
 
-Construct the model parameters log-likelihood function mapping `ModelParams`
-to their log-likelihood.
+Construct the model parameters log-prior function mapping `ModelParams`
+to their log-prior.
 
 The parameters returned by the (@ref)[`params_sampler`] should be sampled
-exactly according to this log-likelihood.
+exactly according to this log-prior.
 """
-function params_loglike end
+function params_logprior end
 
-params_loglike(model::SurrogateModel, data::ExperimentData) = params_loglike(model)
+params_logprior(model::SurrogateModel, data::ExperimentData) = params_logprior(model)
 
 """
     params_sampler(::SurrogateModel, [::ExperimentData]) -> ([::AbstractRNG] -> ::ModelParams)
@@ -184,8 +249,8 @@ params_loglike(model::SurrogateModel, data::ExperimentData) = params_loglike(mod
 Return a function (or a callable structure) which samples `ModelParams` from their *prior* distributions.
 (I.e. the sampling is *not* conditioned on the data.)
 
-The parameters are sampled exactly according to the log-likelihood
-defined by the `params_loglike` function.
+The parameters are sampled exactly according to the log-prior
+defined by the `params_logprior` function.
 
 This is a user-facing function. Implement `_params_sampler` instead
 when defining a custom `SurrogateModel`.
@@ -203,8 +268,8 @@ end
 Return a function (or a callable structure) which samples `ModelParams` from their *prior* distributions.
 (I.e. the sampling is *not* conditioned on the data.)
 
-The parameters should be sampled exactly according to the log-likelihood
-defined by the `params_loglike` function.
+The parameters should be sampled exactly according to the log-prior
+defined by the `params_logprior` function.
 
 This is an internal function used as a part of the `SurrogateModel` API.
 Use `params_sampler` to sample model parameters instead.
