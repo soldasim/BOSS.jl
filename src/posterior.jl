@@ -40,6 +40,9 @@ function model_posterior(model::SurrogateModel, params::ModelParams, data::Exper
     return DefaultModelPosterior(slices)
 end
 
+# docstring in `src/types/problem.jl`
+slice(post::DefaultModelPosterior, idx::Int) = post.slices[idx]
+
 function mean(post::DefaultModelPosterior, x::AbstractVector{<:Real})
     return mean.(post.slices, Ref(x)) # ::AbstractVector{<:Real}
 end
@@ -77,6 +80,10 @@ function mean_and_cov(post::DefaultModelPosterior, X::AbstractMatrix{<:Real})
     Σs = cat(second.(μs_and_Σs)...; dims=3)
     return μs, Σs # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}}
 end
+
+# No `predictive_samples(post::DefaultModelPosterior, ...)` redirection to `post.slices` is defined
+# here on purpose: bundling independently-modeled per-dimension slices into a joint `(D, K)` tuple
+# would silently assert a dependency structure across dimensions that the model never modeled.
 
 
 ### Default `ModelPosteriorSlice` ###
@@ -138,42 +145,42 @@ function mean_and_cov(post::DefaultModelPosteriorSlice, X::AbstractMatrix{<:Real
     return μs[post.idx, :], Σs[:,:,post.idx] # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
 end
 
+# Redirects to the joint `post.post`'s `predictive_samples` and reads off row `post.idx` — the
+# safe direction (marginalizing a genuine joint sample down to one dimension is always valid),
+# unlike `DefaultModelPosterior`'s (deliberately absent) reverse redirection above.
+function predictive_samples(post::DefaultModelPosteriorSlice, x::AbstractVector{<:Real}; kwargs...)
+    Ys, Ws = predictive_samples(post.post, x; kwargs...) # Ys: (D, K), Ws: (1, K) -- see `predictive_samples`'s docstring
+    return Ys[post.idx, :], vec(Ws) # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}, both length K
+end
+function predictive_samples(post::DefaultModelPosteriorSlice, X::AbstractMatrix{<:Real}; kwargs...)
+    Ys, Ws = predictive_samples(post.post, X; kwargs...) # Ys: (D, K, n), Ws: (1, K, n)
+    return Ys[post.idx, :, :], Ws[1, :, :] # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}, both (K, n)
+end
+
 
 ### Other default posterior methods ###
 
-function mean_and_var(post::ModelPosterior, x::AbstractVector{<:Real})
-    μ = mean(post, x)
-    σ2 = var(post, x)
-    return μ, σ2 # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
-end
-function mean_and_var(post::ModelPosterior, X::AbstractMatrix{<:Real})
-    μs = mean(post, X)
-    σ2s = var(post, X)
-    return μs, σ2s # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}
+function mean_and_var(post::ModelPosterior, X::AbstractVecOrMat{<:Real})
+    μ = mean(post, X)
+    σ2 = var(post, X)
+    return μ, σ2
 end
 
 function mean_and_cov(post::ModelPosterior, X::AbstractMatrix{<:Real})
     μs = mean(post, X)
     Σs = cov(post, X)
-    return μs, Σs # ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractArray{<:Real, 3}}
+    return μs, Σs
 end
 
-function std(post::ModelPosteriorSlice, x::AbstractVector{<:Real})
-    return var(post, x) |> sqrt
-end
-function std(post::AbstractModelPosterior, X::AbstractArray{<:Real})
+function std(post::AbstractModelPosterior, X::AbstractVecOrMat{<:Real})
     return var(post, X) .|> sqrt
 end
 
-function mean_and_std(post::ModelPosteriorSlice, x::AbstractVector{<:Real})
-    μ, σ = mean_and_var(post, x)
-    return μ, sqrt(σ)
-end
-function mean_and_std(post::AbstractModelPosterior, X::AbstractArray{<:Real})
+function mean_and_std(post::AbstractModelPosterior, X::AbstractVecOrMat{<:Real})
     μs, σs = mean_and_var(post, X)
     return μs, sqrt.(σs)
 end
 
-function average_mean(posts::AbstractVector{<:AbstractModelPosterior}, X::AbstractArray{<:Real})
+function average_mean(posts::AbstractVector{<:AbstractModelPosterior}, X::AbstractVecOrMat{<:Real})
     return mean.(posts, Ref(X)) |> mean
 end

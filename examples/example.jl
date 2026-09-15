@@ -6,6 +6,8 @@ using Random
 using OptimizationPRIMA
 using Turing
 
+include("plot_gp_hyperparameters.jl")
+
 Random.seed!(555)
 
 # We have an unknown noisy function 'blackbox(x)=y,z' and we want to maximize y s.t. z < 0 on domain x ∈ [0,20].
@@ -14,7 +16,7 @@ Random.seed!(555)
 function blackbox(x; noise_std=0.1)
     y = exp(x[1]/10) * cos(2*x[1])
     z = (1/2)^6 * (x[1]^2 - (15.)^2)
-    
+
     y += rand(Normal(0., noise_std))
     z += rand(Normal(0., noise_std))
 
@@ -22,7 +24,7 @@ function blackbox(x; noise_std=0.1)
 end
 
 # Our parametric model represents our predictions/knowledge about the blackbox function.
-# 
+#
 # Let's assume we know that x->y is a periodic function, so we use `cos` there.
 # We don't know anything about x->z, so we put a constant 0 there.
 # (That is equivalent to using a simple GP with zero-mean to model x->z.)
@@ -103,18 +105,10 @@ function opt_problem(init_data)
     )
 end
 
-boss_options() = BossOptions(;
-    info = true,
-    debug = false,
-    callback = PlotCallback(Plots;
-        f_true = x->blackbox(x; noise_std=0.),
-    ),
-)
-
 """
 An example usage of the BOSS algorithm with a MAP algorithm.
 """
-function main(problem=opt_problem(3), iters=20;
+function main(problem=opt_problem(3), iters=10;
     # Parallelization is turned off by default due to https://github.com/libprima/PRIMA.jl/issues/25.
     # If you are on a non-Linux machine, feel free to turn the parallelization on.
     # If you want to run the code in parallel on a Linux machine, use different optimization library than PRIMA.jl.
@@ -131,9 +125,9 @@ function main(problem=opt_problem(3), iters=20;
     # # Bayesian Inference (sampling)
     # model_fitter = TuringBI(;
     #     sampler = NUTS(20, 0.65),
-    #     warmup = 100,
-    #     samples_in_chain = 25,
-    #     chain_count = 4,
+    #     warmup = 200,
+    #     samples_in_chain = 10,
+    #     chain_count = 12,
     #     leap_size = 5,
     #     parallel,
     # )
@@ -146,9 +140,21 @@ function main(problem=opt_problem(3), iters=20;
         rhoend = 1e-4,
     )
 
+    ### Termination Condition
     # term_cond = IterLimit(iters)
     term_cond = DataLimit(iters) # counts the initial data points as well
-    options = boss_options()
+
+    ### Miscellaneous Settings
+    params_callback = ParamsCallback()
+    plot_callback = PlotCallback(Plots; f_true = x->blackbox(x; noise_std=0.))
+    options = BossOptions(;
+        info = true,
+        debug = false,
+        callback = CombinedCallback(
+            params_callback,
+            plot_callback,
+        ),
+    )
 
     # Run BOSS:
     bo!(problem; model_fitter, acq_maximizer, term_cond, options)
@@ -157,6 +163,9 @@ function main(problem=opt_problem(3), iters=20;
     best_x, best_y = result(problem)
     println()
     @info "Best solution found: $(best_x) : $(best_y)"
-    
+
+    # Plot GP hyperparameter evolution over iterations.
+    display(plot_gp_hyperparameters(params_callback))
+
     return problem
 end

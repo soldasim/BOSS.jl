@@ -83,6 +83,11 @@ function model_posterior_slice(model::Semiparametric, params::SemiparametricPara
     return post # ::GaussianProcessPosterior
 end
 
+# Semiparametric model is dim-independent given fitted parameters.
+# But it is _not_ sliceable - it can share parameters over dimension in the parametric part.
+# Thus, it is _not_ generally dimension independent. (See `dimension_independent`.)
+dimension_independent_given_parameters(::Type{<:Semiparametric}) = true
+
 function data_loglike(model::Semiparametric, data::ExperimentData)
     function ll_data(params::SemiparametricParams)
         f = model.parametric(params.θ)
@@ -91,7 +96,7 @@ function data_loglike(model::Semiparametric, data::ExperimentData)
     end
 end
 
-function params_loglike(model::Semiparametric)
+function params_logprior(model::Semiparametric)
     function ll_params(params::SemiparametricParams)
         ll_theta = sum(logpdf.(model.parametric.theta_priors, params.θ); init=0.)
         ll_λ = sum(logpdf.(model.nonparametric.lengthscale_priors, eachcol(params.λ)))

@@ -239,12 +239,12 @@ end
 function data_loglike(model::Parametric{<:NoiseStdPriors}, data::ExperimentData)
     function ll_data(params::ParametricParams)
         post = model_posterior(model, params)
-        loglike = mapreduce((x, y) -> logpdf(mvnormal(mean_and_std(post, x)...), y), +, eachcol(data.X), eachcol(data.Y))
-        return loglike
+        logpost = mapreduce((x, y) -> logpdf(mvnormal(mean_and_std(post, x)...), y), +, eachcol(data.X), eachcol(data.Y))
+        return logpost
     end
 end
 
-function params_loglike(model::Parametric{<:NoiseStdPriors})
+function params_logprior(model::Parametric{<:NoiseStdPriors})
     function ll_params(params::ParametricParams)
         ll_theta = sum(logpdf.(model.theta_priors, params.θ); init=0.)
         ll_noise = sum(logpdf.(model.noise_std_priors, params.σ))

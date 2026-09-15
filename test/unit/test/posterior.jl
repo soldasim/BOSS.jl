@@ -15,7 +15,7 @@
         data = ExperimentData([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;]),
     )
     turing = TuringBI(;
-        sampler = PG(20),
+        sampler = NUTS(20, 0.65),
         warmup = 20,
         samples_in_chain = 1,
         chain_count = 8,

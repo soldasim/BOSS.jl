@@ -22,9 +22,18 @@ Each subtype of `ModelPosterior` *should* implement:
 - `cov(::ModelPosterior, ::AbstractMatrix{<:Real}) -> ::AbstractArray{<:Real, 3}`
 
 and *may* implement corresponding methods:
-- `mean_and_var(::ModelPosterior, ::AbstractVector{<:Real}) -> ::Tuple{...}` 
-- `mean_and_var(::ModelPosterior, ::AbstractMatrix{<:Real}) -> ::Tuple{...}` 
+- `mean_and_var(::ModelPosterior, ::AbstractVector{<:Real}) -> ::Tuple{...}`
+- `mean_and_var(::ModelPosterior, ::AbstractMatrix{<:Real}) -> ::Tuple{...}`
 - `mean_and_cov(::ModelPosterior, ::AbstractMatrix{<:Real}) -> ::Tuple{...}`
+
+If [`predictive_kind`](@ref) of the model `M` is [`SampledPredictive`](@ref) **and** the model
+samples its output dimensions jointly (not independently per dimension), the posterior *should*
+additionally implement:
+- `predictive_samples(::ModelPosterior, ::AbstractVector{<:Real}) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}`
+- `predictive_samples(::ModelPosterior, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractArray{<:Real, 3}, <:AbstractArray{<:Real, 3}}`
+
+See [`predictive_samples`](@ref) for the full contract, in particular *why* this must be
+implemented at only one of `ModelPosterior`/`ModelPosteriorSlice` and never derived from the other.
 
 Additionally, the following methods are provided and *need not be implemented*:
 - `std(::ModelPosterior, ::AbstractVector{<:Real}) -> ::AbstractVector{<:Real}`
@@ -33,6 +42,8 @@ Additionally, the following methods are provided and *need not be implemented*:
 - `mean_and_std(::ModelPosterior, ::AbstractMatrix{<:Real}) -> ::Tuple{...}`
 - `average_mean(::AbstractVector{<:ModelPosterior}, ::AbstractVector{<:Real})`
 - `average_mean(::AbstractVector{<:ModelPosterior}, ::AbstractMatrix{<:Real})`
+- `predictive_kind(::ModelPosterior) -> ::PredictiveKind` (forwards to the originating model `M`;
+        see [`predictive_kind`](@ref) — must not be overridden directly on a posterior type)
 
 See [`SurrogateModel`](@ref) for more information.
 
@@ -56,9 +67,17 @@ Each subtype of `ModelPosteriorSlice` *should* implement:
 - `cov(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}) -> ::AbstractMatrix{<:Real}`
 
 and *may* implement corresponding methods:
-- `mean_and_var(::ModelPosteriorSlice, ::AbstractVector{<:Real}) -> ::Tuple{...}` 
-- `mean_and_var(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}) -> ::Tuple{...}` 
+- `mean_and_var(::ModelPosteriorSlice, ::AbstractVector{<:Real}) -> ::Tuple{...}`
+- `mean_and_var(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}) -> ::Tuple{...}`
 - `mean_and_cov(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}) -> ::Tuple{...}`
+
+If [`predictive_kind`](@ref) of the model `M` is [`SampledPredictive`](@ref), the slice *should*
+additionally implement:
+- `predictive_samples(::ModelPosteriorSlice, ::AbstractVector{<:Real}) -> ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}`
+- `predictive_samples(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}`
+
+See [`predictive_samples`](@ref) for the full contract, in particular *why* this must be
+implemented at only one of `ModelPosterior`/`ModelPosteriorSlice` and never derived from the other.
 
 Additionally, the following methods are provided and *need not be implemented*:
 - `std(::ModelPosteriorSlice, ::AbstractVector{<:Real}) -> ::Real`
@@ -67,6 +86,8 @@ Additionally, the following methods are provided and *need not be implemented*:
 - `mean_and_std(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}) -> ::Tuple{...}`
 - `average_mean(::AbstractVector{<:ModelPosteriorSlice}, ::AbstractVector{<:Real})`
 - `average_mean(::AbstractVector{<:ModelPosteriorSlice}, ::AbstractMatrix{<:Real})`
+- `predictive_kind(::ModelPosteriorSlice) -> ::PredictiveKind` (forwards to the originating model
+        `M`; see [`predictive_kind`](@ref) — must not be overridden directly on a posterior type)
 
 See [`SurrogateModel`](@ref) for more information.
 
@@ -156,3 +177,53 @@ The outputs correspond exactly to the outputs of the `mean` and `cov` methods,
 but using `mean_and_cov` can be more efficient.
 """
 function mean_and_cov end
+
+# See `predictive_kind`'s docstring (in `types/surrogate_model.jl`).
+predictive_kind(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = predictive_kind(M)
+
+# See `sliceable`'s docstring (in `types/surrogate_model.jl`).
+sliceable(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = sliceable(M)
+
+# See `dimension_independent_given_parameters`'s docstring (in `types/surrogate_model.jl`).
+dimension_independent_given_parameters(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = dimension_independent_given_parameters(M)
+
+# See `dimension_independent`'s docstring (in `types/surrogate_model.jl`).
+dimension_independent(::AbstractModelPosterior{M}) where {M<:SurrogateModel} = dimension_independent(M)
+
+"""
+    predictive_samples(::ModelPosteriorSlice, ::AbstractVector{<:Real}; kwargs...) -> ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
+    predictive_samples(::ModelPosteriorSlice, ::AbstractMatrix{<:Real}; kwargs...) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}
+    predictive_samples(::ModelPosterior, ::AbstractVector{<:Real}; kwargs...) -> ::Tuple{<:AbstractMatrix{<:Real}, <:AbstractMatrix{<:Real}}
+    predictive_samples(::ModelPosterior, ::AbstractMatrix{<:Real}; kwargs...) -> ::Tuple{<:AbstractArray{<:Real, 3}, <:AbstractArray{<:Real, 3}}
+
+Return a weighted discretization `{(yₖ, wₖ)}` of the (possibly non-Gaussian) posterior predictive
+distribution at the given point(s), with `sum(ws) == 1`. "Samples" may be deterministic quadrature
+nodes, weighted MC/MCMC draws, or any other weighted-point representation.
+
+`kwargs...` are model-specific options forwarded down the redirection chain.
+
+## Shapes
+
+- `ModelPosteriorSlice`, point `x`: `ys`, `ws` are length-`K` vectors.
+- `ModelPosteriorSlice`, points `X` (`(x_dim, n)`): `Ys`, `Ws` are `(K, n)`.
+- `ModelPosterior`, point `x`: `Ys` is `(y_dim, K)`; `Ws` is `(1, K)`
+- `ModelPosterior`, points `X`: `Ys` is `(y_dim, K, n)`, `Ws` is `(1, K, n)`.
+
+`Ws`'s shared weight across dimensions must hold by construction of the sampling scheme (e.g.
+shared quadrature nodes); it cannot be derived after the fact from differing per-dimension weights.
+
+Only implemented by models with `predictive_kind(...) isa SampledPredictive`; assumed more precise
+than `mean`/`var`/`mean_and_var`. Calling this on a `GaussianPredictive` model throws `MethodError`.
+
+## Implement at exactly one level
+
+Implement this **only** at `ModelPosteriorSlice` (independent per-dimension sampling, e.g.
+[`WarpedGaussianProcess`](@ref)) **or only** at `ModelPosterior` (genuine joint sampling) — never
+both, and never by bundling one from the other. Bundling independent per-dimension atoms under a
+shared index induces artificial dependency between dimensions that the model doesn't actually have,
+giving silently wrong results for any likelihood that isn't separable across dimensions. See
+`posterior.jl` for how `DefaultModelPosterior`/`DefaultModelPosteriorSlice` handle this.
+
+See also: [`predictive_kind`](@ref).
+"""
+function predictive_samples end
