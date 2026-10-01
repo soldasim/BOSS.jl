@@ -88,14 +88,18 @@ end
 #     )
 # end
 
+"""
+See [`BOSS._posdef_retry`](@ref) for the retry behavior on a non-positive-definite
+covariance matrix. `amplitude` is fixed to `1` for `ParametrizedGP` (see [`finite_param_gp`](@ref)).
+"""
 function model_posterior(model::ParametrizedGP, params::ParametrizedGPParams, data::ExperimentData)
     # de-whiten the gp outputs
     y = params.L * params.yϵ + params.μ
-    
-    gp_post = AbstractGPs.posterior(
-        finite_param_gp(model, params),
-        y,
-    )
+
+    gp_post = BOSS._posdef_retry(1.0; context="ParametrizedGP model_posterior") do jitter
+        fgp = finite_gp(params.X, 0, model.kernel, params.λ, 1, sqrt(model.noise_std^2 + jitter)) # -> gaussian_process.jl
+        AbstractGPs.posterior(fgp, y)
+    end
     ft = construct_variable_transform(model.target_dist)
     a = model.act_func
 
@@ -157,7 +161,7 @@ function finite_param_gp(
     ) # -> gaussian_process.jl
 end
 
-function params_loglike(model::ParametrizedGP, data::ExperimentData)
+function params_logprior(model::ParametrizedGP, data::ExperimentData)
     if (model.lengthscale_prior isa Product{<:Any, <:Dirac})
         # all hyperparameters of the `ParametrizedGP` are fixed
         # the kernel matrix can be precomputed
@@ -169,7 +173,7 @@ function params_loglike(model::ParametrizedGP, data::ExperimentData)
         # L = cholesky(Σ).L
 
         # only `y` is being fitted
-        function loglike_y(params::ParametrizedGPParams)
+        function logpost_y(params::ParametrizedGPParams)
             ll_y = logpdf(MvNormal(zero(params.μ), I(length(params.μ))), params.yϵ)
             return ll_y
         end
@@ -177,7 +181,7 @@ function params_loglike(model::ParametrizedGP, data::ExperimentData)
     else
         # some hyperparameters of the `ParametrizedGP` are being fitted
         # the kernel matrix must be re-computed for each evaluation
-        function loglike_full(params::ParametrizedGPParams)
+        function logpost_full(params::ParametrizedGPParams)
             @assert false # L cannot be precomputed wihout fixed hyperparameters
             
             # gp = finite_param_gp(model, params)
@@ -190,16 +194,22 @@ function params_loglike(model::ParametrizedGP, data::ExperimentData)
     end
 end
 
+"""
+See [`BOSS._posdef_retry`](@ref) for the retry behavior on a non-positive-definite
+covariance matrix. `amplitude` is fixed to `1` for `ParametrizedGP` (see [`finite_param_gp`](@ref)).
+"""
 function _params_sampler(model::ParametrizedGP, data::ExperimentData)
     # must have fixed hyperparameter to be able to precompute L for output whitening
     @assert model.lengthscale_prior isa Product{<:Any, <:Dirac}
-    
+
     # diracs
     λ = rand(model.lengthscale_prior)
 
-    gp = finite_param_gp(data.X, model.kernel, λ, model.noise_std)
-    μ, K = AbstractGPs.mean_and_cov(gp)
-    L = cholesky(K).L
+    μ, L = BOSS._posdef_retry(1.0; context="ParametrizedGP _params_sampler") do jitter
+        gp = finite_gp(data.X, 0, model.kernel, λ, 1, sqrt(model.noise_std^2 + jitter)) # -> gaussian_process.jl
+        μ_, K = AbstractGPs.mean_and_cov(gp)
+        (μ_, cholesky(K).L)
+    end
 
     len = length(μ)
     p_yϵ = MvNormal(zeros(len), I(len))

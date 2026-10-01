@@ -6,12 +6,12 @@
 A subtype of `ContinuousMultivariateDistribution` that represents the joint prior distribution
 of all model parameters.
 
-The parameter prior is already completely defined by the methods `_params_sampler` and `params_loglike`
+The parameter prior is already completely defined by the methods `_params_sampler` and `params_logprior`
 of the given `SurrogateModel`. This is just a convenience structure implementing the `Distribution` API.
 """
 struct ModelParamsPrior <: ContinuousMultivariateDistribution
     sample::Function
-    loglike::Function
+    logpost::Function
     bijector::Any
     length::Int
     eltype::Type
@@ -25,12 +25,12 @@ function ModelParamsPrior(model::SurrogateModel, data::ExperimentData)
 
     sample(rng) = sampler(rng) |> vectorize
     
-    ll_params_ = params_loglike(model, data)
-    loglike(ps) = ll_params_(devectorize(params, ps))
+    ll_params_ = params_logprior(model, data)
+    logpost(ps) = ll_params_(devectorize(params, ps))
 
     b = bijector(model, data)
     
-    return ModelParamsPrior(sample, loglike, b, length(ps), eltype(ps))
+    return ModelParamsPrior(sample, logpost, b, length(ps), eltype(ps))
 end
 
 Base.length(d::ModelParamsPrior) = d.length
@@ -40,7 +40,7 @@ function Distributions._rand!(rng::AbstractRNG, d::ModelParamsPrior, x::Abstract
     x .= d.sample(rng)
 end
 function Distributions._logpdf(d::ModelParamsPrior, x::AbstractVector{<:Real})
-    return d.loglike(x)
+    return d.logpost(x)
 end
 
 Bijectors.bijector(d::ModelParamsPrior) = d.bijector

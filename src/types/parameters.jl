@@ -113,18 +113,18 @@ slice(p::SampledParams, idx::Int) = SampledParams(slice(p.params, idx))
 
 ## Keywords
 - `params::ModelParams{M}`: The fitted model parameters.
-- `loglike::Float64`: The log likelihood of the fitted parameters.
+- `logpost::Union{Float64, Missing}`: The log-posterior of the fitted parameters.
 """
 @kwdef struct MAPParams{
     M<:SurrogateModel,
 } <: UniFittedParams{M}
     params::ModelParams{M}
-    loglike::Union{Float64, Nothing} = nothing
+    logpost::Union{Float64, Missing} = missing
 end
 
 get_params(p::MAPParams) = p.params
 
-slice(p::MAPParams, idx::Int) = MAPParams(slice(p.params, idx), nothing)
+slice(p::MAPParams, idx::Int) = MAPParams(slice(p.params, idx), missing)
 
 """
     BIParams{M<:SurrogateModel, P<:ModelParams{M}}
@@ -135,17 +135,25 @@ The individual `ModelParams` samples can be obtained by iterating over the `BIPa
 
 ## Keywords
 - `samples::Vector{P}`: A vector of the individual model parameter samples.
+- `logposts::Vector{<:Union{Float64, Missing}}`: A vector of the log-posterior values of the samples.
 """
 @kwdef struct BIParams{
     M<:SurrogateModel,
     P<:ModelParams{M},
 } <: MultiFittedParams{M}
     samples::Vector{P}
+    logposts::Vector{<:Union{Float64, Missing}}
+
+    function BIParams(samples::Vector{P}, logposts::Vector{<:Union{Float64, Missing}}) where {M<:SurrogateModel, P<:ModelParams{M}}
+        length(samples) == length(logposts) || throw(ArgumentError("'samples' and 'logposts' must have the same length."))
+        new{M, P}(samples, logposts)
+    end
 end
+BIParams(samples::Vector{<:ModelParams}, ::Missing) = BIParams(samples, fill(missing, length(samples)))
 
 get_params(p::BIParams) = p.samples
 
-slice(p::BIParams, idx::Int) = BIParams(slice.(p.samples, Ref(idx)))
+slice(p::BIParams, idx::Int) = BIParams(slice.(p.samples, Ref(idx)), missing)
 
 Base.getindex(params::BIParams, idx::Int) = params.samples[idx]
 Base.length(params::BIParams) = length(params.samples)

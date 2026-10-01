@@ -258,7 +258,7 @@ end
     end
 end
 
-@testset "model_loglike(model, data)" begin
+@testset "model_logpost(model, data)" begin
     model = Nonparametric(;
         mean = x -> [1., 1.],
         amplitude_priors = fill(LogNormal(), 2),
@@ -267,7 +267,7 @@ end
     )
     data = ExperimentData([2.;2.;; 5.;5.;; 8.;8.;;], [2.;2.;; 5.;5.;; 8.;8.;;])
 
-    @param_test BOSS.model_loglike begin
+    @param_test BOSS.model_logpost begin
         @params deepcopy(model), deepcopy(data)
         @success (
             out isa Function,
@@ -315,8 +315,8 @@ end
     @test t_data([1.;; 2.;; 3;;], [99.9;; 100.;; 100.1;;]) > t_data([1.;; 2.;; 3;;], [99.;; 100.;; 101.;;]) > t_data([1.;; 2.;; 3;;], [90.;; 100.;; 110.;;])
 end
 
-@testset "params_loglike(model, params)" begin
-    @param_test BOSS.params_loglike begin
+@testset "params_logprior(model, params)" begin
+    @param_test BOSS.params_logprior begin
         # TODO: Add different priors loaded from a collection.
         @params Nonparametric(;
                 lengthscale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),

@@ -351,7 +351,7 @@ end
     @test_throws MethodError mean_and_cov(post, [1.;1.;; 2.;2.;; 3.;3.;;])
 end
 
-@testset "model_loglike(model, data)" begin
+@testset "model_logpost(model, data)" begin
     X = [2.;2.;; 5.;5.;; 8.;8.;;]
     Y = reduce(hcat, (x -> [sin(x[1]) + exp(x[2]), cos(x[1]) + exp(x[2])]).(eachcol(X)))
 
@@ -373,7 +373,7 @@ end
     )
     data = ExperimentData(X, Y)
 
-    @param_test BOSS.model_loglike begin
+    @param_test BOSS.model_logpost begin
         @params lin_model, deepcopy(data)
         @params nonlin_model, deepcopy(data)
         @success (
@@ -443,8 +443,8 @@ end
     end
 end
 
-@testset "params_loglike(model)" begin
-    @param_test BOSS.params_loglike begin
+@testset "params_logprior(model)" begin
+    @param_test BOSS.params_logprior begin
         # TODO: Add different priors loaded from a collection.
         @params LinearModel(;
                 lift = (x) -> [[sin(x[1]), exp(x[2])]],

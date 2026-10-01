@@ -1,6 +1,6 @@
 
-function safe_model_loglike(model::SurrogateModel, data::ExperimentData; options::BossOptions=BossOptions())
-    ll = model_loglike(model, data)
+function safe_model_logpost(model::SurrogateModel, data::ExperimentData; options::BossOptions=BossOptions())
+    ll = model_logpost(model, data)
     ll_safe = make_safe(ll, -Inf; options.info, options.debug)
     return ll_safe
 end

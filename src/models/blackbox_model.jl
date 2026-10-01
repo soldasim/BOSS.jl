@@ -116,7 +116,7 @@ function data_loglike(model::BlackboxModel, data::ExperimentData)
     end
 end
 
-function params_loglike(model::BlackboxModel)
+function params_logprior(model::BlackboxModel)
     # No parameters means no prior
     function ll_params(params::BlackboxParams)
         return 0.0
