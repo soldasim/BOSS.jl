@@ -88,9 +88,6 @@ using InverseFunctions
 using ForwardDiff
 using SciMLBase
 
-using Preferences
-set_preferences!(ForwardDiff, "nansafe_mode" => true)
-
 include("include.jl")
 
 end # module BOSS
