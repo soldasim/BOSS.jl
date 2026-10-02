@@ -1,26 +1,27 @@
+using UnitTestDesign
 using OptimizationPRIMA
+using Turing
+using Distributions
+using KernelFunctions
+using LinearAlgebra
+using Bijectors
 
-include("file_utils.jl")
-include("input_values.jl")
-include("dummy_problem.jl")
-
-using .FileUtils
-using .InputValues
+include("builders.jl")
+include("parameters.jl")
 
 @testset "Combinatorial Tests" begin
     @info "Running Combinatorial Tests ..."
+    test_cases = generate_test_cases()
     
-    inputs = load_input_coverage()
-    for i in eachindex(inputs)
-        val = get_input_vals(inputs[i])
-        
+    for i in eachindex(test_cases)
+        case, run_case = test_cases[i]
+        f = case[2]
+
         @testset "Test $i" begin
-            script = create_problem(val)
-            
-            if ismissing(val("f"))
-                @test script() isa AbstractVector{<:Real}
+            if ismissing(f)
+                @test run_case() isa AbstractVector{<:Real}
             else
-                @test script() isa BossProblem
+                @test run_case() isa BossProblem
             end
         end
     end

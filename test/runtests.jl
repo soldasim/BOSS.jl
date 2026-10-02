@@ -6,6 +6,7 @@ using Turing
 using LinearAlgebra
 using Distributions
 using KernelFunctions
+using Random
 
 ```
 Determines whether parallelization of BOSS is allowed during tests.
@@ -13,6 +14,8 @@ Determines whether parallelization of BOSS is allowed during tests.
 # Currently, enabling parallel testing causes `StackOverflowError`s on Ubuntu.
 # See https://github.com/libprima/PRIMA.jl/issues/25
 const PARALLEL_TESTS = false
+
+Random.seed!(555)
 
 @testset "BOSS TESTS" verbose=true begin
     @testset "Code quality (Aqua.jl)" begin
