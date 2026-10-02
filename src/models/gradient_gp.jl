@@ -57,8 +57,8 @@ end
 Posterior slice for `GradientGaussianProcess`, holding precomputed quantities
 for efficient prediction.
 """
-struct GradientGPPosteriorSlice <: ModelPosteriorSlice{GradientGaussianProcess}
-    k_fn::Any                    # (x, xp) -> scalar: the amplitude/lengthscale-scaled kernel
+struct GradientGPPosteriorSlice{F} <: ModelPosteriorSlice{GradientGaussianProcess}
+    k_fn::F                       # (x, xp) -> scalar: the amplitude/lengthscale-scaled kernel
     X_train::Matrix{Float64}     # x_dim × n
     alpha::Vector{Float64}       # K_aug⁻¹ỹ, length n*(1 + x_dim)
     chol::Cholesky{Float64, Matrix{Float64}}
@@ -149,12 +149,13 @@ function _kernel_and_derivs(k_fn, xi::AbstractVector, xj::AbstractVector)
     
     # Define function on concatenated input for joint differentiation
     f_combined(z) = k_fn(z[1:d], z[d+1:2d])
-    z = vcat(xi, xj)
-    
-    # Perturb xj slightly if xi ≈ xj to avoid kernel singularities
-    z_ad = xi ≈ xj ? vcat(xi, xj .+ ε_perturb) : z
 
-    k_val = f_combined(z)
+    # Perturb xj slightly if xi ≈ xj to avoid kernel singularities (used for
+    # k_val too, not just grad/hess: differentiating k_fn at an exact zero
+    # distance, e.g. w.r.t. lengthscale, produces NaN even for the value).
+    z_ad = xi ≈ xj ? vcat(xi, xj .+ ε_perturb) : vcat(xi, xj)
+
+    k_val = f_combined(z_ad)
     grad = ForwardDiff.gradient(f_combined, z_ad)
     hess = ForwardDiff.hessian(f_combined, z_ad)
     
@@ -179,12 +180,27 @@ function _build_augmented_kernel(k_fn, X::AbstractMatrix, σ::Real, σ_∂::Real
     n = size(X, 2)
     d = size(X, 1)
     N = n * (1 + d)
-    K = zeros(N, N)
     ε = MIN_PARAM_VALUE # const from gaussian_process.jl
+
+    # Exploit k(xi,xj) = k(xj,xi) (mirrored derivatives too) to call the expensive
+    # nested-AD `_kernel_and_derivs` only for i ≤ j, not the full n×n grid.
+    # `T` is inferred from the actual results so it accommodates `ForwardDiff.Dual`
+    # kernel values (e.g. when fit via `TuringBI`), not just `Float64`.
+    mirror((k_val, dk_dxi, dk_dxj, d2k)) = (k_val, dk_dxj, dk_dxi, permutedims(d2k))
+
+    upper = [(i, j, _kernel_and_derivs(k_fn, X[:, i], X[:, j])) for i in 1:n for j in i:n]
+    T = promote_type(typeof(upper[1][3][1]), typeof(σ), typeof(σ_∂), typeof(jitter))
+
+    derivs = Matrix{typeof(upper[1][3])}(undef, n, n)
+    for (i, j, d_ij) in upper
+        derivs[i, j] = d_ij
+        i != j && (derivs[j, i] = mirror(d_ij))
+    end
+    K = zeros(T, N, N)
 
     # Compute kernel matrix blocks
     for i in 1:n, j in 1:n
-        k_val, dk_dxi, dk_dxj, d2k = _kernel_and_derivs(k_fn, X[:, i], X[:, j])
+        k_val, dk_dxi, dk_dxj, d2k = derivs[i, j]
 
         # Function-function block: K[i, j] = k(xi, xj)
         K[i, j] = k_val
@@ -225,24 +241,26 @@ function _build_cross_cov(k_fn, x_star::AbstractVector, X_train::AbstractMatrix)
     d = size(X_train, 1)
     ε_perturb = MIN_PARAM_VALUE # TODO not pretty
     
-    k_cross = Vector{Float64}(undef, n * (1 + d))
-    
-    for j in 1:n
+    results = map(1:n) do j
         xj = X_train[:, j]
         f_test(xp) = k_fn(x_star, xp)
-        
-        # Function value covariance
-        k_cross[j] = f_test(xj)
-        
-        # Gradient covariance ∂k(x_star, xj)/∂xj_l
         xj_ad = x_star ≈ xj ? xj .+ ε_perturb : xj
+        k_val = f_test(xj_ad)
         grad_k = ForwardDiff.gradient(f_test, xj_ad)
-        
+        (k_val, grad_k)
+    end
+
+    T = promote_type(typeof(results[1][1]), eltype(results[1][2]))
+    k_cross = Vector{T}(undef, n * (1 + d))
+
+    for j in 1:n
+        k_val, grad_k = results[j]
+        k_cross[j] = k_val
         for l in 1:d
             k_cross[n + (l-1)*n + j] = grad_k[l]
         end
     end
-    
+
     return k_cross
 end
 
@@ -258,10 +276,13 @@ function _build_cross_cov_matrix(k_fn, x_new::AbstractVector, X_train::AbstractM
     n = size(X_train, 2)
     d = length(x_new)
     N = n * (1 + d)
-    K = zeros(N, 1 + d)
-    
+
+    derivs = [_kernel_and_derivs(k_fn, x_new, X_train[:, j]) for j in 1:n]
+    T = promote_type(typeof(derivs[1][1]), eltype(x_new))
+    K = zeros(T, N, 1 + d)
+
     for j in 1:n
-        k_val, dk_dx_new, dk_dx_train, d2k = _kernel_and_derivs(k_fn, x_new, X_train[:, j])
+        k_val, dk_dx_new, dk_dx_train, d2k = derivs[j]
         
         # Covariance with function value at x_new
         K[j, 1] = k_val
@@ -387,16 +408,9 @@ function data_loglike(model::GradientGaussianProcess, data::GradientData)
         σ = params.σ[1]
         σ_∂ = params.σ_∂[1]
 
-        # Handle both unsliced (3D) and sliced (2D) data arrays
-        if ndims(data.dY) == 3
-            # Unsliced: extract first output from 3D array
-            dY = data.dY[1, :, :]  # x_dim × n
-            y = data.Y[1, :]
-        else
-            # Sliced: already 2D
-            dY = data.dY  # x_dim × n
-            y = data.Y[1, :]
-        end
+        # `data.dY` is 3D (y_dim × x_dim × n) unless already sliced to one output (2D).
+        y = data.Y[1, :]
+        dY = ndims(data.dY) == 3 ? data.dY[1, :, :] : data.dY  # x_dim × n
 
         ỹ = _build_obs_vector(y, dY)
         amplitude = params.α[1]
