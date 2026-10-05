@@ -31,8 +31,8 @@ export PredictiveKind, GaussianPredictive, SampledPredictive
 export SurrogateModel, ModelParams, AbstractModelPosterior, ModelPosterior, ModelPosteriorSlice
 export Parametric, LinearModel, NonlinearModel, ParametricParams, ParametricPosterior
 export Nonparametric, GaussianProcess, GaussianProcessParams, GaussianProcessPosterior
-export GradientGaussianProcess, GradientGaussianProcessParams, GradientGPPosteriorSlice
-export WarpedGaussianProcess, WarpedGaussianProcessParams, WarpedGaussianProcessPosterior
+export GradientGP, GradientGPParams, GradientGPPosteriorSlice
+export WarpedGP, WarpedGPParams, WarpedGPPosterior
 export OutputWarping, AffineWarping, YeoJohnsonWarping, SinhArcsinhWarping, ComposedWarping
 export warp_forward, warp_inverse, warp_logderiv, warp_param_priors, warp_param_count
 export Semiparametric, SemiparametricParams

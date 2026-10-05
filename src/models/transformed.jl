@@ -137,7 +137,7 @@ of the inputs, which can be trained, consider using a `ComposedModel`.
 When an `OutputTransform` is present, its required pointwise `forward(y_) -> y` method (see
 [`OutputTransform`](@ref)) lets [`predictive_samples`](@ref) push each of `base_model`'s own
 sample atoms through the transform exactly, so a `SampledPredictive` base model (e.g.
-[`WarpedGaussianProcess`](@ref)) stays `SampledPredictive` through the wrapper either way.
+[`WarpedGP`](@ref)) stays `SampledPredictive` through the wrapper either way.
 
 See also: [`InputTransform`](@ref), [`OutputTransform`](@ref)
 """
@@ -194,7 +194,7 @@ Wraps a `ModelPosteriorSlice{B}` of the base model directly, rather than being o
 by slicing a joint [`TransformedPosterior`](@ref) — going through the joint posterior would require
 first bundling the base model's per-dimension slices into a `ModelPosterior`, which is unavailable
 for `predictive_samples` when the base model only samples independently per dimension (e.g.
-[`WarpedGaussianProcess`](@ref); see [`predictive_samples`](@ref)).
+[`WarpedGP`](@ref); see [`predictive_samples`](@ref)).
 
 ## Fields
 - `base_posterior_slice::ModelPosteriorSlice`: The posterior slice of the base model.

@@ -10,11 +10,11 @@ const BOUNDS = ([0., 0.], [20., 20.])
 
 xy_data(X) = (X, reduce(hcat, OBJECTIVE.(eachcol(X))))
 const XY_OPTIONS = [
-    xy_data([5. 10. 10.01; 15. 2. 2.]),  # near-duplicate x-values (offset to avoid a ForwardDiff NaN at the kernel's zero-distance singularity; models needing higher-order kernel derivatives, e.g. GradientGaussianProcess, need a larger margin than 1e-4)
+    xy_data([5. 10. 10.01; 15. 2. 2.]),  # near-duplicate x-values (offset to avoid a ForwardDiff NaN at the kernel's zero-distance singularity; models needing higher-order kernel derivatives, e.g. GradientGP, need a larger margin than 1e-4)
     xy_data([5. 10. 15.; 15. 2. 8.]),  # no duplicates
 ]
 
-# `OBJECTIVE`'s analytic Jacobian, for `GradientGaussianProcess` (ignores x[2], which
+# `OBJECTIVE`'s analytic Jacobian, for `GradientGP` (ignores x[2], which
 # `OBJECTIVE` doesn't depend on).
 function OBJECTIVE_GRAD(x; noise_std=0.05)
     y = exp(x[1] / 10) * cos(2 * x[1])
@@ -75,7 +75,7 @@ const MODEL_CONFIGS = [
         gradient_model(LENGTHSCALE_PRIORS_PLAIN, AMPLITUDE_PRIORS_PLAIN, NOISE_STD_PRIORS_PLAIN, GRAD_NOISE_STD_PRIORS_PLAIN),
         (X, Y) -> gradient_data(X),
         f -> ismissing(f) ? missing : OBJECTIVE_GRAD,
-        _ -> [false, false],  # GradientGaussianProcess has no `make_discrete` method
+        _ -> [false, false],  # GradientGP has no `make_discrete` method
     ),
 ]
 

@@ -3,14 +3,14 @@
     OutputWarping
 
 Abstract supertype for **parametric, adaptive** output transformations used by
-[`WarpedGaussianProcess`](@ref).
+[`WarpedGP`](@ref).
 
 An output warping `φ` maps an observation `y` (observation space) to the latent space
 `δ = φ(y)` on which a Gaussian Process is placed. The warping parameters `θ` are fitted
 *jointly* with the GP hyperparameters by maximizing the GP marginal likelihood including
-the Jacobian correction `Σᵢ log|φ'(yᵢ)|` (see [`WarpedGaussianProcess`](@ref)).
+the Jacobian correction `Σᵢ log|φ'(yᵢ)|` (see [`WarpedGP`](@ref)).
 
-The warping is applied to a *single* output dimension. (The [`WarpedGaussianProcess`](@ref)
+The warping is applied to a *single* output dimension. (The [`WarpedGP`](@ref)
 holds one `OutputWarping` per output dimension.)
 
 ## Defining a Custom Output Warping
@@ -37,7 +37,7 @@ Processes*, Neural Networks (2019), arXiv:1906.09665.
 
 [`AffineWarping`](@ref), [`YeoJohnsonWarping`](@ref),
 [`SinhArcsinhWarping`](@ref), [`ComposedWarping`](@ref),
-[`WarpedGaussianProcess`](@ref)
+[`WarpedGP`](@ref)
 """
 abstract type OutputWarping end
 
@@ -133,7 +133,7 @@ Handles log-/power-scale behavior with no domain restriction (the recommended de
 ## Finite-moment range
 
 Although the transform itself is defined for all `λ ∈ ℝ`, its predictive *moments* (the mean
-and variance computed by [`WarpedGaussianProcess`](@ref) via Gauss-Hermite quadrature) are
+and variance computed by [`WarpedGP`](@ref) via Gauss-Hermite quadrature) are
 finite only for `λ ∈ [0, 2]`. Outside this range the transform is not surjective onto `ℝ`
 (its image is bounded), so the inverse diverges and predictions far from the data become
 `Inf`/`NaN`. The `λ_prior` should therefore be supported within `[0, 2]`; a warning is emitted

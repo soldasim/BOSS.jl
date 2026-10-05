@@ -1,6 +1,6 @@
 
 """
-    WarpedGaussianProcess(; kwargs...)
+    WarpedGP(; kwargs...)
 
 A Gaussian Process surrogate with an **adaptive parametric output transformation** (a warped GP).
 
@@ -47,7 +47,7 @@ so the returned variance is an approximate summary of a skewed distribution.
 
 [`OutputWarping`](@ref), [`GaussianProcess`](@ref)
 """
-struct WarpedGaussianProcess{
+struct WarpedGP{
     M<:Union{Nothing, AbstractVector{<:Real}, Function},
     W<:AbstractVector{<:OutputWarping},
 } <: SurrogateModel
@@ -60,7 +60,7 @@ struct WarpedGaussianProcess{
     quad_nodes::Int
 end
 
-function WarpedGaussianProcess(;
+function WarpedGP(;
     mean = nothing,
     kernel = Matern52Kernel(),
     lengthscale_priors,
@@ -79,7 +79,7 @@ function WarpedGaussianProcess(;
         [ComposedWarping(YeoJohnsonWarping(), AffineWarping()) for _ in 1:y_dim])
 
     if mean_provided || amplitude_provided
-        @warn """WarpedGaussianProcess: the GP mean and amplitude act in *latent* space \
+        @warn """WarpedGP: the GP mean and amplitude act in *latent* space \
 (after the output warping), so they interact non-trivially with the warping parameters \
 and can create identifiability issues. Consider keeping `mean = nothing` (≡ 0) and \
 `amplitude_priors = [Dirac(1.0), ...]` and letting the warping absorb any offset and scale
@@ -87,19 +87,19 @@ with `AffineWarping` as the last transformation.""" maxlog=1
     end
 
     if (mean_provided || amplitude_provided) && any(_ends_with_affine, output_warpings)
-        @warn """WarpedGaussianProcess: the output warping ends with an `AffineWarping`, \
+        @warn """WarpedGP: the output warping ends with an `AffineWarping`, \
 whose shift and scale already capture the effective output mean and amplitude. \
 Providing a separate GP mean or amplitude prior may introduce redundant parameters.""" maxlog=1
     end
 
-    return WarpedGaussianProcess(mean, kernel, lengthscale_priors, amplitude_priors,
+    return WarpedGP(mean, kernel, lengthscale_priors, amplitude_priors,
         noise_std_priors, output_warpings, quad_nodes)
 end
 
 """
-    WarpedGaussianProcessParams(λ, α, σ, warp)
+    WarpedGPParams(λ, α, σ, warp)
 
-The parameters of the [`WarpedGaussianProcess`](@ref) model.
+The parameters of the [`WarpedGP`](@ref) model.
 
 ## Parameters
 - `λ::AbstractMatrix{<:Real}`: The GP length scales, shape `(x_dim, y_dim)`.
@@ -108,20 +108,20 @@ The parameters of the [`WarpedGaussianProcess`](@ref) model.
 - `warp::AbstractVector{<:AbstractVector{<:Real}}`: The warping parameters; `warp[i]` is the
         parameter vector `θ` of `output_warpings[i]`.
 """
-struct WarpedGaussianProcessParams{
+struct WarpedGPParams{
     L<:AbstractMatrix{<:Real},
     A<:AbstractVector{<:Real},
     N<:AbstractVector{<:Real},
     W<:AbstractVector{<:AbstractVector{<:Real}},
-} <: ModelParams{WarpedGaussianProcess}
+} <: ModelParams{WarpedGP}
     λ::L
     α::A
     σ::N
     warp::W
 end
 
-function make_discrete(m::WarpedGaussianProcess, discrete::AbstractVector{Bool})
-    return WarpedGaussianProcess(
+function make_discrete(m::WarpedGP, discrete::AbstractVector{Bool})
+    return WarpedGP(
         m.mean,
         make_discrete(m.kernel, discrete),
         m.lengthscale_priors,
@@ -135,11 +135,11 @@ end
 
 ### Sliceable model interface ###
 
-sliceable(::Type{<:WarpedGaussianProcess}) = true
-dimension_independent_given_parameters(::Type{<:WarpedGaussianProcess}) = true
+sliceable(::Type{<:WarpedGP}) = true
+dimension_independent_given_parameters(::Type{<:WarpedGP}) = true
 
-function slice(m::WarpedGaussianProcess, idx::Int)
-    return WarpedGaussianProcess(
+function slice(m::WarpedGP, idx::Int)
+    return WarpedGP(
         mean_slice(m.mean, idx),
         m.kernel,
         m.lengthscale_priors[idx:idx],
@@ -150,8 +150,8 @@ function slice(m::WarpedGaussianProcess, idx::Int)
     )
 end
 
-function slice(p::WarpedGaussianProcessParams, idx::Int)
-    return WarpedGaussianProcessParams(
+function slice(p::WarpedGPParams, idx::Int)
+    return WarpedGPParams(
         p.λ[:, idx:idx],
         p.α[idx:idx],
         p.σ[idx:idx],
@@ -159,8 +159,8 @@ function slice(p::WarpedGaussianProcessParams, idx::Int)
     )
 end
 
-function join_slices(ps::AbstractVector{<:WarpedGaussianProcessParams})
-    return WarpedGaussianProcessParams(
+function join_slices(ps::AbstractVector{<:WarpedGPParams})
+    return WarpedGPParams(
         hcat(getfield.(ps, Ref(:λ))...),
         vcat(getfield.(ps, Ref(:α))...),
         vcat(getfield.(ps, Ref(:σ))...),
@@ -205,9 +205,9 @@ end
 ### Posterior ###
 
 """
-    WarpedGaussianProcessPosterior
+    WarpedGPPosterior
 
-Posterior slice for a single output dimension of a [`WarpedGaussianProcess`](@ref).
+Posterior slice for a single output dimension of a [`WarpedGP`](@ref).
 
 ## Fields
 - `post_gp::AbstractGPs.PosteriorGP`: The latent posterior GP (in warped space).
@@ -215,13 +215,13 @@ Posterior slice for a single output dimension of a [`WarpedGaussianProcess`](@re
 - `warp_params::AbstractVector{<:Real}`: The fitted warping parameters `θ` (concrete subtype is preserved for specialization).
 - `nodes`, `weights`: The Gauss-Hermite quadrature nodes and weights.
 """
-struct WarpedGaussianProcessPosterior{
+struct WarpedGPPosterior{
     P<:AbstractGPs.PosteriorGP,
     W<:OutputWarping,
     T<:AbstractVector{<:Real},
     NT<:AbstractVector{<:Real},
     WT<:AbstractVector{<:Real},
-} <: ModelPosteriorSlice{WarpedGaussianProcess}
+} <: ModelPosteriorSlice{WarpedGP}
     post_gp::P
     warping::W
     warp_params::T
@@ -230,8 +230,8 @@ struct WarpedGaussianProcessPosterior{
 end
 
 function model_posterior_slice(
-    model::WarpedGaussianProcess,
-    params::WarpedGaussianProcessParams,
+    model::WarpedGP,
+    params::WarpedGPParams,
     data::ExperimentData,
     slice::Int,
 )
@@ -244,13 +244,13 @@ function model_posterior_slice(
     λ = params.λ[:, slice]
     α = params.α[slice]
     σ = params.σ[slice]
-    post_gp = _posdef_retry(α; context="WarpedGaussianProcess model_posterior_slice, slice $slice") do jitter
+    post_gp = _posdef_retry(α; context="WarpedGP model_posterior_slice, slice $slice") do jitter
         fgp = finite_gp(data.X, mean_, model.kernel, λ, α, sqrt(σ^2 + jitter))
         AbstractGPs.posterior(fgp, δ)
     end
 
     nodes, weights = _gauss_hermite(model.quad_nodes)
-    return WarpedGaussianProcessPosterior(post_gp, w, θ, nodes, weights)
+    return WarpedGPPosterior(post_gp, w, θ, nodes, weights)
 end
 
 """
@@ -266,7 +266,7 @@ for the *truncated* latent Gaussian `N(m, σ2)` restricted to `[φ(lower), φ(up
 `_truncated_predictive_points`. Every resulting atom is in-range by construction — no rejection,
 no renormalization of a partial atom set, no risk of an empty atom set.
 """
-function _predictive_points(post::WarpedGaussianProcessPosterior, m::Real, σ2::Real; lower::Real=-Inf, upper::Real=Inf)
+function _predictive_points(post::WarpedGPPosterior, m::Real, σ2::Real; lower::Real=-Inf, upper::Real=Inf)
     s = sqrt(max(σ2, zero(σ2)))
     (isinf(lower) && isinf(upper)) || return _truncated_predictive_points(post, m, s, lower, upper)
     ys = warp_inverse.(Ref(post.warping), Ref(post.warp_params), m .+ (sqrt(2) * s) .* post.nodes)
@@ -288,7 +288,7 @@ Gauss-Hermite nodes into the truncated interval, which would not integrate corre
 truncated-Gaussian measure. No renormalization is needed: the reparametrization already bakes in
 the truncated distribution's normalizing constant `Φb - Φa`.
 """
-function _truncated_predictive_points(post::WarpedGaussianProcessPosterior, m::Real, s::Real, lower::Real, upper::Real)
+function _truncated_predictive_points(post::WarpedGPPosterior, m::Real, s::Real, lower::Real, upper::Real)
     if s <= 0
         # Degenerate latent variance: the whole predictive mass sits at a single point `m`, so
         # standardizing by `s` (division by zero) is meaningless -- just clamp the single atom.
@@ -327,7 +327,7 @@ end
 Back-transform a latent Gaussian predictive `N(m, σ2)` to the observation-space mean and
 variance via Gauss-Hermite quadrature over the analytical inverse warping.
 """
-function _back_transform(post::WarpedGaussianProcessPosterior, m::Real, σ2::Real)
+function _back_transform(post::WarpedGPPosterior, m::Real, σ2::Real)
     ys, ws = _predictive_points(post, m, σ2)
     Ey = sum(ws .* ys)
     Ey2 = sum(ws .* ys .^ 2)
@@ -335,36 +335,36 @@ function _back_transform(post::WarpedGaussianProcessPosterior, m::Real, σ2::Rea
 end
 
 """
-    median(post::WarpedGaussianProcessPosterior, x) -> ::Real
+    median(post::WarpedGPPosterior, x) -> ::Real
 
 The posterior median in observation space, `φ⁻¹(m)` (closed form, where `m` is the latent mean).
 """
-function median(post::WarpedGaussianProcessPosterior, x::AbstractVector{<:Real})
+function median(post::WarpedGPPosterior, x::AbstractVector{<:Real})
     m = post.post_gp(hcat(x); obsdim=2) |> mean |> first
     return warp_inverse(post.warping, post.warp_params, m)
 end
 
-function mean_and_var(post::WarpedGaussianProcessPosterior, x::AbstractVector{<:Real})
+function mean_and_var(post::WarpedGPPosterior, x::AbstractVector{<:Real})
     m, σ2 = post.post_gp(hcat(x); obsdim=2) |> mean_and_var .|> first
     return _back_transform(post, m, σ2) # ::Tuple{<:Real, <:Real}
 end
-function mean_and_var(post::WarpedGaussianProcessPosterior, X::AbstractMatrix{<:Real})
+function mean_and_var(post::WarpedGPPosterior, X::AbstractMatrix{<:Real})
     ms, σ2s = post.post_gp(X; obsdim=2) |> mean_and_var
     res = _back_transform.(Ref(post), ms, σ2s)
     return first.(res), last.(res) # ::Tuple{<:AbstractVector, <:AbstractVector}
 end
 
-mean(post::WarpedGaussianProcessPosterior, x::AbstractVector{<:Real}) = first(mean_and_var(post, x))
-mean(post::WarpedGaussianProcessPosterior, X::AbstractMatrix{<:Real}) = first(mean_and_var(post, X))
+mean(post::WarpedGPPosterior, x::AbstractVector{<:Real}) = first(mean_and_var(post, x))
+mean(post::WarpedGPPosterior, X::AbstractMatrix{<:Real}) = first(mean_and_var(post, X))
 
-var(post::WarpedGaussianProcessPosterior, x::AbstractVector{<:Real}) = last(mean_and_var(post, x))
-var(post::WarpedGaussianProcessPosterior, X::AbstractMatrix{<:Real}) = last(mean_and_var(post, X))
+var(post::WarpedGPPosterior, x::AbstractVector{<:Real}) = last(mean_and_var(post, x))
+var(post::WarpedGPPosterior, X::AbstractMatrix{<:Real}) = last(mean_and_var(post, X))
 
 # Covariance in observation space is not well-defined under a nonlinear warping.
 # The diagonal uses the Gauss-Hermite variance (consistent with `var`); off-diagonal entries
 # use a delta-method (linearization) approximation `Cov[yᵢ,yⱼ] ≈ φ⁻¹'(mᵢ) φ⁻¹'(mⱼ) Cov[δᵢ,δⱼ]`,
 # with `φ⁻¹'(m) = 1 / φ'(φ⁻¹(m))`.
-function cov(post::WarpedGaussianProcessPosterior, X::AbstractMatrix{<:Real})
+function cov(post::WarpedGPPosterior, X::AbstractMatrix{<:Real})
     ms, Σ_ = post.post_gp(X; obsdim=2) |> mean_and_cov
     n = length(ms)
 
@@ -383,28 +383,28 @@ function cov(post::WarpedGaussianProcessPosterior, X::AbstractMatrix{<:Real})
     return Σ
 end
 
-function mean_and_cov(post::WarpedGaussianProcessPosterior, X::AbstractMatrix{<:Real})
+function mean_and_cov(post::WarpedGPPosterior, X::AbstractMatrix{<:Real})
     return mean(post, X), cov(post, X) # ::Tuple{<:AbstractVector{<:Real}, <:AbstractMatrix{<:Real}}
 end
 
 
 ### Predictive samples ###
 
-predictive_kind(::Type{<:WarpedGaussianProcess}) = SampledPredictive()
+predictive_kind(::Type{<:WarpedGP}) = SampledPredictive()
 
 """
-    predictive_samples(post::WarpedGaussianProcessPosterior, x; lower=-Inf, upper=Inf, kwargs...)
+    predictive_samples(post::WarpedGPPosterior, x; lower=-Inf, upper=Inf, kwargs...)
 
 Accepts optional `lower`/`upper` keywords restricting the returned atoms to the observation-space
 range `[lower, upper]` (see `_predictive_points`). Any other `kwargs...` are accepted and ignored,
 since `predictive_samples` cannot dispatch on keyword arguments and callers further up the
 redirection chain may forward keywords meant for other model types.
 """
-function predictive_samples(post::WarpedGaussianProcessPosterior, x::AbstractVector{<:Real}; lower::Real=-Inf, upper::Real=Inf, kwargs...)
+function predictive_samples(post::WarpedGPPosterior, x::AbstractVector{<:Real}; lower::Real=-Inf, upper::Real=Inf, kwargs...)
     m, σ2 = post.post_gp(hcat(x); obsdim=2) |> mean_and_var .|> first
     return _predictive_points(post, m, σ2; lower, upper) # ::Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}
 end
-function predictive_samples(post::WarpedGaussianProcessPosterior, X::AbstractMatrix{<:Real}; lower::Real=-Inf, upper::Real=Inf, kwargs...)
+function predictive_samples(post::WarpedGPPosterior, X::AbstractMatrix{<:Real}; lower::Real=-Inf, upper::Real=Inf, kwargs...)
     ms, σ2s = post.post_gp(X; obsdim=2) |> mean_and_var
     pts = _predictive_points.(Ref(post), ms, σ2s; lower, upper) # ::AbstractVector{<:Tuple{<:AbstractVector{<:Real}, <:AbstractVector{<:Real}}}, one per point
     Ys = hcat(first.(pts)...) # (K, n)
@@ -415,10 +415,10 @@ end
 
 ### Parameter methods ###
 
-function data_loglike(model::WarpedGaussianProcess, data::ExperimentData)
+function data_loglike(model::WarpedGP, data::ExperimentData)
     y_dim_ = size(data.Y, 1)
 
-    function ll_data(params::WarpedGaussianProcessParams)
+    function ll_data(params::WarpedGPParams)
         slice_lls = map(1:y_dim_) do i
             w = model.output_warpings[i]
             θ = params.warp[i]
@@ -442,8 +442,8 @@ function data_loglike(model::WarpedGaussianProcess, data::ExperimentData)
     end
 end
 
-function params_logprior(model::WarpedGaussianProcess)
-    function ll_params(params::WarpedGaussianProcessParams)
+function params_logprior(model::WarpedGP)
+    function ll_params(params::WarpedGPParams)
         ll_λ = sum(logpdf.(model.lengthscale_priors, eachcol(params.λ)))
         ll_α = sum(logpdf.(model.amplitude_priors, params.α))
         ll_σ = sum(logpdf.(model.noise_std_priors, params.σ))
@@ -458,21 +458,21 @@ function _warp_logprior(w::OutputWarping, θ)
     return sum(logpdf.(priors, θ))
 end
 
-function _params_sampler(model::WarpedGaussianProcess)
+function _params_sampler(model::WarpedGP)
     function sample(rng::AbstractRNG)
         λ = hcat(rand.(Ref(rng), model.lengthscale_priors)...)
         α = rand.(Ref(rng), model.amplitude_priors)
         σ = rand.(Ref(rng), model.noise_std_priors)
         warp = [rand.(Ref(rng), warp_param_priors(w)) for w in model.output_warpings]
-        return WarpedGaussianProcessParams(λ, α, σ, warp)
+        return WarpedGPParams(λ, α, σ, warp)
     end
 end
 
-function vectorizer(model::WarpedGaussianProcess)
+function vectorizer(model::WarpedGP)
     is_dirac, dirac_vals = create_dirac_mask(param_priors(model))
     warp_counts = warp_param_count.(model.output_warpings)
 
-    function vectorize(params::WarpedGaussianProcessParams)
+    function vectorize(params::WarpedGPParams)
         ps = vcat(
             vec(params.λ),
             params.α,
@@ -482,7 +482,7 @@ function vectorizer(model::WarpedGaussianProcess)
         return filter_diracs(ps, is_dirac)
     end
 
-    function devectorize(params::WarpedGaussianProcessParams, ps::AbstractVector{<:Real})
+    function devectorize(params::WarpedGPParams, ps::AbstractVector{<:Real})
         ps = insert_diracs(ps, is_dirac, dirac_vals)
 
         λ_len = length(params.λ)
@@ -502,19 +502,19 @@ function vectorizer(model::WarpedGaussianProcess)
             idx += c
         end
 
-        return WarpedGaussianProcessParams(λ, α, σ, warp)
+        return WarpedGPParams(λ, α, σ, warp)
     end
 
     return vectorize, devectorize
 end
 
-function bijector(model::WarpedGaussianProcess)
+function bijector(model::WarpedGP)
     b = default_bijector(param_priors(model))
     b = simplify(b)
     return b
 end
 
-function param_priors(model::WarpedGaussianProcess)
+function param_priors(model::WarpedGP)
     warp_priors = isempty(model.output_warpings) ?
         Distribution[] : reduce(vcat, warp_param_priors.(model.output_warpings))
     return vcat(

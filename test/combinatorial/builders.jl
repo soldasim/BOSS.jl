@@ -40,7 +40,7 @@ and hyperparameter priors (including `noise_std_priors`).
 `build_data`/`build_f`/`build_discrete` let a model override how the
 problem's `data`/`f`/`discrete` are built from the shared
 `XY_OPTIONS`/`F_OPTIONS`/`DISCRETE_OPTIONS` draws, for models that need a
-different contract (e.g. `GradientGaussianProcess` needs `GradientData`, a
+different contract (e.g. `GradientGP` needs `GradientData`, a
 gradient-returning objective, and doesn't support discrete dims at all — it
 has no `make_discrete` method). They default to a plain pass-through for
 every other model.
@@ -77,7 +77,7 @@ semiparametric_model(parametric_theta_priors, mean, amplitude_priors, lengthscal
     )
 
 warped_model(lengthscale_priors, noise_std_priors) =
-    WarpedGaussianProcess(; lengthscale_priors, amplitude_priors=AMPLITUDE_PRIORS_WITH_DIRAC, noise_std_priors)
+    WarpedGP(; lengthscale_priors, amplitude_priors=AMPLITUDE_PRIORS_WITH_DIRAC, noise_std_priors)
     # amplitude fixed to 1: redundant with the trailing AffineWarping's scale.
 
 nonstationary_model(lengthscale_model, amplitude_model, noise_std_model) =
@@ -88,7 +88,7 @@ nonstationary_model(lengthscale_model, amplitude_model, noise_std_model) =
     # `params_logprior` branch is an unimplemented stub).
 
 gradient_model(lengthscale_priors, amplitude_priors, noise_std_priors, grad_noise_std_priors) =
-    GradientGaussianProcess(; lengthscale_priors, amplitude_priors, noise_std_priors, grad_noise_std_priors)
+    GradientGP(; lengthscale_priors, amplitude_priors, noise_std_priors, grad_noise_std_priors)
 
 """
 Build a runnable test case (a closure calling `bo!`) from one all-pairs

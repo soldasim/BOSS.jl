@@ -12,7 +12,7 @@ function _twin_models(y_dim; mean=nothing)
         lengthscale_priors = fill(BOSS.mvlognormal(fill(1., 2), fill(1., 2)), y_dim),
         noise_std_priors = fill(Dirac(1e-4), y_dim),
     )
-    warped = WarpedGaussianProcess(; kwargs..., output_warpings=_identity_warps(y_dim))
+    warped = WarpedGP(; kwargs..., output_warpings=_identity_warps(y_dim))
     plain = GaussianProcess(; kwargs...)
     return warped, plain
 end
@@ -20,7 +20,7 @@ end
 @testset "make_discrete(model, discrete)" begin
     @param_test BOSS.make_discrete begin
         @params (
-            WarpedGaussianProcess(;
+            WarpedGP(;
                 kernel = Matern32Kernel(),
                 amplitude_priors = fill(LogNormal(), 2),
                 lengthscale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
@@ -30,7 +30,7 @@ end
             [false, true],
         )
         @success (
-            out isa WarpedGaussianProcess,
+            out isa WarpedGP,
             out.kernel isa BOSS.DiscreteKernel,
             out.kernel.kernel == in[1].kernel,
             out.output_warpings == in[1].output_warpings,
@@ -41,7 +41,7 @@ end
 end
 
 @testset "sliceable / slice / join_slices" begin
-    model = WarpedGaussianProcess(;
+    model = WarpedGP(;
         amplitude_priors = fill(LogNormal(), 2),
         lengthscale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
         noise_std_priors = fill(Dirac(0.1), 2),
@@ -53,7 +53,7 @@ end
             ),
         ],
     )
-    params = WarpedGaussianProcessParams(
+    params = WarpedGPParams(
         [1.;1.;; 2.;2.;;], [1., 2.], [0.1, 0.2], [[0.5], [0.4, 0.1, 1.3]],
     )
 
@@ -61,7 +61,7 @@ end
 
     s1 = BOSS.slice(model, 1)
     s2 = BOSS.slice(model, 2)
-    @test s1 isa WarpedGaussianProcess
+    @test s1 isa WarpedGP
     @test length(s1.output_warpings) == 1
     @test s1.output_warpings[1] === model.output_warpings[1]
     @test s2.output_warpings[1] === model.output_warpings[2]
@@ -81,7 +81,7 @@ end
 end
 
 @testset "vectorizer round-trip and bijector" begin
-    model = WarpedGaussianProcess(;
+    model = WarpedGP(;
         amplitude_priors = fill(LogNormal(), 2),
         lengthscale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
         noise_std_priors = fill(Dirac(0.1), 2),  # fixed -> excluded from free params
@@ -93,7 +93,7 @@ end
             ),
         ],
     )
-    params = WarpedGaussianProcessParams(
+    params = WarpedGPParams(
         [1.;1.;; 2.;2.;;], [1., 2.], [0.1, 0.1], [[0.5], [0.4, 0.1, 1.3]],
     )
     vectorize, devectorize = BOSS.vectorizer(model)
@@ -125,7 +125,7 @@ end
     pll = BOSS.data_loglike(plain, data)
 
     gp_params = GaussianProcessParams([1.;;], [1.], [0.5])
-    w_params = WarpedGaussianProcessParams([1.;;], [1.], [0.5], [[0.0, 1.0]])
+    w_params = WarpedGPParams([1.;;], [1.], [0.5], [[0.0, 1.0]])
 
     @test wll(w_params) isa Real
     @test isapprox(wll(w_params), pll(gp_params); atol=1e-8)
@@ -135,7 +135,7 @@ end
     # Strictly-positive, log-scale data: a log-like warp (Yeo-Johnson λ→0) should achieve
     # higher marginal likelihood than the identity (λ=1). This only holds because the
     # Jacobian correction `Σ log|φ'(y)|` is included.
-    model = WarpedGaussianProcess(;
+    model = WarpedGP(;
         mean = x -> [0.],
         amplitude_priors = fill(LogNormal(), 1),
         lengthscale_priors = fill(product_distribution(fill(Dirac(1.), 1)), 1),
@@ -146,14 +146,14 @@ end
     Y = [exp(2.0);; exp(4.0);; exp(6.0);; exp(8.0);;]  # spans orders of magnitude
     ll = BOSS.data_loglike(model, ExperimentData(X, Y))
 
-    ll_log = ll(WarpedGaussianProcessParams([1.;;], [1.], [1e-2], [[0.0]]))   # ~log warp
-    ll_id  = ll(WarpedGaussianProcessParams([1.;;], [1.], [1e-2], [[1.0]]))   # identity
+    ll_log = ll(WarpedGPParams([1.;;], [1.], [1e-2], [[0.0]]))   # ~log warp
+    ll_id  = ll(WarpedGPParams([1.;;], [1.], [1e-2], [[1.0]]))   # identity
     @test ll_log > ll_id
 end
 
 @testset "params_logprior(model, params)" begin
     @param_test BOSS.params_logprior begin
-        @params WarpedGaussianProcess(;
+        @params WarpedGP(;
             lengthscale_priors = fill(BOSS.mvlognormal([1., 1.], [1., 1.]), 2),
             amplitude_priors = fill(LogNormal(), 2),
             noise_std_priors = fill(Dirac(0.1), 2),
@@ -163,14 +163,14 @@ end
             ],
         )
         @success (
-            out(WarpedGaussianProcessParams([1.;1.;; 1.;1.;;], [1., 2.], [0.1, 0.1], [[1.0], [1.0]])) isa Real,
+            out(WarpedGPParams([1.;1.;; 1.;1.;;], [1., 2.], [0.1, 0.1], [[1.0], [1.0]])) isa Real,
             # warp prior contributes: λ near the prior mean beats λ far from it
-            out(WarpedGaussianProcessParams([1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.1], [[1.0], [1.0]])) >
-                out(WarpedGaussianProcessParams([1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.1], [[1.0], [5.0]])),
+            out(WarpedGPParams([1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.1], [[1.0], [1.0]])) >
+                out(WarpedGPParams([1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.1], [[1.0], [5.0]])),
         )
 
         # Fixed (Dirac) warp param outside its support => -Inf
-        @params WarpedGaussianProcess(;
+        @params WarpedGP(;
             lengthscale_priors = fill(product_distribution(fill(Dirac(1.), 2)), 2),
             amplitude_priors = fill(Dirac(1.), 2),
             noise_std_priors = fill(Dirac(0.1), 2),
@@ -180,8 +180,8 @@ end
             ],
         )
         @success (
-            out(WarpedGaussianProcessParams([1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.1], [[0.0, 1.0], [0.0, 1.0]])) == 0.,
-            out(WarpedGaussianProcessParams([1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.1], [[0.0, 1.0], [9.0, 1.0]])) == -Inf,
+            out(WarpedGPParams([1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.1], [[0.0, 1.0], [0.0, 1.0]])) == 0.,
+            out(WarpedGPParams([1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.1], [[0.0, 1.0], [9.0, 1.0]])) == -Inf,
         )
     end
 end
@@ -192,7 +192,7 @@ end
     Y = [2.;2.;; 5.;5.;; 8.;8.;;]
     data = ExperimentData(X, Y)
 
-    w_params = WarpedGaussianProcessParams(
+    w_params = WarpedGPParams(
         [1.;1.;; 1.;1.;;], [1., 1.], [1e-4, 1e-4], [[0.0, 1.0], [0.0, 1.0]],
     )
     p_params = GaussianProcessParams([1.;1.;; 1.;1.;;], [1., 1.], [1e-4, 1e-4])
@@ -214,10 +214,10 @@ end
     X = [2.;; 5.;; 8.;;]
     Y = [2.;; 5.;; 8.;;]
     data = ExperimentData(X, Y)
-    w_params = WarpedGaussianProcessParams([1.;;], [1.], [1e-4], [[0.0, 1.0]])
+    w_params = WarpedGPParams([1.;;], [1.], [1e-4], [[0.0, 1.0]])
     post = model_posterior_slice(warped, w_params, data, 1)
 
-    @test predictive_kind(WarpedGaussianProcess) isa SampledPredictive
+    @test predictive_kind(WarpedGP) isa SampledPredictive
     @test predictive_kind(post) isa SampledPredictive
 
     x = [3.]

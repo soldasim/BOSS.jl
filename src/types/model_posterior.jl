@@ -218,7 +218,7 @@ than `mean`/`var`/`mean_and_var`. Calling this on a `GaussianPredictive` model t
 ## Implement at exactly one level
 
 Implement this **only** at `ModelPosteriorSlice` (independent per-dimension sampling, e.g.
-[`WarpedGaussianProcess`](@ref)) **or only** at `ModelPosterior` (genuine joint sampling) — never
+[`WarpedGP`](@ref)) **or only** at `ModelPosterior` (genuine joint sampling) — never
 both, and never by bundling one from the other. Bundling independent per-dimension atoms under a
 shared index induces artificial dependency between dimensions that the model doesn't actually have,
 giving silently wrong results for any likelihood that isn't separable across dimensions. See

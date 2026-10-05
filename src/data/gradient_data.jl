@@ -3,7 +3,7 @@
     GradientData(X, Y, dY)
 
 Stores experiment data along with gradient observations for use with
-[`GradientGaussianProcess`](@ref).
+[`GradientGP`](@ref).
 
 ## Fields
 
@@ -20,7 +20,7 @@ This will be reshaped into the 3D array format.
 
 ## See Also
 
-[`GradientGaussianProcess`](@ref)
+[`GradientGP`](@ref)
 """
 struct GradientData{
     XT<:AbstractMatrix{<:Real},

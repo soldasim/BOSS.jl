@@ -1,6 +1,6 @@
 
 """
-    GradientGaussianProcess(; kwargs...)
+    GradientGP(; kwargs...)
 
 A Gaussian Process surrogate conditioned on both function values and their gradients,
 implementing the derivative-enhanced GP from Wu et al. (2017),
@@ -20,7 +20,7 @@ Same as `GaussianProcess`, plus:
 - `grad_noise_std_priors::NoiseStdPriors`: Priors on gradient observation noise σ_∂.
   Should be non-Dirac to allow the GP to learn gradient uncertainty from data.
 """
-@kwdef struct GradientGaussianProcess{
+@kwdef struct GradientGP{
     M<:Union{Nothing, AbstractVector{<:Real}, Function},
 } <: SurrogateModel
     mean::M = nothing
@@ -32,21 +32,21 @@ Same as `GaussianProcess`, plus:
 end
 
 """
-    GradientGaussianProcessParams(λ, α, σ, σ_∂)
+    GradientGPParams(λ, α, σ, σ_∂)
 
-Parameters of [`GradientGaussianProcess`](@ref).
+Parameters of [`GradientGP`](@ref).
 
 - `λ`: Lengthscales, shape `x_dim × y_dim`.
 - `α`: Amplitudes, length `y_dim`.
 - `σ`: Function observation noise std, length `y_dim`.
 - `σ_∂`: Gradient observation noise std, length `y_dim`.
 """
-struct GradientGaussianProcessParams{
+struct GradientGPParams{
     L<:AbstractMatrix{<:Real},
     A<:AbstractVector{<:Real},
     N<:AbstractVector{<:Real},
     ND<:AbstractVector{<:Real},
-} <: ModelParams{GradientGaussianProcess}
+} <: ModelParams{GradientGP}
     λ::L
     α::A
     σ::N
@@ -54,10 +54,10 @@ struct GradientGaussianProcessParams{
 end
 
 """
-Posterior slice for `GradientGaussianProcess`, holding precomputed quantities
+Posterior slice for `GradientGP`, holding precomputed quantities
 for efficient prediction.
 """
-struct GradientGPPosteriorSlice{F} <: ModelPosteriorSlice{GradientGaussianProcess}
+struct GradientGPPosteriorSlice{F} <: ModelPosteriorSlice{GradientGP}
     k_fn::F                       # (x, xp) -> scalar: the amplitude/lengthscale-scaled kernel
     X_train::Matrix{Float64}     # x_dim × n
     alpha::Vector{Float64}       # K_aug⁻¹ỹ, length n*(1 + x_dim)
@@ -69,10 +69,10 @@ end
 
 ### Sliceable model interface ###
 
-sliceable(::Type{<:GradientGaussianProcess}) = true
-dimension_independent_given_parameters(::Type{<:GradientGaussianProcess}) = true
+sliceable(::Type{<:GradientGP}) = true
+dimension_independent_given_parameters(::Type{<:GradientGP}) = true
 
-function slice(m::GradientGaussianProcess, idx::Int)
+function slice(m::GradientGP, idx::Int)
     # Inline the mean-slice logic to avoid depending on BOSS internals.
     mean_idx = if isnothing(m.mean)
         nothing
@@ -81,7 +81,7 @@ function slice(m::GradientGaussianProcess, idx::Int)
     else
         x -> @view m.mean(x)[idx:idx]
     end
-    return GradientGaussianProcess(
+    return GradientGP(
         mean_idx,
         m.kernel,
         m.lengthscale_priors[idx:idx],
@@ -91,8 +91,8 @@ function slice(m::GradientGaussianProcess, idx::Int)
     )
 end
 
-function slice(p::GradientGaussianProcessParams, idx::Int)
-    return GradientGaussianProcessParams(
+function slice(p::GradientGPParams, idx::Int)
+    return GradientGPParams(
         p.λ[:, idx:idx],
         p.α[idx:idx],
         p.σ[idx:idx],
@@ -100,8 +100,8 @@ function slice(p::GradientGaussianProcessParams, idx::Int)
     )
 end
 
-function join_slices(ps::AbstractVector{<:GradientGaussianProcessParams})
-    return GradientGaussianProcessParams(
+function join_slices(ps::AbstractVector{<:GradientGPParams})
+    return GradientGPParams(
         hcat(getfield.(ps, Ref(:λ))...),
         vcat(getfield.(ps, Ref(:α))...),
         vcat(getfield.(ps, Ref(:σ))...),
@@ -109,7 +109,7 @@ function join_slices(ps::AbstractVector{<:GradientGaussianProcessParams})
     )
 end
 
-param_lengths(p::GradientGaussianProcessParams) =
+param_lengths(p::GradientGPParams) =
     (length(p.λ), length(p.α), length(p.σ), length(p.σ_∂))
 
 
@@ -327,8 +327,8 @@ end
 ### Posterior construction ###
 
 function model_posterior_slice(
-    model::GradientGaussianProcess,
-    params::GradientGaussianProcessParams,
+    model::GradientGP,
+    params::GradientGPParams,
     data::GradientData,
     slice::Int,
 )
@@ -345,7 +345,7 @@ function model_posterior_slice(
     # Build augmented system and compute posterior
     ỹ = _build_obs_vector(y, dY)
     amplitude = params.α[slice]
-    C, α_coeff = BOSS._posdef_retry(amplitude; context="GradientGaussianProcess model_posterior_slice, slice $slice") do jitter
+    C, α_coeff = BOSS._posdef_retry(amplitude; context="GradientGP model_posterior_slice, slice $slice") do jitter
         K_aug = _build_augmented_kernel(k_fn, X, σ, σ_∂; jitter)
         C_ = cholesky(K_aug)
         (C_, C_ \ ỹ)
@@ -401,9 +401,9 @@ end
 
 ### Data log-likelihood (log marginal likelihood of augmented GP) ###
 
-function data_loglike(model::GradientGaussianProcess, data::GradientData)
+function data_loglike(model::GradientGP, data::GradientData)
     # Per-output log-likelihood for sliceable optimization by BOSS.jl
-    function ll(params::GradientGaussianProcessParams)
+    function ll(params::GradientGPParams)
         k_fn = _make_kernel_fn(model.kernel, params.λ[:, 1], params.α[1])
         σ = params.σ[1]
         σ_∂ = params.σ_∂[1]
@@ -415,7 +415,7 @@ function data_loglike(model::GradientGaussianProcess, data::GradientData)
         ỹ = _build_obs_vector(y, dY)
         amplitude = params.α[1]
         N = length(ỹ)
-        return BOSS._posdef_retry(amplitude; context="GradientGaussianProcess data_loglike") do jitter
+        return BOSS._posdef_retry(amplitude; context="GradientGP data_loglike") do jitter
             K_aug = _build_augmented_kernel(k_fn, data.X, σ, σ_∂; jitter)
             C = cholesky(K_aug)
             α_coeff = C \ ỹ
@@ -429,8 +429,8 @@ end
 
 ### Hyperparameter log-prior ###
 
-function params_logprior(model::GradientGaussianProcess)
-    function ll(params::GradientGaussianProcessParams)
+function params_logprior(model::GradientGP)
+    function ll(params::GradientGPParams)
         ll_λ  = sum(logpdf.(model.lengthscale_priors, eachcol(params.λ)))
         ll_α  = sum(logpdf.(model.amplitude_priors, params.α))
         ll_σ  = sum(logpdf.(model.noise_std_priors, params.σ))
@@ -439,28 +439,28 @@ function params_logprior(model::GradientGaussianProcess)
     end
 end
 
-function BOSS._params_sampler(model::GradientGaussianProcess)
+function BOSS._params_sampler(model::GradientGP)
     function sample(rng::AbstractRNG)
         λ = hcat(rand.(Ref(rng), model.lengthscale_priors)...)
         α = rand.(Ref(rng), model.amplitude_priors)
         σ = rand.(Ref(rng), model.noise_std_priors)
         σ_∂ = rand.(Ref(rng), model.grad_noise_std_priors)
-        return GradientGaussianProcessParams(λ, α, σ, σ_∂)
+        return GradientGPParams(λ, α, σ, σ_∂)
     end
 end
 
 
 ### Vectorizer and bijector (for MAP optimization) ###
 
-function vectorizer(model::GradientGaussianProcess)
+function vectorizer(model::GradientGP)
     is_dirac, dirac_vals = BOSS.create_dirac_mask(param_priors(model))
 
-    function vectorize(params::GradientGaussianProcessParams)
+    function vectorize(params::GradientGPParams)
         ps = vcat(vec(params.λ), params.α, params.σ, params.σ_∂)
         return BOSS.filter_diracs(ps, is_dirac)
     end
 
-    function devectorize(params::GradientGaussianProcessParams, ps::AbstractVector{<:Real})
+    function devectorize(params::GradientGPParams, ps::AbstractVector{<:Real})
         ps_full = BOSS.insert_diracs(ps, is_dirac, dirac_vals)
         λ_len, α_len, σ_len, σ_∂_len = param_lengths(params)
         
@@ -475,17 +475,17 @@ function vectorizer(model::GradientGaussianProcess)
         σ = ps_full[start_σ:end_σ]
         σ_∂ = ps_full[end_σ + 1:end]
         
-        return GradientGaussianProcessParams(λ, α, σ, σ_∂)
+        return GradientGPParams(λ, α, σ, σ_∂)
     end
 
     return vectorize, devectorize
 end
 
-function bijector(model::GradientGaussianProcess)
+function bijector(model::GradientGP)
     return BOSS.default_bijector(param_priors(model))
 end
 
-function param_priors(model::GradientGaussianProcess)
+function param_priors(model::GradientGP)
     return vcat(
         model.lengthscale_priors,
         model.amplitude_priors,

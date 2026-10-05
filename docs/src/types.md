@@ -138,15 +138,15 @@ NonstationaryGP
 NonstationaryGPParams
 ```
 
-The [`WarpedGaussianProcess`](@ref) structure defines a Gaussian process whose output is warped through a nonlinear, monotonic transform, allowing it to model non-Gaussian predictive distributions.
+The [`WarpedGP`](@ref) structure defines a Gaussian process whose output is warped through a nonlinear, monotonic transform, allowing it to model non-Gaussian predictive distributions.
 
 ```@docs
-WarpedGaussianProcess
-WarpedGaussianProcessParams
-WarpedGaussianProcessPosterior
+WarpedGP
+WarpedGPParams
+WarpedGPPosterior
 ```
 
-The output warping applied by [`WarpedGaussianProcess`](@ref) is defined using subtypes of `OutputWarping`.
+The output warping applied by [`WarpedGP`](@ref) is defined using subtypes of `OutputWarping`.
 
 ```@docs
 OutputWarping

@@ -6,15 +6,15 @@
 # redirects.
 # ---------------------------------------------------------------------------
 
-# A `WarpedGaussianProcess` with an identity warp -- a real, slice-native `SampledPredictive` model.
+# A `WarpedGP` with an identity warp -- a real, slice-native `SampledPredictive` model.
 function _sampled_slice_native_setup()
-    model = WarpedGaussianProcess(;
+    model = WarpedGP(;
         amplitude_priors = fill(LogNormal(), 1),
         lengthscale_priors = fill(BOSS.mvlognormal([1.], [1.]), 1),
         noise_std_priors = fill(Dirac(1e-4), 1),
         output_warpings = [AffineWarping(; shift_prior=Dirac(0.), scale_prior=Dirac(1.))],
     )
-    params = WarpedGaussianProcessParams(reshape([1.], 1, 1), [1.], [1e-4], [[0., 1.]])
+    params = WarpedGPParams(reshape([1.], 1, 1), [1.], [1e-4], [[0., 1.]])
     X = reshape(collect(1.:5.), 1, :)
     Y = reshape(sin.(X[1,:]) .+ 2., 1, :)
     data = ExperimentData(X, Y)
@@ -60,7 +60,7 @@ end
         ("Joint", (; output_transform=_exp_joint_transform())),
     )
         @testset "OUT=$label" begin
-            # --- Sampled base (WarpedGaussianProcess), slice-native ---
+            # --- Sampled base (WarpedGP), slice-native ---
             base, base_params, data = _sampled_slice_native_setup()
             tm = TransformedModel(; base_model=base, out_kw...)
             @test predictive_kind(typeof(tm)) isa SampledPredictive
