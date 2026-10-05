@@ -47,6 +47,8 @@ const FITNESS_OPTIONS = [
 
 const PARAMETRIC_PREDICT = (x, θ) -> [θ[1] * x[1] * cos(θ[2] * x[1]) + θ[3], 0.]
 const NONPARAMETRIC_MEAN = (x) -> [cos(2 * x[1]), 0.]
+const NONPARAMETRIC_MEAN_PRIOR_WITH_DIRAC = ConstantMeanPrior(fill(Dirac(0.5), 2))
+const NONPARAMETRIC_MEAN_PRIOR = ConstantMeanPrior([Normal(0., 1.), Normal(0., 1.)])
 const NONPARAMETRIC_KERNEL = Matern32Kernel()
 
 const THETA_PRIORS_WITH_DIRAC = [Normal(0., 1.), Normal(0., 1.), Dirac(0.)]
@@ -66,13 +68,13 @@ const GRAD_NOISE_STD_PRIORS_PLAIN = scaled_half_t_prior(0.05, 2)  # matches OBJE
 const MODEL_CONFIGS = [
     ModelConfig(:parametric_dirac, parametric_model(THETA_PRIORS_WITH_DIRAC, NOISE_STD_PRIORS_WITH_DIRAC)),
     ModelConfig(:parametric_plain, parametric_model(THETA_PRIORS_PLAIN, NOISE_STD_PRIORS_PLAIN)),
-    ModelConfig(:nonparametric_dirac, nonparametric_model(NONPARAMETRIC_MEAN, AMPLITUDE_PRIORS_WITH_DIRAC, LENGTHSCALE_PRIORS_WITH_DIRAC, NOISE_STD_PRIORS_WITH_DIRAC)),
-    ModelConfig(:nonparametric_plain, nonparametric_model(nothing, AMPLITUDE_PRIORS_PLAIN, LENGTHSCALE_PRIORS_PLAIN, NOISE_STD_PRIORS_PLAIN)),
+    ModelConfig(:nonparametric_dirac, nonparametric_model(NONPARAMETRIC_MEAN_PRIOR_WITH_DIRAC, AMPLITUDE_PRIORS_WITH_DIRAC, LENGTHSCALE_PRIORS_WITH_DIRAC, NOISE_STD_PRIORS_WITH_DIRAC)),
+    ModelConfig(:nonparametric_plain, nonparametric_model(NONPARAMETRIC_MEAN_PRIOR, AMPLITUDE_PRIORS_PLAIN, LENGTHSCALE_PRIORS_PLAIN, NOISE_STD_PRIORS_PLAIN)),
     ModelConfig(:semiparametric, semiparametric_model(THETA_PRIORS_PLAIN, NONPARAMETRIC_MEAN, AMPLITUDE_PRIORS_WITH_DIRAC, LENGTHSCALE_PRIORS_PLAIN, NOISE_STD_PRIORS_PLAIN)),
     ModelConfig(:warped, warped_model(LENGTHSCALE_PRIORS_PLAIN, NOISE_STD_PRIORS_PLAIN)),
-    ModelConfig(:nonstationary, nonstationary_model(LENGTHSCALE_PRIORS_PLAIN, AMPLITUDE_PRIORS_PLAIN, NOISE_STD_PRIORS_PLAIN)),
+    ModelConfig(:nonstationary, nonstationary_model(NONPARAMETRIC_MEAN_PRIOR, LENGTHSCALE_PRIORS_PLAIN, AMPLITUDE_PRIORS_PLAIN, NOISE_STD_PRIORS_PLAIN)),
     ModelConfig(:gradient,
-        gradient_model(LENGTHSCALE_PRIORS_PLAIN, AMPLITUDE_PRIORS_PLAIN, NOISE_STD_PRIORS_PLAIN, GRAD_NOISE_STD_PRIORS_PLAIN),
+        gradient_model(NONPARAMETRIC_MEAN_PRIOR, LENGTHSCALE_PRIORS_PLAIN, AMPLITUDE_PRIORS_PLAIN, NOISE_STD_PRIORS_PLAIN, GRAD_NOISE_STD_PRIORS_PLAIN),
         (X, Y) -> gradient_data(X),
         f -> ismissing(f) ? missing : OBJECTIVE_GRAD,
         _ -> [false, false],  # GradientGP has no `make_discrete` method

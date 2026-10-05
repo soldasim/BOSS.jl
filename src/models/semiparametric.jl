@@ -10,14 +10,14 @@ All parameters of the models are estimated simultaneously.
 
 ## Keywords
 - `parametric::Parametric`: The parametric model used as the GP mean function.
-- `nonparametric::Nonparametric{Nothing}`: The outer GP model without mean.
+- `nonparametric::Nonparametric{ZeroMean}`: The outer GP model without mean.
 
 Note that the parametric model should be defined without noise priors,
 and the nonparametric model should be defined without mean function.
 """
 @kwdef struct Semiparametric <: SurrogateModel
     parametric::Parametric{Nothing}         # parametric model without noise std priors
-    nonparametric::Nonparametric{Nothing}   # nonparametric model without mean function
+    nonparametric::Nonparametric{ZeroMean}   # nonparametric model without mean function
 
     function Semiparametric(parametric::Parametric, nonparametric::Nonparametric)
         _check_parametric_without_noise(parametric)
@@ -33,7 +33,7 @@ function _check_parametric_without_noise(::Parametric)
     @warn "The `noise_std_priors` of the `Parametric` model passed to the `Semiparametric` model are ignored."
 end
 
-function _check_nonparametric_without_mean(::Nonparametric{Nothing}) end
+function _check_nonparametric_without_mean(::Nonparametric{ZeroMean}) end
 function _check_nonparametric_without_mean(::Nonparametric)
     @warn "The `mean` of the `Nonparametric` model passed to the `Semiparametric` model is ignored."
 end
@@ -74,7 +74,6 @@ make_discrete(m::Semiparametric, discrete::AbstractVector{Bool}) =
 
 param_count(params::SemiparametricParams) = sum(param_lengths(params))
 param_lengths(params::SemiparametricParams) = (length(params.θ), length(params.λ), length(params.α), length(params.σ))
-param_shapes(params::SemiparametricParams) = (size(params.θ), size(params.λ), size(params.α), size(params.σ))
 
 function model_posterior_slice(model::Semiparametric, params::SemiparametricParams, data::ExperimentData, slice::Int)
     f = model.parametric(params.θ)

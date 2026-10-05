@@ -16,23 +16,28 @@ The simulator `f(x)` must return `(y, ∇y)` where:
 
 ## Keywords
 
-Same as `GaussianProcess`, plus:
+Same as `GaussianProcess` (including the [`GPMean`](@ref) options), plus:
 - `grad_noise_std_priors::NoiseStdPriors`: Priors on gradient observation noise σ_∂.
   Should be non-Dirac to allow the GP to learn gradient uncertainty from data.
 """
 @kwdef struct GradientGP{
-    M<:Union{Nothing, AbstractVector{<:Real}, Function},
+    M<:GPMean,
 } <: SurrogateModel
-    mean::M = nothing
+    mean::M = ZeroMean()
     kernel::Kernel = Matern52Kernel()
     lengthscale_priors::LengthscalePriors
     amplitude_priors::AmplitudePriors
     noise_std_priors::NoiseStdPriors
     grad_noise_std_priors::NoiseStdPriors
+
+    function GradientGP(mean, kernel, lengthscale_priors, amplitude_priors, noise_std_priors, grad_noise_std_priors)
+        mean = as_mean(mean)
+        return new{typeof(mean)}(mean, kernel, lengthscale_priors, amplitude_priors, noise_std_priors, grad_noise_std_priors)
+    end
 end
 
 """
-    GradientGPParams(λ, α, σ, σ_∂)
+    GradientGPParams(λ, α, σ, σ_∂[, μ])
 
 Parameters of [`GradientGP`](@ref).
 
@@ -40,30 +45,35 @@ Parameters of [`GradientGP`](@ref).
 - `α`: Amplitudes, length `y_dim`.
 - `σ`: Function observation noise std, length `y_dim`.
 - `σ_∂`: Gradient observation noise std, length `y_dim`.
+- `μ`: Fitted constant means (only with [`ConstantMeanPrior`](@ref)), otherwise `nothing`.
 """
 struct GradientGPParams{
     L<:AbstractMatrix{<:Real},
     A<:AbstractVector{<:Real},
     N<:AbstractVector{<:Real},
     ND<:AbstractVector{<:Real},
+    M<:Union{Nothing, AbstractVector{<:Real}},
 } <: ModelParams{GradientGP}
     λ::L
     α::A
     σ::N
     σ_∂::ND
+    μ::M
 end
+GradientGPParams(λ, α, σ, σ_∂) = GradientGPParams(λ, α, σ, σ_∂, nothing)
 
 """
 Posterior slice for `GradientGP`, holding precomputed quantities
 for efficient prediction.
 """
-struct GradientGPPosteriorSlice{F} <: ModelPosteriorSlice{GradientGP}
+struct GradientGPPosteriorSlice{F, MF} <: ModelPosteriorSlice{GradientGP}
     k_fn::F                       # (x, xp) -> scalar: the amplitude/lengthscale-scaled kernel
     X_train::Matrix{Float64}     # x_dim × n
     alpha::Vector{Float64}       # K_aug⁻¹ỹ, length n*(1 + x_dim)
     chol::Cholesky{Float64, Matrix{Float64}}
     σ::Float64                   # function observation noise std (stored for dKG)
     σ_∂::Float64                 # gradient observation noise std (stored for dKG)
+    mean_fn::MF                  # x -> scalar prior mean
 end
 
 
@@ -73,16 +83,8 @@ sliceable(::Type{<:GradientGP}) = true
 dimension_independent_given_parameters(::Type{<:GradientGP}) = true
 
 function slice(m::GradientGP, idx::Int)
-    # Inline the mean-slice logic to avoid depending on BOSS internals.
-    mean_idx = if isnothing(m.mean)
-        nothing
-    elseif m.mean isa AbstractVector
-        m.mean[idx:idx]
-    else
-        x -> @view m.mean(x)[idx:idx]
-    end
     return GradientGP(
-        mean_idx,
+        mean_slice(m.mean, idx),
         m.kernel,
         m.lengthscale_priors[idx:idx],
         m.amplitude_priors[idx:idx],
@@ -97,6 +99,7 @@ function slice(p::GradientGPParams, idx::Int)
         p.α[idx:idx],
         p.σ[idx:idx],
         p.σ_∂[idx:idx],
+        slice_mean_params(p.μ, idx),
     )
 end
 
@@ -106,11 +109,35 @@ function join_slices(ps::AbstractVector{<:GradientGPParams})
         vcat(getfield.(ps, Ref(:α))...),
         vcat(getfield.(ps, Ref(:σ))...),
         vcat(getfield.(ps, Ref(:σ_∂))...),
+        join_mean_params(getfield.(ps, Ref(:μ))),
     )
 end
 
 param_lengths(p::GradientGPParams) =
-    (length(p.λ), length(p.α), length(p.σ), length(p.σ_∂))
+    (length(p.λ), length(p.α), length(p.σ), length(p.σ_∂), mean_params_length(p.μ))
+
+
+### Mean helpers ###
+
+_mean_fn(::Nothing) = x -> 0.
+_mean_fn(m::Real) = x -> m
+_mean_fn(m::Function) = m
+
+"""
+Prior mean values (length `n`) and gradients (`x_dim × n`) of the resolved scalar mean `m`
+(see `resolve_mean`) at the columns of `X`.
+"""
+_mean_vals_and_grads(::Nothing, X::AbstractMatrix) = zeros(size(X, 2)), zeros(size(X))
+_mean_vals_and_grads(m::Real, X::AbstractMatrix) = fill(float(m), size(X, 2)), zeros(size(X))
+function _mean_vals_and_grads(m::Function, X::AbstractMatrix)
+    xs = eachcol(X)
+    return m.(xs), reduce(hcat, ForwardDiff.gradient.(m, xs))
+end
+
+function _centered_obs_vector(m, X::AbstractMatrix, y::AbstractVector, dY::AbstractMatrix)
+    m_vals, m_grads = _mean_vals_and_grads(m, X)
+    return _build_obs_vector(y .- m_vals, dY .- m_grads)
+end
 
 
 ### Kernel helpers ###
@@ -343,15 +370,16 @@ function model_posterior_slice(
     dY = data.dY[slice, :, :]     # x_dim × n (Jacobian for this output)
 
     # Build augmented system and compute posterior
-    ỹ = _build_obs_vector(y, dY)
     amplitude = params.α[slice]
+    m = resolve_mean(model.mean, params.μ, slice)
+    ỹ = _centered_obs_vector(m, X, y, dY)
     C, α_coeff = BOSS._posdef_retry(amplitude; context="GradientGP model_posterior_slice, slice $slice") do jitter
         K_aug = _build_augmented_kernel(k_fn, X, σ, σ_∂; jitter)
         C_ = cholesky(K_aug)
         (C_, C_ \ ỹ)
     end
 
-    return GradientGPPosteriorSlice(k_fn, Matrix(X), α_coeff, C, σ, σ_∂)
+    return GradientGPPosteriorSlice(k_fn, Matrix(X), α_coeff, C, σ, σ_∂, _mean_fn(m))
 end
 
 
@@ -359,7 +387,7 @@ end
 
 function mean(post::GradientGPPosteriorSlice, x::AbstractVector{<:Real})
     k_cross = _build_cross_cov(post.k_fn, x, post.X_train)
-    return k_cross ⋅ post.alpha
+    return post.mean_fn(x) + k_cross ⋅ post.alpha
 end
 
 function mean(post::GradientGPPosteriorSlice, X::AbstractMatrix{<:Real})
@@ -380,7 +408,7 @@ end
 function mean_and_var(post::GradientGPPosteriorSlice, x::AbstractVector{<:Real})
     k_cross = _build_cross_cov(post.k_fn, x, post.X_train)
     k_self = post.k_fn(x, x)
-    μ = k_cross ⋅ post.alpha
+    μ = post.mean_fn(x) + k_cross ⋅ post.alpha
     v = post.chol.L \ k_cross
     σ² = max(0.0, k_self - v ⋅ v)
     return μ, σ²
@@ -412,7 +440,7 @@ function data_loglike(model::GradientGP, data::GradientData)
         y = data.Y[1, :]
         dY = ndims(data.dY) == 3 ? data.dY[1, :, :] : data.dY  # x_dim × n
 
-        ỹ = _build_obs_vector(y, dY)
+        ỹ = _centered_obs_vector(resolve_mean(model.mean, params.μ, 1), data.X, y, dY)
         amplitude = params.α[1]
         N = length(ỹ)
         return BOSS._posdef_retry(amplitude; context="GradientGP data_loglike") do jitter
@@ -435,17 +463,20 @@ function params_logprior(model::GradientGP)
         ll_α  = sum(logpdf.(model.amplitude_priors, params.α))
         ll_σ  = sum(logpdf.(model.noise_std_priors, params.σ))
         ll_σ_∂ = sum(logpdf.(model.grad_noise_std_priors, params.σ_∂))
-        return ll_λ + ll_α + ll_σ + ll_σ_∂
+        ll_μ = mean_params_logprior(model.mean, params.μ)
+        return ll_λ + ll_α + ll_σ + ll_σ_∂ + ll_μ
     end
 end
 
 function BOSS._params_sampler(model::GradientGP)
+    mean_sampler = mean_params_sampler(model.mean)
     function sample(rng::AbstractRNG)
         λ = hcat(rand.(Ref(rng), model.lengthscale_priors)...)
         α = rand.(Ref(rng), model.amplitude_priors)
         σ = rand.(Ref(rng), model.noise_std_priors)
         σ_∂ = rand.(Ref(rng), model.grad_noise_std_priors)
-        return GradientGPParams(λ, α, σ, σ_∂)
+        μ = mean_sampler(rng)
+        return GradientGPParams(λ, α, σ, σ_∂, μ)
     end
 end
 
@@ -456,13 +487,13 @@ function vectorizer(model::GradientGP)
     is_dirac, dirac_vals = BOSS.create_dirac_mask(param_priors(model))
 
     function vectorize(params::GradientGPParams)
-        ps = vcat(vec(params.λ), params.α, params.σ, params.σ_∂)
+        ps = vcat(vec(params.λ), params.α, params.σ, params.σ_∂, something(params.μ, Float64[]))
         return BOSS.filter_diracs(ps, is_dirac)
     end
 
     function devectorize(params::GradientGPParams, ps::AbstractVector{<:Real})
         ps_full = BOSS.insert_diracs(ps, is_dirac, dirac_vals)
-        λ_len, α_len, σ_len, σ_∂_len = param_lengths(params)
+        λ_len, α_len, σ_len, σ_∂_len, μ_len = param_lengths(params)
         
         # Unpack vectorized parameters back to structured form
         λ = reshape(ps_full[1:λ_len], size(params.λ))
@@ -473,9 +504,11 @@ function vectorizer(model::GradientGP)
         start_σ = end_α + 1
         end_σ = start_σ + σ_len - 1
         σ = ps_full[start_σ:end_σ]
-        σ_∂ = ps_full[end_σ + 1:end]
+        end_σ_∂ = end_σ + σ_∂_len
+        σ_∂ = ps_full[end_σ + 1:end_σ_∂]
+        μ = isnothing(params.μ) ? nothing : ps_full[end_σ_∂ + 1:end_σ_∂ + μ_len]
         
-        return GradientGPParams(λ, α, σ, σ_∂)
+        return GradientGPParams(λ, α, σ, σ_∂, μ)
     end
 
     return vectorize, devectorize
@@ -491,5 +524,6 @@ function param_priors(model::GradientGP)
         model.amplitude_priors,
         model.noise_std_priors,
         model.grad_noise_std_priors,
+        mean_priors(model.mean),
     )
 end

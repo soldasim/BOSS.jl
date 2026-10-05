@@ -124,6 +124,16 @@ GaussianProcess
 GaussianProcessParams
 ```
 
+The mean of the Gaussian process is specified by one of the following types.
+
+```@docs
+GPMean
+ZeroMean
+ConstantMean
+FunctionMean
+ConstantMeanPrior
+```
+
 The [`Semiparametric`](@ref) structure is used to define a semiparametric model combining the parametric and nonparametric (Gaussian process) models.
 
 ```@docs

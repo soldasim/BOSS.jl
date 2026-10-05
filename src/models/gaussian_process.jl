@@ -18,8 +18,8 @@ const MAX_NEG_VAR = 1e-8
 A Gaussian Process surrogate model. Each output dimension is modeled by a separate independent process.
 
 ## Keywords
-- `mean::Union{Nothing, AbstractVector{<:Real}, Function}`: Used as the mean function for the GP.
-        Defaults to `nothing` equivalent to `x -> zeros(y_dim)`.
+- `mean::GPMean`: The prior mean of the GP. See [`GPMean`](@ref) for options. Defaults to `ZeroMean()`.
+    Legacy values are also supported (`nothing`, a vector of constants, or a function).
 - `kernel::Kernel`: The kernel used in the GP. Defaults to the `Matern52Kernel()`.
 - `lengthscale_priors::LengthscalePriors`: The prior distributions
         for the length scales of the GP. The `lengthscale_priors` should be a vector
@@ -32,13 +32,18 @@ A Gaussian Process surrogate model. Each output dimension is modeled by a separa
         of the noise standard deviations of each `y` dimension.
 """
 struct GaussianProcess{
-    M<:Union{Nothing, AbstractVector{<:Real}, Function},
+    M<:GPMean,
 } <: SurrogateModel
     mean::M
     kernel::Kernel
     lengthscale_priors::LengthscalePriors
     amplitude_priors::AmplitudePriors
     noise_std_priors::NoiseStdPriors
+
+    function GaussianProcess(mean, kernel, lengthscale_priors, amplitude_priors, noise_std_priors)
+        mean = as_mean(mean)
+        return new{typeof(mean)}(mean, kernel, lengthscale_priors, amplitude_priors, noise_std_priors)
+    end
 end
 # Keyword constructor for `GaussianProcess` is defined in `src/deprecated.jl`.
 
@@ -50,7 +55,7 @@ An alias for `GaussianProcess`.
 const Nonparametric = GaussianProcess
 
 """
-    GaussianProcessParams(λ, α, σ)
+    GaussianProcessParams(λ, α, σ[, μ])
 
 The parameters of the [`GaussianProcess`](@ref) model.
 
@@ -58,18 +63,23 @@ The parameters of the [`GaussianProcess`](@ref) model.
 - `λ::AbstractMatrix{<:Real}`: The length scales of the GP.
 - `α::AbstractVector{<:Real}`: The amplitudes of the GP.
 - `σ::AbstractVector{<:Real}`: The noise standard deviations.
+- `μ::Union{Nothing, AbstractVector{<:Real}}`: The fitted constant means.
+        Only used with [`ConstantMeanPrior`](@ref), otherwise `nothing`.
 """
 struct GaussianProcessParams{
     L<:AbstractMatrix{<:Real},
     A<:AbstractVector{<:Real},
     N<:AbstractVector{<:Real},
+    M<:Union{Nothing, AbstractVector{<:Real}},
 } <: ModelParams{GaussianProcess}
     λ::L
     α::A
     σ::N
+    μ::M
 end
+GaussianProcessParams(λ, α, σ) = GaussianProcessParams(λ, α, σ, nothing)
 
-add_mean(m::GaussianProcess{Nothing}, mean) =
+add_mean(m::GaussianProcess{ZeroMean}, mean) =
     GaussianProcess(mean, m.kernel, m.lengthscale_priors, m.amplitude_priors, m.noise_std_priors)
 
 remove_mean(m::GaussianProcess) =
@@ -79,8 +89,7 @@ make_discrete(m::GaussianProcess, discrete::AbstractVector{Bool}) =
     GaussianProcess(m.mean, make_discrete(m.kernel, discrete), m.lengthscale_priors, m.amplitude_priors, m.noise_std_priors)
 
 param_count(params::GaussianProcessParams) = sum(param_lengths(params))
-param_lengths(params::GaussianProcessParams) = (length(params.λ), length(params.α), length(params.σ))
-param_shapes(params::GaussianProcessParams) = (size(params.λ), size(params.α), size(params.σ))
+param_lengths(params::GaussianProcessParams) = (length(params.λ), length(params.α), length(params.σ), mean_params_length(params.μ))
 
 sliceable(::Type{<:GaussianProcess}) = true
 dimension_independent_given_parameters(::Type{<:GaussianProcess}) = true
@@ -108,6 +117,7 @@ function slice(p::GaussianProcessParams, idx::Int)
         p.λ[:,idx:idx],
         p.α[idx:idx],
         p.σ[idx:idx],
+        slice_mean_params(p.μ, idx),
     )
 end
 
@@ -116,6 +126,7 @@ function join_slices(ps::AbstractVector{<:GaussianProcessParams})
         hcat(getfield.(ps, Ref(:λ))...),
         vcat(getfield.(ps, Ref(:α))...),
         vcat(getfield.(ps, Ref(:σ))...),
+        join_mean_params(getfield.(ps, Ref(:μ))),
     )
 end
 
@@ -201,7 +212,7 @@ See [`_posdef_retry`](@ref) for the retry behavior on a non-positive-definite
 covariance matrix.
 """
 function posterior_gp(model::GaussianProcess, params::GaussianProcessParams, data::ExperimentData, slice::Int)
-    mean = mean_getindex(model.mean, slice)
+    mean = resolve_mean(model.mean, params.μ, slice)
     λ = params.λ[:,slice]
     α = params.α[slice]
     σ = params.σ[slice]
@@ -260,7 +271,7 @@ function data_loglike(
         return gp_data_loglike_slice.(
             Ref(data.X),
             eachrow(data.Y),
-            mean_getindex.(Ref(model.mean), 1:y_dim_),
+            resolve_mean.(Ref(model.mean), Ref(params.μ), 1:y_dim_),
             Ref(model.kernel),
             eachcol(params.λ),
             params.α,
@@ -285,16 +296,19 @@ function params_logprior(model::GaussianProcess)
         ll_λ = sum(logpdf.(model.lengthscale_priors, eachcol(params.λ)))
         ll_α = sum(logpdf.(model.amplitude_priors, params.α))
         ll_noise = sum(logpdf.(model.noise_std_priors, params.σ))
-        return ll_λ + ll_α + ll_noise
+        ll_μ = mean_params_logprior(model.mean, params.μ)
+        return ll_λ + ll_α + ll_noise + ll_μ
     end
 end
 
 function _params_sampler(model::GaussianProcess)
+    mean_sampler = mean_params_sampler(model.mean)
     function sample(rng::AbstractRNG)
         λ = hcat(rand.(Ref(rng), model.lengthscale_priors)...)
         α = rand.(Ref(rng), model.amplitude_priors)
         σ = rand.(Ref(rng), model.noise_std_priors)
-        return GaussianProcessParams(λ, α, σ)
+        μ = mean_sampler(rng)
+        return GaussianProcessParams(λ, α, σ, μ)
     end
 end
 
@@ -306,6 +320,7 @@ function vectorizer(model::GaussianProcess)
             vec(params.λ),
             params.α,
             params.σ,
+            something(params.μ, Float64[]),
         )
         
         ps = filter_diracs(ps, is_dirac)
@@ -315,14 +330,15 @@ function vectorizer(model::GaussianProcess)
     function devectorize(params::GaussianProcessParams, ps::AbstractVector{<:Real})
         ps = insert_diracs(ps, is_dirac, dirac_vals)
         
-        λ_len, α_len, n_len = param_lengths(params)
+        λ_len, α_len, σ_len, μ_len = param_lengths(params)
         λ_shape = size(params.λ)
 
         λ = reshape(ps[1:λ_len], λ_shape)
         α = ps[λ_len+1:λ_len+α_len]
-        σ = ps[λ_len+α_len+1:end]
+        σ = ps[λ_len+α_len+1:λ_len+α_len+σ_len]
+        μ = isnothing(params.μ) ? nothing : ps[λ_len+α_len+σ_len+1:λ_len+α_len+σ_len+μ_len]
     
-        return GaussianProcessParams(λ, α, σ)
+        return GaussianProcessParams(λ, α, σ, μ)
     end
 
     return vectorize, devectorize
@@ -340,5 +356,6 @@ function param_priors(model::GaussianProcess)
         model.lengthscale_priors,
         model.amplitude_priors,
         model.noise_std_priors,
+        mean_priors(model.mean),
     )
 end

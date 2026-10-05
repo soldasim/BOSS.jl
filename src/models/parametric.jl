@@ -151,7 +151,6 @@ make_discrete(m::NonlinearModel, discrete::AbstractVector{Bool}) =
 
 param_count(params::ParametricParams) = sum(param_lengths(params))
 param_lengths(params::ParametricParams) = (length(params.θ), length(params.σ))
-param_shapes(params::ParametricParams) = (size(params.θ), size(params.σ))
 
 """
     ParametricPosterior

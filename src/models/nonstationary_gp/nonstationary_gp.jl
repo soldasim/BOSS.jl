@@ -6,8 +6,8 @@ A Gaussian Process model with an option to model the length scales, amplitudes,
 and/or noise standard deviations with additional GPs.
 
 # Keywords
-- `mean::Union{Nothing, AbstractVector{<:Real}, Function}`: Used as the mean function for the GP.
-        Defaults to `nothing` equivalent to `x -> zeros(y_dim)`.
+- `mean::Union{GPMean, Nothing, AbstractVector{<:Real}, Function}`: The mean of the GP,
+        see [`GaussianProcess`](@ref). Defaults to `nothing` (zero mean).
 - `lengthscale_model::Union{LengthscalePriors, AbstractMatrix{<:ParametrizedGP}}`:
         The model used for the length scales of the GP.
         Define it as `LengthscalePriors` to use standard stationary lengthscales,
@@ -22,17 +22,22 @@ and/or noise standard deviations with additional GPs.
         or define it as a vector of `ParametrizedGP` to use nonstationary noise stds.
 """
 @kwdef struct NonstationaryGP{
-    M<:Union{Nothing, AbstractVector{<:Real}, Function},
+    M<:GPMean,
 } <: SurrogateModel
-    mean::M = nothing
+    mean::M = ZeroMean()
     lengthscale_model::Union{LengthscalePriors, AbstractMatrix{<:ParametrizedGP}}
     amplitude_model::Union{AmplitudePriors, AbstractVector{<:ParametrizedGP}}
     noise_std_model::Union{NoiseStdPriors, AbstractVector{<:ParametrizedGP}}
     discrete::Union{Nothing, AbstractVector{<:Bool}} = nothing
+
+    function NonstationaryGP(mean, lengthscale_model, amplitude_model, noise_std_model, discrete)
+        mean = as_mean(mean)
+        return new{typeof(mean)}(mean, lengthscale_model, amplitude_model, noise_std_model, discrete)
+    end
 end
 
 """
-    NonstationaryGPParams(λ, α, σ)
+    NonstationaryGPParams(λ, α, σ[, μ])
 
 The parameters of the [`NonstationaryGP`](@ref) model.
 
@@ -46,16 +51,21 @@ The parameters of the [`NonstationaryGP`](@ref) model.
 - `σ::AbstractVector{<:Union{Real, ParametrizedGPParams}}`:
         The noise standard deviations of the GP, or the parameters of the `ParametrizedGP`s
         used to model nonstationary noise stds.
+- `μ::Union{Nothing, AbstractVector{<:Real}}`:
+        The fitted constant means. Only used with [`ConstantMeanPrior`](@ref), otherwise `nothing`.
 """
 struct NonstationaryGPParams{
     L<:AbstractMatrix{<:Union{Real, ParametrizedGPParams}},
     A<:AbstractVector{<:Union{Real, ParametrizedGPParams}},
     N<:AbstractVector{<:Union{Real, ParametrizedGPParams}},
+    M<:Union{Nothing, AbstractVector{<:Real}},
 } <: ModelParams{NonstationaryGP}
     λ::L
     α::A
     σ::N
+    μ::M
 end
+NonstationaryGPParams(λ, α, σ) = NonstationaryGPParams(λ, α, σ, nothing)
 
 struct NonstationaryKernel <: Kernel
     f_λ::Function
@@ -140,6 +150,7 @@ function slice(params::NonstationaryGPParams, idx::Int)
         params.λ[:,idx:idx],
         params.α[idx:idx],
         params.σ[idx:idx],
+        slice_mean_params(params.μ, idx),
     )
 end
 
@@ -148,7 +159,9 @@ function join_slices(slices::AbstractVector{<:NonstationaryGPParams})
     α = vcat(getfield.(slices, Ref(:α))...)
     σ = vcat(getfield.(slices, Ref(:σ))...)
 
-    return NonstationaryGPParams(λ, α, σ)
+    μ = join_mean_params(getfield.(slices, Ref(:μ)))
+
+    return NonstationaryGPParams(λ, α, σ, μ)
 end
 
 """
@@ -172,7 +185,7 @@ function finite_nongp(model::NonstationaryGP, params::NonstationaryGPParams, dat
     f_α = _param_posterior_slice(model.amplitude_model, params.α, data, slice)
     f_σ = _param_posterior_slice(model.noise_std_model, params.σ, data, slice)
 
-    mean_ = mean_getindex(model.mean, slice) # -> gaussian_process.jl
+    mean_ = resolve_mean(model.mean, params.μ, slice)
 
     return finite_nongp(data.X, mean_, f_λ, f_α, f_σ, model.discrete; jitter)
 end
@@ -185,7 +198,7 @@ function finite_nongp_lookup(model::NonstationaryGP, params::NonstationaryGPPara
     f_α = _param_posterior_slice_lookup(model.amplitude_model, params.α, data, slice)
     f_σ = _param_posterior_slice_lookup(model.noise_std_model, params.σ, data, slice)
 
-    mean_ = mean_getindex(model.mean, slice) # -> gaussian_process.jl
+    mean_ = resolve_mean(model.mean, params.μ, slice)
 
     return finite_nongp(data.X, mean_, f_λ, f_α, f_σ, model.discrete; jitter)
 end
@@ -277,7 +290,8 @@ function params_logprior(model::NonstationaryGP, data::ExperimentData)
         ll_λ = logpost_λ(params.λ)
         ll_α = logpost_α(params.α)
         ll_σ = logpost_σ(params.σ)
-        return ll_λ + ll_α + ll_σ
+        ll_μ = mean_params_logprior(model.mean, params.μ)
+        return ll_λ + ll_α + ll_σ + ll_μ
     end
 end
 
@@ -303,13 +317,16 @@ function _params_sampler(model::NonstationaryGP, data::ExperimentData)
     λ_sampler = _params_sampler(model.lengthscale_model, data)
     α_sampler = _params_sampler(model.amplitude_model, data)
     σ_sampler = _params_sampler(model.noise_std_model, data)
+    μ_sampler = mean_params_sampler(model.mean)
 
     function sample(rng::AbstractRNG)
         λ_params = λ_sampler(rng)
         α_params = α_sampler(rng)
         σ_params = σ_sampler(rng)
 
-        return NonstationaryGPParams(λ_params, α_params, σ_params)
+        μ_params = μ_sampler(rng)
+
+        return NonstationaryGPParams(λ_params, α_params, σ_params, μ_params)
     end
 end
 
@@ -324,31 +341,38 @@ function vectorizer(model::NonstationaryGP, data::ExperimentData)
     λ_vec, λ_devec = _vectorizer(model.lengthscale_model, data)
     α_vec, α_devec = _vectorizer(model.amplitude_model, data)
     σ_vec, σ_devec = _vectorizer(model.noise_std_model, data)
+    μ_vec, μ_devec = _mean_vectorizer(model.mean, data)
 
     params = params_sampler(model, data)()
     λ_len = length(λ_vec(params.λ))
     α_len = length(α_vec(params.α))
     σ_len = length(σ_vec(params.σ))
-    λ_ran, α_ran, σ_ran = ranges([λ_len, α_len, σ_len])
+    μ_len = length(μ_vec(params.μ))
+    λ_ran, α_ran, σ_ran, μ_ran = ranges([λ_len, α_len, σ_len, μ_len])
 
     function vectorize(params::NonstationaryGPParams)
         λ_p = λ_vec(params.λ)
         α_p = α_vec(params.α)
         σ_p = σ_vec(params.σ)
+        μ_p = μ_vec(params.μ)
 
-        return vcat(λ_p, α_p, σ_p)
+        return vcat(λ_p, α_p, σ_p, μ_p)
     end
     
     function devectorize(params::NonstationaryGPParams, p::AbstractVector{<:Real})
         λ = λ_devec(params.λ, @view p[λ_ran])
         α = α_devec(params.α, @view p[α_ran])
         σ = σ_devec(params.σ, @view p[σ_ran])
+        μ = μ_devec(params.μ, @view p[μ_ran])
     
-        return NonstationaryGPParams(λ, α, σ)
+        return NonstationaryGPParams(λ, α, σ, μ)
     end
     
     return vectorize, devectorize
 end
+
+_mean_vectorizer(::GPMean, data::ExperimentData) = (μ -> Float64[]), ((μ, ps) -> nothing)
+_mean_vectorizer(m::ConstantMeanPrior, data::ExperimentData) = _vectorizer(m.priors, data)
 
 function _vectorizer(m::AbstractArray{<:ParametrizedGP}, data::ExperimentData)
     ret = vectorizer.(m, Ref(data)) # -> parameterized_gp.jl
@@ -411,8 +435,9 @@ function bijector(model::NonstationaryGP, data::ExperimentData)
     λ_bij = _bijector(model.lengthscale_model, data)
     α_bij = _bijector(model.amplitude_model, data)
     σ_bij = _bijector(model.noise_std_model, data)
+    μ_bij = default_bijector(mean_priors(model.mean))
 
-    bijs = [filter(b -> !(b isa NoBijector), [λ_bij, α_bij, σ_bij])...]
+    bijs = [filter(b -> !(b isa NoBijector), [λ_bij, α_bij, σ_bij, μ_bij])...]
     rans = ranges(getfield.(bijs, Ref(:length_in)))
 
     isempty(bijs) && return identity

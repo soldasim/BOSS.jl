@@ -31,6 +31,7 @@ export PredictiveKind, GaussianPredictive, SampledPredictive
 export SurrogateModel, ModelParams, AbstractModelPosterior, ModelPosterior, ModelPosteriorSlice
 export Parametric, LinearModel, NonlinearModel, ParametricParams, ParametricPosterior
 export Nonparametric, GaussianProcess, GaussianProcessParams, GaussianProcessPosterior
+export GPMean, ZeroMean, ConstantMean, FunctionMean, ConstantMeanPrior
 export GradientGP, GradientGPParams, GradientGPPosteriorSlice
 export WarpedGP, WarpedGPParams, WarpedGPPosterior
 export OutputWarping, AffineWarping, YeoJohnsonWarping, SinhArcsinhWarping, ComposedWarping

@@ -26,8 +26,8 @@ Note that under a nonlinear warping the observation-space posterior is non-Gauss
 so the returned variance is an approximate summary of a skewed distribution.
 
 ## Keywords
-- `mean::Union{Nothing, AbstractVector{<:Real}, Function}`: The GP mean function (in latent space).
-        Defaults to `nothing`, equivalent to `x -> zeros(y_dim)`.
+- `mean::Union{GPMean, Nothing, AbstractVector{<:Real}, Function}`: The GP mean (in latent space),
+        see [`GaussianProcess`](@ref). Defaults to `nothing` (zero mean).
 - `kernel::Kernel`: The GP kernel. Defaults to `Matern52Kernel()`.
 - `lengthscale_priors::LengthscalePriors`: Priors for the GP length scales
         (a vector of `y_dim` `x_dim`-variate distributions). **Required** — no default.
@@ -48,7 +48,7 @@ so the returned variance is an approximate summary of a skewed distribution.
 [`OutputWarping`](@ref), [`GaussianProcess`](@ref)
 """
 struct WarpedGP{
-    M<:Union{Nothing, AbstractVector{<:Real}, Function},
+    M<:GPMean,
     W<:AbstractVector{<:OutputWarping},
 } <: SurrogateModel
     mean::M
@@ -58,6 +58,11 @@ struct WarpedGP{
     noise_std_priors::NoiseStdPriors
     output_warpings::W
     quad_nodes::Int
+
+    function WarpedGP(mean, kernel, lengthscale_priors, amplitude_priors, noise_std_priors, output_warpings, quad_nodes)
+        mean = as_mean(mean)
+        return new{typeof(mean), typeof(output_warpings)}(mean, kernel, lengthscale_priors, amplitude_priors, noise_std_priors, output_warpings, quad_nodes)
+    end
 end
 
 function WarpedGP(;
@@ -69,7 +74,7 @@ function WarpedGP(;
     output_warpings = nothing,
     quad_nodes = 21,
 )
-    mean_provided      = !isnothing(mean)
+    mean_provided      = !(isnothing(mean) || mean isa ZeroMean)
     amplitude_provided = !isnothing(amplitude_priors)
 
     y_dim = length(lengthscale_priors)
@@ -97,7 +102,7 @@ Providing a separate GP mean or amplitude prior may introduce redundant paramete
 end
 
 """
-    WarpedGPParams(λ, α, σ, warp)
+    WarpedGPParams(λ, α, σ, warp[, μ])
 
 The parameters of the [`WarpedGP`](@ref) model.
 
@@ -107,18 +112,23 @@ The parameters of the [`WarpedGP`](@ref) model.
 - `σ::AbstractVector{<:Real}`: The noise standard deviations, length `y_dim`.
 - `warp::AbstractVector{<:AbstractVector{<:Real}}`: The warping parameters; `warp[i]` is the
         parameter vector `θ` of `output_warpings[i]`.
+- `μ::Union{Nothing, AbstractVector{<:Real}}`: The fitted constant means (latent space).
+        Only used with [`ConstantMeanPrior`](@ref), otherwise `nothing`.
 """
 struct WarpedGPParams{
     L<:AbstractMatrix{<:Real},
     A<:AbstractVector{<:Real},
     N<:AbstractVector{<:Real},
     W<:AbstractVector{<:AbstractVector{<:Real}},
+    M<:Union{Nothing, AbstractVector{<:Real}},
 } <: ModelParams{WarpedGP}
     λ::L
     α::A
     σ::N
     warp::W
+    μ::M
 end
+WarpedGPParams(λ, α, σ, warp) = WarpedGPParams(λ, α, σ, warp, nothing)
 
 function make_discrete(m::WarpedGP, discrete::AbstractVector{Bool})
     return WarpedGP(
@@ -156,6 +166,7 @@ function slice(p::WarpedGPParams, idx::Int)
         p.α[idx:idx],
         p.σ[idx:idx],
         p.warp[idx:idx],
+        slice_mean_params(p.μ, idx),
     )
 end
 
@@ -165,6 +176,7 @@ function join_slices(ps::AbstractVector{<:WarpedGPParams})
         vcat(getfield.(ps, Ref(:α))...),
         vcat(getfield.(ps, Ref(:σ))...),
         reduce(vcat, getfield.(ps, Ref(:warp))),
+        join_mean_params(getfield.(ps, Ref(:μ))),
     )
 end
 
@@ -240,7 +252,7 @@ function model_posterior_slice(
 
     # Warp the observations into latent space and condition the GP there.
     δ = warp_forward.(Ref(w), Ref(θ), data.Y[slice, :])
-    mean_ = mean_getindex(model.mean, slice)
+    mean_ = resolve_mean(model.mean, params.μ, slice)
     λ = params.λ[:, slice]
     α = params.α[slice]
     σ = params.σ[slice]
@@ -428,7 +440,7 @@ function data_loglike(model::WarpedGP, data::ExperimentData)
             gp_ll = gp_data_loglike_slice(
                 data.X,
                 δ,
-                mean_getindex(model.mean, i),
+                resolve_mean(model.mean, params.μ, i),
                 model.kernel,
                 params.λ[:, i],
                 params.α[i],
@@ -448,7 +460,8 @@ function params_logprior(model::WarpedGP)
         ll_α = sum(logpdf.(model.amplitude_priors, params.α))
         ll_σ = sum(logpdf.(model.noise_std_priors, params.σ))
         ll_w = sum(_warp_logprior.(model.output_warpings, params.warp))
-        return ll_λ + ll_α + ll_σ + ll_w
+        ll_μ = mean_params_logprior(model.mean, params.μ)
+        return ll_λ + ll_α + ll_σ + ll_w + ll_μ
     end
 end
 
@@ -459,12 +472,14 @@ function _warp_logprior(w::OutputWarping, θ)
 end
 
 function _params_sampler(model::WarpedGP)
+    mean_sampler = mean_params_sampler(model.mean)
     function sample(rng::AbstractRNG)
         λ = hcat(rand.(Ref(rng), model.lengthscale_priors)...)
         α = rand.(Ref(rng), model.amplitude_priors)
         σ = rand.(Ref(rng), model.noise_std_priors)
         warp = [rand.(Ref(rng), warp_param_priors(w)) for w in model.output_warpings]
-        return WarpedGPParams(λ, α, σ, warp)
+        μ = mean_sampler(rng)
+        return WarpedGPParams(λ, α, σ, warp, μ)
     end
 end
 
@@ -478,6 +493,7 @@ function vectorizer(model::WarpedGP)
             params.α,
             params.σ,
             reduce(vcat, params.warp; init=eltype(params.α)[]),
+            something(params.μ, eltype(params.α)[]),
         )
         return filter_diracs(ps, is_dirac)
     end
@@ -494,7 +510,9 @@ function vectorizer(model::WarpedGP)
         α = ps[λ_len+1 : λ_len+α_len]
         σ = ps[λ_len+α_len+1 : λ_len+α_len+σ_len]
 
-        rest = ps[λ_len+α_len+σ_len+1 : end]
+        warp_len = sum(warp_counts; init=0)
+        rest = ps[λ_len+α_len+σ_len+1 : λ_len+α_len+σ_len+warp_len]
+        μ = isnothing(params.μ) ? nothing : ps[λ_len+α_len+σ_len+warp_len+1 : end]
         warp = Vector{Vector{eltype(rest)}}()
         idx = 1
         for c in warp_counts
@@ -502,7 +520,7 @@ function vectorizer(model::WarpedGP)
             idx += c
         end
 
-        return WarpedGPParams(λ, α, σ, warp)
+        return WarpedGPParams(λ, α, σ, warp, μ)
     end
 
     return vectorize, devectorize
@@ -522,5 +540,6 @@ function param_priors(model::WarpedGP)
         model.amplitude_priors,
         model.noise_std_priors,
         warp_priors,
+        mean_priors(model.mean),
     )
 end

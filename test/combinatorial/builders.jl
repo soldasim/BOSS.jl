@@ -77,18 +77,18 @@ semiparametric_model(parametric_theta_priors, mean, amplitude_priors, lengthscal
     )
 
 warped_model(lengthscale_priors, noise_std_priors) =
-    WarpedGP(; lengthscale_priors, amplitude_priors=AMPLITUDE_PRIORS_WITH_DIRAC, noise_std_priors)
-    # amplitude fixed to 1: redundant with the trailing AffineWarping's scale.
+    WarpedGP(; lengthscale_priors, noise_std_priors)
+    # default amplitude fixed to 1: redundant with the trailing AffineWarping's scale.
 
-nonstationary_model(lengthscale_model, amplitude_model, noise_std_model) =
-    NonstationaryGP(; lengthscale_model, amplitude_model, noise_std_model)
+nonstationary_model(mean, lengthscale_model, amplitude_model, noise_std_model) =
+    NonstationaryGP(; mean, lengthscale_model, amplitude_model, noise_std_model)
     # Uses the plain priors-vector form (like `GaussianProcess`), not the
     # `ParametrizedGP`-matrix nonstationary-lengthscale form: that form only
     # supports fully-fixed (`Dirac`) lengthscale priors for now (its non-Dirac
     # `params_logprior` branch is an unimplemented stub).
 
-gradient_model(lengthscale_priors, amplitude_priors, noise_std_priors, grad_noise_std_priors) =
-    GradientGP(; lengthscale_priors, amplitude_priors, noise_std_priors, grad_noise_std_priors)
+gradient_model(mean, lengthscale_priors, amplitude_priors, noise_std_priors, grad_noise_std_priors) =
+    GradientGP(; mean, lengthscale_priors, amplitude_priors, noise_std_priors, grad_noise_std_priors)
 
 """
 Build a runnable test case (a closure calling `bo!`) from one all-pairs

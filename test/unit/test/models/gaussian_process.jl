@@ -354,3 +354,45 @@ end
         @success out(GaussianProcessParams([1.;1.;; 1.;1.;;], [1., 1.], [0.1, 0.5])) == -Inf
     end
 end
+
+@testset "GP mean options" begin
+    gp(mean) = Nonparametric(;
+        mean,
+        amplitude_priors = [LogNormal()],
+        lengthscale_priors = [BOSS.mvlognormal([1.], [1.])],
+        noise_std_priors = [Dirac(0.1)],
+    )
+
+    @testset "legacy values are wrapped" begin
+        @test gp(nothing).mean isa ZeroMean
+        @test gp([1.]).mean isa ConstantMean
+        @test gp(x -> [1.]).mean isa FunctionMean
+        @test gp(ConstantMeanPrior([Normal()])).mean isa ConstantMeanPrior
+    end
+
+    _same_params(a, b) = all(getfield(a, f) == getfield(b, f) for f in fieldnames(GaussianProcessParams))
+
+    @testset "ConstantMeanPrior" begin
+        model = gp(ConstantMeanPrior([Normal(5., 1.)]))
+        data = ExperimentData(reshape(collect(0.:0.5:2.), 1, :), fill(5., 1, 5))
+
+        params = BOSS._params_sampler(model)(Random.default_rng())
+        @test params.μ isa AbstractVector && length(params.μ) == 1
+        @test BOSS.param_count(params) == 4
+
+        vectorize, devectorize = BOSS.vectorizer(model)
+        @test length(vectorize(params)) == 3
+        @test _same_params(devectorize(params, vectorize(params)), params)
+
+        @test length(BOSS.param_priors(model)) == 4
+        @test BOSS.params_logprior(model)(params) ≈ BOSS.params_logprior(gp(nothing))(GaussianProcessParams(params.λ, params.α, params.σ)) + logpdf(Normal(5., 1.), params.μ[1])
+
+        p = GaussianProcessParams([1.;;], [1.], [0.1], [5.])
+        @test _same_params(BOSS.slice(p, 1), p)
+        @test BOSS.join_slices([p, p]).μ == [5., 5.]
+        @test BOSS.data_loglike(model, data)(p) > BOSS.data_loglike(model, data)(GaussianProcessParams([1.;;], [1.], [0.1], [-5.]))
+
+        post = BOSS.model_posterior_slice(model, p, data, 1)
+        @test mean(post, [100.]) ≈ 5. atol=1e-3
+    end
+end
