@@ -1,138 +1,116 @@
 using BOSS
-using Plots
 using Distributions
+using Plots
 using Random
-
 using OptimizationPRIMA
 using Turing
 
-include("plot_gp_hyperparameters.jl")
-
 Random.seed!(555)
 
-# We have an unknown noisy function 'blackbox(x)=y,z' and we want to maximize y s.t. z < 0 on domain x ∈ [0,20].
-
-# The unknown blackbox function.
-function blackbox(x; noise_std=0.1)
-    y = exp(x[1]/10) * cos(2*x[1])
-    z = (1/2)^6 * (x[1]^2 - (15.)^2)
-
-    y += rand(Normal(0., noise_std))
-    z += rand(Normal(0., noise_std))
-
-    return [y,z]
+# Maximize y s.t. z < 0 for the unknown noisy function `blackbox(x) = [y, z]` on x ∈ [0, 20].
+function blackbox(x; noise_std=0.0)
+    y = exp(x[1]/10) * cos(2*x[1]) + rand(Normal(0., noise_std))
+    z = (1/2)^6 * (x[1]^2 - 15^2) + rand(Normal(0., noise_std))
+    return [y, z]
 end
 
-# Our parametric model represents our predictions/knowledge about the blackbox function.
-#
-# Let's assume we know that x->y is a periodic function, so we use `cos` there.
-# We don't know anything about x->z, so we put a constant 0 there.
-# (That is equivalent to using a simple GP with zero-mean to model x->z.)
-function good_parametric_model()
-    y(x, θ) = θ[1] * x[1] * cos(θ[2] * x[1]) + θ[3]
-    z(x, θ) = 0.
-    predict(x, θ) = [y(x, θ), z(x, θ)]
+# Prior knowledge: x->y is periodic, nothing is known about x->z.
+parametric_model() = NonlinearModel(;
+    predict = (x, θ) -> [θ[1] * x[1] * cos(θ[2] * x[1]) + θ[3], 0.],
+    theta_priors = fill(Normal(0., 1.), 3),
+)
 
-    theta_priors = fill(Normal(0., 1.), 3)
+# Gaussian process model
+gp_model() = GaussianProcess(;
+    kernel = BOSS.Matern32Kernel(),
+    amplitude_priors = fill(truncated(Normal(0., 10.); lower=0., upper=100.), 2),
+    lengthscale_priors = fill(Product([truncated(Normal(0., 20/3); lower=0., upper=20.)]), 2),
+    noise_std_priors = fill(Dirac(0.), 2),
+)
 
-    NonlinearModel(; predict, theta_priors)
-end
-# You can also try how the Parametric and Semiparametric models behave
-# when we provide a completely wrong parametric model.
-#
-# Here we wrongly assume that the objective function will have a parabolic shape.
-function bad_parametric_model()
-    y(x, θ) = θ[1] * x[1]^2 + θ[2] * x[1] + θ[3]
-    z(x, θ) = 0.
-    predict(x, θ) = [y(x, θ), z(x, θ)]
+# Define the optimization problem with optional prior knowledge.
+function opt_problem(init_data_count; use_prior_knowledge=true)
+    domain = Domain(; bounds = ([0.], [20.]))
 
-    theta_priors = fill(Normal(0., 1.), 3)
-
-    NonlinearModel(; predict, theta_priors)
-end
-
-# Our prediction about the noise and GP hyperparameters.
-# - - A) Predefined values - - - -
-# lengthscale_priors() = fill(Product(fill(Dirac(1.), 1)), 2)
-# amplitude_priors() = fill(Dirac(1.), 2)
-# noise_std_priors() = fill(Dirac(0.1), 2)
-# - - B) Priors - - - -
-lengthscale_priors() = fill(Product([truncated(Normal(0., 20/3); lower=0., upper=20.)]), 2)
-amplitude_priors() = fill(truncated(Normal(0., 10.); lower=0., upper=100.), 2)
-noise_std_priors() = fill(truncated(Normal(0., 1.); lower=0.1, upper=10.), 2)
-
-# Generate some initial data.
-function gen_data(count, bounds)
-    X = reduce(hcat, [BOSS.random_point(bounds) for i in 1:count])
+    X = reduce(hcat, [BOSS.random_point(domain.bounds) for _ in 1:init_data_count])
     Y = reduce(hcat, blackbox.(eachcol(X)))
-    return X, Y
-end
 
-# The problem defined as `BossProblem`.
-function opt_problem(init_data)
-    domain = Domain(;
-        bounds = ([0.], [20.]),
-    )
-    data = gen_data(init_data, domain.bounds)
-
-    # Try using the Semiparametric model and changing the parametric mean.
-    # model = Semiparametric(
-    #     good_parametric_model(),
-    #     # bad_parametric_model(),
-    #     Nonparametric(;
-    #         kernel = BOSS.Matern32Kernel(),
-    #         amplitude_priors = amplitude_priors(),
-    #         lengthscale_priors = lengthscale_priors(),
-    #         noise_std_priors = noise_std_priors(),
-    #     ),
-    # )
-    model = Nonparametric(;
-        kernel = BOSS.Matern32Kernel(),
-        amplitude_priors = amplitude_priors(),
-        lengthscale_priors = lengthscale_priors(),
-        noise_std_priors = noise_std_priors(),
-    )
+    if use_prior_knowledge
+        model = Semiparametric(;
+            parametric = parametric_model(),
+            nonparametric = gp_model(),
+        )
+    else
+        model = gp_model()
+    end
 
     BossProblem(;
         f = blackbox,
         domain,
         y_max = [Inf, 0.],
-        acquisition = ExpectedImprovement(;
-            fitness = LinFitness([1, 0]),
-        ),
+        acquisition = ExpectedImprovement(; fitness = LinFitness([1, 0])),
         model,
-        data = ExperimentData(data...),
+        data = ExperimentData(X, Y),
     )
 end
 
 """
-An example usage of the BOSS algorithm with a MAP algorithm.
-"""
-function main(problem=opt_problem(3), iters=10;
-    # Parallelization is turned off by default due to https://github.com/libprima/PRIMA.jl/issues/25.
-    # If you are on a non-Linux machine, feel free to turn the parallelization on.
-    # If you want to run the code in parallel on a Linux machine, use different optimization library than PRIMA.jl.
-    parallel = false,
-)
-    ### Model Fitter:
-    # Maximum likelihood estimation
-    model_fitter = OptimizationMAP(;
-        algorithm = NEWUOA(),
-        multistart = 20,
-        parallel,
-        rhoend = 1e-4,
-    )
-    # # Bayesian Inference (sampling)
-    # model_fitter = TuringBI(;
-    #     sampler = NUTS(20, 0.65),
-    #     warmup = 200,
-    #     samples_in_chain = 10,
-    #     chain_count = 12,
-    #     leap_size = 5,
-    #     parallel,
-    # )
+Run BOSS on the example problem and return the solved `problem`.
 
-    ### Acquisition Maximizer:
+Use `result(problem)` to get the best solution `(x, y)`,
+and `continue!(problem)` to run more iterations.
+
+## Keywords
+- `init_data_count`: Number of initial random points to sample (default: 3)
+- `iters`: Number of BOSS iterations to run (default: 20)
+- `use_prior_knowledge`: Whether to use prior knowledge in the model (default: true)
+- `sample_hyperparams`: Whether to sample hyperparameters using MCMC (default: false)
+- `parallel`: Whether to run model fitting and acquisition maximization in parallel (default: false)
+
+Note that there are issues with parallelization with PRIMA algorithms on Linux: https://github.com/libprima/PRIMA.jl/issues/25
+"""
+function main(; init_data_count=3, iters=20, use_prior_knowledge=true, sample_hyperparams=false, parallel=false)
+    problem = opt_problem(init_data_count; use_prior_knowledge)
+    continue!(problem; iters, sample_hyperparams, parallel)
+end
+
+make_model_fitter(::Val{false}; parallel) = OptimizationMAP(;
+    algorithm = NEWUOA(),
+    multistart = 20,
+    parallel,
+    rhoend = 1e-4,
+)
+make_model_fitter(::Val{true}; parallel) = TuringBI(;
+    sampler = NUTS(20, 0.65),
+    warmup = 200,
+    samples_in_chain = 10,
+    chain_count = 12,
+    leap_size = 5,
+    parallel,
+)
+
+"""
+Run more BOSS iterations on an existing `problem` (it keeps all data collected so far).
+"""
+function continue!(problem; iters=10, sample_hyperparams=false, parallel=false)
+    if sample_hyperparams
+        model_fitter = TuringBI(;
+            sampler = NUTS(20, 0.65),
+            warmup = 200,
+            samples_in_chain = 10,
+            chain_count = 12,
+            leap_size = 5,
+            parallel,
+        )
+    else
+        model_fitter = OptimizationMAP(;
+            algorithm = NEWUOA(),
+            multistart = 20,
+            parallel,
+            rhoend = 1e-4,
+        )
+    end
+
     acq_maximizer = OptimizationAM(;
         algorithm = BOBYQA(),
         multistart = 20,
@@ -140,32 +118,18 @@ function main(problem=opt_problem(3), iters=10;
         rhoend = 1e-4,
     )
 
-    ### Termination Condition
-    # term_cond = IterLimit(iters)
-    term_cond = DataLimit(iters) # counts the initial data points as well
-
-    ### Miscellaneous Settings
-    params_callback = ParamsCallback()
-    plot_callback = PlotCallback(Plots; f_true = x->blackbox(x; noise_std=0.))
+    # Add a callback for plotting the iterations
     options = BossOptions(;
-        info = true,
-        debug = false,
-        callback = CombinedCallback(
-            params_callback,
-            plot_callback,
-        ),
+        callback = PlotCallback(Plots; f_true = x -> blackbox(x; noise_std=0.)),
     )
 
-    # Run BOSS:
-    bo!(problem; model_fitter, acq_maximizer, term_cond, options)
+    bo!(problem; model_fitter, acq_maximizer, term_cond = IterLimit(iters), options)
 
-    # get best solution
-    best_x, best_y = result(problem)
-    println()
-    @info "Best solution found: $(best_x) : $(best_y)"
-
-    # Plot GP hyperparameter evolution over iterations.
-    display(plot_gp_hyperparameters(params_callback))
-
+    x, y = result(problem)
+    @info "Best solution found: x = $x, y = $y"
     return problem
 end
+
+
+# Run the example problem
+problem = main()
