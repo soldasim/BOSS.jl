@@ -52,7 +52,7 @@ function _optim_serial(optimize, multistart, starts, options, args, vals, errors
 
         catch e
             warn_optim_err(e, options.info, options.debug)
-            errors.value += 1
+            Threads.atomic_add!(errors, 1)
             args[i] = Float64[]
             vals[i] = -Inf
         end
