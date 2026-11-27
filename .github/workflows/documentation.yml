@@ -22,7 +22,18 @@ jobs:
           version: '1'
       - uses: julia-actions/cache@v3
       - name: Install dependencies
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: 0  # precompiling would load PRIMA_jll before it is patched
         run: julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+      # PRIMA_jll ships libprimac.so with an executable-stack flag, which newer
+      # Linux runners refuse to load ("cannot enable executable stack").
+      - name: Patch PRIMA libraries (executable stack)
+        run: |
+          sudo apt-get install -y patchelf
+          for f in $(find ~/.julia/artifacts -name 'libprima*.so*'); do
+            chmod u+w "$(dirname "$f")" "$f"  # artifacts are read-only
+            patchelf --clear-execstack "$f"
+          done
       - name: Build and deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
